@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<service>
+    <!--微服务编码，专业版要替换成对应的微服务编码-->
+    <serviceName/>
+    <dbScripts/>
+</service>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<module description="澳巴人力开发" name="c-dev-tcm-hrdev">
+    <service_type>sql</service_type>
+</module>
