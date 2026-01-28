@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module name="c-dev-tcm-hrdev-fe" description="c-dev-tcm-hrdev-前端">
+  <nginx_mode>mdf</nginx_mode>
+</module>

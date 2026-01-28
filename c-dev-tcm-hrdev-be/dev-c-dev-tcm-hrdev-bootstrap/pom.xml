@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>c-dev-tcm-hrdev</artifactId>
+        <groupId>com.yonyou.ucf</groupId>
+        <version>ddm-3.0-RELEASE</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>c-dev-tcm-hrdev-bootstrap</artifactId>
+    <packaging>war</packaging>
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <project.version>ddm-3.0-RELEASE</project.version>
+    </properties>
+    <dependencies>
+        <!--        当前工程其他模块     start-->
+        <dependency>
+            <groupId>com.yonyou.ucf</groupId>
+            <artifactId>c-dev-tcm-hrdev-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.yonyou.ucf</groupId>
+            <artifactId>c-dev-tcm-hrdev-app</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.yonyou.ucf</groupId>
+            <artifactId>c-dev-tcm-hrdev-infrastructure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.yonyou.ucf</groupId>
+            <artifactId>c-dev-tcm-hrdev-service</artifactId>
+        </dependency>
+        <!--        当前工程其他模块     end-->
+        <!--使用spring-boot启动单独加入mysql-connector-j和spring-boot-starter-web-->
+<!--        <dependency>-->
+<!--            <groupId>com.mysql</groupId>-->
+<!--            <artifactId>mysql-connector-j</artifactId>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-starter-web</artifactId>-->
+<!--        </dependency>-->
+        <!--自己引入servlet，要求指定provided-->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--            yms打包插件-->
+            <plugin>
+                <groupId>com.yonyou.iuap</groupId>
+                <artifactId>yms-module-maven-plugin</artifactId>
+                <configuration>
+                    <isCustomerDevProjects>true</isCustomerDevProjects>
+                    <moduleName>c-dev-tcm-hrdev</moduleName>
+                    <contextPath>/</contextPath>
+                </configuration>
+            </plugin>
+        </plugins>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/**.*</include>
+                </includes>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <finalName>c-dev-tcm-hrdev</finalName>
+    </build>
+</project>

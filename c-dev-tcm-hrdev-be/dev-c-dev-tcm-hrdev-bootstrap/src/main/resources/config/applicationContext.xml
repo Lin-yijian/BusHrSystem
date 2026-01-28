@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context-4.3.xsd
+        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.3.xsd
+        http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop-4.3.xsd"
+       default-autowire="byName">
+    <!--    mdd上下文-->
+    <!-- TODO MDD分层先去掉分词和连拦截器配置 -->
+    <!--    <bean id="mainAppContext" primary="true" class="com.yonyou.ucf.mdd.ext.core.AppContext">-->
+    <!--        <property name="configLocation" value="classpath:application.properties,-->
+    <!--            classpath:imeta-config.properties-->
+    <!--            classpath:mdd-dubbo.properties,-->
+    <!--            classpath:mdd-oss.properties,-->
+    <!--            classpath:mdd-partition.properties"/>-->
+    <!--        <property name="partitions">-->
+    <!--            <list>-->
+    <!--                <bean class="com.yonyou.ucf.mdd.common.model.partition.Partition" p:itf="iuap.busiObj.IYTenant"-->
+    <!--                      p:keyField="ytenant" p:valueField="yhtTenantId">-->
+    <!--                </bean>-->
+    <!--                &lt;!&ndash; ytenantId租户接口&ndash;&gt;-->
+    <!--                <bean class="com.yonyou.ucf.mdd.common.model.partition.Partition" p:itf="ucfbase.ucfbaseItf.IYTenant"-->
+    <!--                      p:keyField="ytenant" p:valueField="yhtTenantId">-->
+    <!--                </bean>-->
+    <!--                &lt;!&ndash; 逻辑删除分词配置&ndash;&gt;-->
+    <!--                <bean class="com.yonyou.ucf.mdd.common.model.partition.Partition" p:itf="iuap.busiObj.LogicDelete"-->
+    <!--                      p:keyField="dr" p:valueField="dr" p:ifnull="0">-->
+    <!--                </bean>-->
+    <!--            </list>-->
+    <!--        </property>-->
+    <!--    </bean>-->
+    <!--    &lt;!&ndash;    登录拦截器等 &ndash;&gt;-->
+    <!--    <mvc:interceptors>-->
+    <!--        <mvc:interceptor>-->
+    <!--            <mvc:mapping path="/**"/>-->
+    <!--            <mvc:exclude-mapping path="/*.ico" />-->
+    <!--            <mvc:exclude-mapping path="/rest/multilangruntime" />-->
+    <!--            <mvc:exclude-mapping path="/tenant/createTable" />-->
+    <!--            <mvc:exclude-mapping path="/mobile/**"/>-->
+    <!--            <mvc:exclude-mapping path="/api/yonscript/**"/>-->
+    <!--            &lt;!&ndash; 定义在mvc:interceptor下面的表示是对特定的请求才进行拦截的 &ndash;&gt;-->
+    <!--            <bean id="loginInterceptor" class="com.yonyou.ucf.mdd.ext.interceptor.LoginInterceptor"/>-->
+    <!--        </mvc:interceptor>-->
+
+    <!--        <mvc:interceptor>-->
+    <!--            <mvc:mapping path="/**"/>-->
+    <!--            <mvc:exclude-mapping path="/*.ico" />-->
+    <!--            <mvc:exclude-mapping path="/rest/multilangruntime" />-->
+    <!--            <mvc:exclude-mapping path="/tenant/createTable" />-->
+    <!--            &lt;!&ndash; 登录拦截设置多语 &ndash;&gt;-->
+    <!--            <bean id="localeInterceptor" class="com.yonyou.ucf.mdd.ext.i18n.interceptor.LocaleInterceptor"/>-->
+    <!--        </mvc:interceptor>-->
+    <!--    </mvc:interceptors>-->
+
+</beans>

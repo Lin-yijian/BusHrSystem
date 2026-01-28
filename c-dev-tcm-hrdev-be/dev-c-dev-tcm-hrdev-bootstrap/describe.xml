@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <name>ucf-mdf-parent</name>
+    <code>ucf-mdf-parent</code>
+    <packageType>war</packageType>
+    <serviceType>JAVA-WEB</serviceType>
+    <!-- 依赖产品 -->
+    <dependency>
+    </dependency>
+    <!-- 依赖中间件 -->
+    <middlewares>
+    </middlewares>
+    <!-- sql脚本 -->
+    <dbScripts>
+		<dbScript>
+			<name>默认</name>
+			<code>default</code>
+			<defaultScript>true</defaultScript>
+			<type>init</type>
+			<dbType>mysql</dbType>
+			<ddl>mysql/init/mdf-ddl.sql{{#msdb.mdfdb}},mysql/init/dyndb-ddl.sql{{#msdb.dyndb}},mysql/upgrade/dyndb-upgrade-ddl.sql{{#msdb.dyndb}}</ddl>
+			<dml>mysql/init/mdf-dml.sql{{#msdb.mdfdb}}</dml>
+		</dbScript>
+
+		<dbScript>
+			<!-- type 为init时，dbType、type组合唯一 -->
+			<!--数据脚本名称,必填-->
+			<name>dyndb YonBIP202010升级YonBuilder202103</name>
+			<!-- 数据脚本code,必填-->
+			<code>dyndb-YonBuilder202103</code>
+			<!--数据脚本对应的数据库，必填-->
+			<dbType>mysql</dbType>
+			<!--数据脚本类型，init:初始化/upgrade:迭代升级，必填-->
+			<type>upgrade</type>
+			<!--是否为默认，非必填，默认值为false-->
+			<defaultScript>true</defaultScript>
+			<fromVersion>YonBIP202010</fromVersion>
+			<toVersion>YonBuilder202103</toVersion>
+			<upgradeOrder>202103</upgradeOrder>
+			<ddl>
+				mysql/upgrade/dyndb-upgrade-ddl.sql{{#msdb.hpapaasdb}}|RP
+			</ddl>
+		</dbScript>
+    </dbScripts>
+
+	<nginxCustomTemplate>
+		location {{#package.contextPrefix}} /mdd/ {
+		proxy_pass http://{{#package.code}}{{#package.contextDest}}/mdd/;
+		{{#package.contextHeader}}
+		}
+	</nginxCustomTemplate>
+
+    <!-- 配置文件 -->
+    <configUrls>
+    	<!-- 源码 -->
+		<configUrl>
+			<source>src/main/resources/private/application.properties</source>
+			<!--<dest>WEB-INF/classes/</dest>-->
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/sdk.properties</source>
+			<!--<dest>WEB-INF/classes/</dest>-->
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/inotify.properties</source>
+			<!--<dest>WEB-INF/classes/</dest>-->
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/authfile.properties</source>
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/uimeta-sdk.properties</source>
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/mdd-db.properties</source>
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/mdd-redis.properties</source>
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+		<configUrl>
+			<source>src/main/resources/private/tenant-db.properties</source>
+			<dest>WEB-INF/classes/</dest>
+		</configUrl>
+	</configUrls>
+	<testLink>mdd/bpm/testConn</testLink>
+</project>

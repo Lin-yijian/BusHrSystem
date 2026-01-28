@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- dev 热生效的话scan为true 每60秒检测一次，不输出框架本身日志 -->
+<configuration scan="true" scanPeriod="60 seconds" debug="false">
+    <property name="byDateTime" value="%d{yyyy-MM-dd HH:mm:ss}"/>
+    <property name="logEncoding" value="UTF-8"/>
+    <property name="spring.application.name" value="@engineCode@"/>
+    <property name="logDir" value="/data/logs/${spring.application.name}"/>
+    <property name="spring.domain.name" value="u8c"/>
+    <property name="byDate" value="%d{yyyy-MM-dd}"/>
+    <property name="byTime" value="%d{HH:mm:ss.SSS}"/>
+    <property name="COMMON_LOG_PATTERN"
+              value="%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%logger{36}] [%X{traceId}] [%X{spanId}] [%X{pSpanId}] [%X{rpcOccurrence}] [%X{code}] [%X{req.requestURL}] [%X{req.queryString}] [${spring.domain.name},${spring.application.name},%X{sysId},%X{tenantId},%X{userId},%X{profile},%X{agentId}] - %msg %ex%n"/>
+
+    <!-- 主日志 com.yonyou 日志都输到主日志 -->
+    <appender name="main-log-appender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/ucf-${spring.application.name}.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <!--            接收debug及以上日志 -->
+            <level>DEBUG</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logDir}/ucf-${spring.application.name}-${byDate}-%i.log</fileNamePattern>
+            <!--           保存三十天日志 -->
+            <maxHistory>30</maxHistory>
+            <!--            每个日志最大10MB-->
+            <maxFileSize>50MB</maxFileSize>
+        </rollingPolicy>
+        <encoder>
+            <charset>${logEncoding}</charset>
+            <pattern>${COMMON_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+    <!-- bpd单据日志 -->
+    <appender name="bpd-log-appender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/ucf-${spring.application.name}-bpd.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <!--            接收debug及以上日志 -->
+            <level>DEBUG</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logDir}/ucf-${spring.application.name}-bpd-${byDate}-%i.log</fileNamePattern>
+            <!--           保存三十天日志 -->
+            <maxHistory>30</maxHistory>
+            <!--            每个日志最大10MB-->
+            <maxFileSize>50MB</maxFileSize>
+        </rollingPolicy>
+        <encoder>
+            <charset>${logEncoding}</charset>
+            <pattern>${COMMON_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+    <!--匿名日志 第三方的都输到匿名日志-->
+    <appender name="annoy-log-appender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logDir}/annoy-${spring.application.name}.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <!--            接收debug及以上日志 由目标logger决定 -->
+            <level>DEBUG</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logDir}/annoy-${spring.application.name}-${byDate}-%i.log</fileNamePattern>
+            <!--           保存三十天日志 -->
+            <maxHistory>30</maxHistory>
+            <!--            每个日志最大10MB-->
+            <maxFileSize>50MB</maxFileSize>
+        </rollingPolicy>
+        <encoder>
+            <charset>${logEncoding}</charset>
+            <pattern>${COMMON_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+    <!--    控制台-->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <charset>${logEncoding}</charset>
+            <pattern>%red(%d{yyyy-MM-dd HH:mm:ss}) %green([%thread]) %highlight(%-5level) %boldMagenta(%logger) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.yonyoucloud.bpd" level="DEBUG" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="bpd-log-appender"/>
+    </logger>
+    <logger name="com.yonyou" level="INFO" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="main-log-appender"/>
+    </logger>
+    <logger name="com.yonyoucloud" level="INFO" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="main-log-appender"/>
+    </logger>
+    <logger name="org.springframework" level="INFO" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+
+    <!--    把那些不停刷日志的默认都关了 start-->
+    <logger name="com.yonyou.iuap.yms" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="main-log-appender"/>
+    </logger>
+    <logger name="com.yonyou.cloud.inotify" level="WARN" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="main-log-appender"/>
+    </logger>
+    <logger name="com.netflix.discovery" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+    <logger name="com.yonyou.diwork.common" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="main-log-appender"/>
+    </logger>
+    <logger name="org.apache.zookeeper" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+    <logger name="org.apache.http" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+    <logger name="org.apache.catalina" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+    <!--    yts-->
+    <logger name="com.yonyou.cloud.tualatin" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="main-log-appender"/>
+    </logger>
+    <logger name="com.zaxxer" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+    <logger name="yts.log" level="ERROR" additivity="false">
+        <appender-ref ref="console" />
+        <appender-ref ref="annoy-log-appender"/>
+    </logger>
+    <!--    把那些不停刷日志的默认都关了 end-->
+
+    <!--非在上面定义的日志输出到annoy-->
+    <root level="INFO">
+        <appender-ref ref="console"/>
+        <appender-ref ref="annoy-log-appender"/>
+    </root>
+</configuration>

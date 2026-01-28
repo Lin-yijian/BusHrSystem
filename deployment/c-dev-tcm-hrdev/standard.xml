@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<deployments>
+    <deployment name="c-dev-tcm-hrdev" description="澳巴人力开发产品盘">
+        <baseImage>java:8-jdk-alpine-Slim</baseImage>
+        <cpus>1</cpus>
+        <mem>2500</mem>
+        <minCpus>0.1</minCpus>
+        <minMem>800.0</minMem>
+        <cmd>java -jar $CATALINA_OPTS $JAVA_OPTS /app/yms.jar</cmd>
+        <healthChecks>
+            <protocol>HTTP</protocol>
+            <path>/extend/healthycheck</path>
+            <gracePeriodSeconds>200</gracePeriodSeconds>
+            <intervalSeconds>20</intervalSeconds>
+            <port>8080</port>
+            <timeoutSeconds>20</timeoutSeconds>
+            <maxConsecutiveFailures>20</maxConsecutiveFailures>
+        </healthChecks>
+        <envs/>
+        <modules>
+            <module description="澳巴人力开发产品盘" name="c-dev-tcm-hrdev"/>
+        </modules>
+        <ports>
+            <port>
+                <containerPort>8080</containerPort>
+                <hostPort>0</hostPort>
+                <protocol>tcp</protocol>
+                <outerPort>false</outerPort>
+                <accessMode>HTTP</accessMode>
+                <accessRange>OUTER</accessRange>
+            </port>
+        </ports>
+        <developerAppLogs>/data/logs/app/</developerAppLogs>
+    </deployment>
+</deployments>

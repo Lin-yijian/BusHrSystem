@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.yonyou.iuap</groupId>
+        <artifactId>yonbip-2nd-parent</artifactId>
+        <version>8.2.106-RELEASE</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.yonyou.ucf</groupId>
+    <artifactId>c-dev-tcm-hrdev</artifactId>
+    <packaging>pom</packaging>
+    <version>ddm-3.0-RELEASE</version>
+    <modules>
+		<module>dev-c-dev-tcm-hrdev-api</module>
+        <module>dev-c-dev-tcm-hrdev-app</module>
+        <module>dev-c-dev-tcm-hrdev-bootstrap</module>
+        <module>dev-c-dev-tcm-hrdev-service</module>
+        <module>dev-c-dev-tcm-hrdev-infrastructure</module>
+    </modules>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.version>ddm-3.0-RELEASE</project.version>
+    </properties>
+    <dependencyManagement>
+        <dependencies>
+            <!--        当前工程     start-->
+            <dependency>
+                <groupId>com.yonyou.ucf</groupId>
+                <artifactId>c-dev-tcm-hrdev-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yonyou.ucf</groupId>
+                <artifactId>c-dev-tcm-hrdev-app</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yonyou.ucf</groupId>
+                <artifactId>c-dev-tcm-hrdev-infrastructure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yonyou.ucf</groupId>
+                <artifactId>c-dev-tcm-hrdev-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!--        当前工程     end-->
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- compiler插件, 设定JDK版本 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.2</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <showWarnings>true</showWarnings>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <profiles>
+        <profile>
+            <!-- 开发环境 -->
+            <id>dev</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <profiles.active>dev</profiles.active>
+            </properties>
+            <build>
+                <filters>
+                    <filter>../config/config-dev.properties</filter>
+                </filters>
+            </build>
+        </profile>
+    </profiles>
+</project>

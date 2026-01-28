@@ -1,0 +1,34 @@
+<service>
+    <serviceName>c-dev-tcm-hrdev</serviceName>
+    <dbScripts>
+        <!-- ++++++++++++数据源配置，默认type=init++++++++++++-->
+        <dbScript>
+            <!-- 如果是单一数据源，那只配置逻辑数据源编码即可，不需要指定ddl/dml的路径 -->
+            <type>init</type>
+            <dbType>rdb</dbType>
+            <!--逻辑数据源编码-->
+            <logicDataSource>c-dev-tcm-hrdev_mainDataSource</logicDataSource>
+        </dbScript>
+
+        <!--只有存在多个数据源才需要增加以下内容,单数据源的场景请删除以下部分-->
+        <dbScript>
+            <type>init</type><!-- 如果是多数据源，那么除了指定对应的逻辑数据源，同时也要指定往这个逻辑数据源里执行的脚本文件的路径 -->
+            <dbType>mongodb</dbType>
+            <logicDataSource>c-dev-tcm-hrdev_mainDataSource</logicDataSource>
+        </dbScript>
+
+        <dbScript>
+            <dbType>rdb</dbType>
+            <type>patch</type>
+            <logicDataSource>c-dev-tcm-hrdev_mainDataSource</logicDataSource>
+        </dbScript>
+        <dbScript>
+            <!-- 如果是多数据源，那么除了指定对应的逻辑数据源，同时也要指定往这个逻辑数据源里执行的脚本文件的路径 -->
+            <type>patch</type>
+            <dbType>mongodb</dbType>
+            <logicDataSource>c-dev-tcm-hrdev_mainDataSource</logicDataSource>
+        </dbScript>
+
+
+    </dbScripts>
+</service>

@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "data": [
+    {
+      "id": "d7",
+      "matchUrl": "*",
+      "rules": [
+        {
+          "type": "normalOverride",
+          "match": "https://*/mdf-wh/**/javascripts/extend.min.js",
+          "replace": "https://127.0.0.1:3004/static/javascripts/index.js",
+          "on": true
+        },
+        {
+          "type": "normalOverride",
+          "match": "https://*/mdf-wh/**/stylesheets/extend.min.css",
+          "replace": "https://127.0.0.1:3004/static/stylesheets/index.css",
+          "on": true
+        }
+      ],
+      "on": false
+    }
+  ]
+}

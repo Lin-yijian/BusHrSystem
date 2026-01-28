@@ -1,0 +1,42 @@
+{
+  "libraryCode": "MDF",
+  "libraryName": "公共扩展组件",
+  "type": "PC",
+  "desc": "",
+  "extProps": {
+    "domainKey": "MDF"
+  },
+  "group": [
+    {
+      "name": "默认分组",
+      "children": [
+        "demo"
+      ]
+    },
+    {}
+  ],
+  "components": [
+    {
+      "code": "demo",
+      "name": "示例",
+      "parent": "",
+      "props": [
+        {
+          "code": "prop",
+          "name": "属性"
+        }
+      ],
+      "events": [
+        {
+          "code": "event",
+          "name": "动作"
+        }
+      ],
+      "extprops": {
+        "entry": "./basic/demo",
+        "domainKey": "MDF",
+        "cControlCode": "MDF.demo"
+      }
+    }
+  ]
+}

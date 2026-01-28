@@ -1,0 +1,32 @@
+{
+    "name": "c-dev-tcm-hrdev",
+    "private": true,
+    "version": "4.1.0",
+    "description": "isomorphic web app.",
+    "main": "@mdf/create-app/lib/src/server/index.js",
+    "repository": "git@git.yonyou.com:yonyou-mdf/mdf-server-app.git",
+    "author": "yonyou",
+    "domainKey": "c-dev-tcm-hrdev",
+    "license": "ISC",
+    "scripts": {
+        "_debug-s_": ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 调试命令开始 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",
+        "debug": "concurrently \"npm run debug:extend\" \"npm run debug:server\"",
+        "debug:server": "cross-env BABEL_ENV=production NODE_ENV=development SERVER_ENV=daily MDF_LANG=true CACHE_META=false nodemon -w node_modules/@mdf/create-app/lib/src/server -w src/common --exec babel-node --inspect --only=src,node_modules/@mdf node_modules/@mdf/create-app/lib/src/server/index.js",
+        "debug:server:https": "cross-env BABEL_ENV=production NODE_ENV=development SERVER_ENV=daily MDF_LANG=true CACHE_META=false NODE_TLS_REJECT_UNAUTHORIZED=0 MDF_HTTPS=true nodemon -w node_modules/@mdf/create-app/lib/src/server -w src/common --exec babel-node --inspect --only=src,node_modules/@mdf node_modules/@mdf/create-app/lib/src/server/index.js",
+        "debug:extend": "cross-env BABEL_ENV=production NODE_ENV=development MDF_LANG=true webpack serve --progress --config webpack.config.js",
+        "debug:extend:prod": "cross-env BABEL_ENV=production NODE_ENV=development MDF_LANG=true MANIFEST=production webpack serve --progress --config webpack.config.js",
+        "_debug-e_": "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< 调试命令结束 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<",
+        "_build-s_": ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 编译命令开始 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",
+        "start": "cross-env NODE_ENV=production SERVER_ENV=daily MDF_LANG=true node node_modules/@mdf/create-app/src/src/server/index.js",
+        "build": "npm run build:server && npm run build:extend",
+        "build:server": "cross-env BABEL_ENV=production NODE_ENV=production babel src -d bin --ignore src/client,src/business && echo '后端程序：编译完成'",
+        "build:extend": "cross-env BABEL_ENV=production NODE_ENV=production ZIP=true MDF_LANG=true node --max-old-space-size=4096 node_modules/webpack/bin/webpack.js --config webpack.config.js --progress && echo '前端扩展：编译完成' && node build.js",
+        "build:extend:comp": "node scripts/extendComp.js create && cross-env BABEL_ENV=production NODE_ENV=production EXTEND_COMP=true ZIP=true MDF_LANG=true node --max-old-space-size=4096 node_modules/webpack/bin/webpack.js --config webpack.config.js --progress && node scripts/extendComp.js deploy && echo '前端扩展：编译完成'",
+        "_build-e_": "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< 编译命令结束 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    },
+    "dependencies": {
+        "@mdf/create-app": "3.12",
+        "deepmerge": "^4.2.2",
+        "yonbuilder-mdf-extend": "snapshot"
+    }
+}
