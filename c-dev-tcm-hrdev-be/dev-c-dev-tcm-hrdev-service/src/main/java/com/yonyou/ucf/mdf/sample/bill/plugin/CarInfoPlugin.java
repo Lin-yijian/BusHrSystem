@@ -10,7 +10,7 @@ import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import com.yonyou.ypd.bill.utils.IrisRpcUtil;
 
-@BillPlugin(busiObj = "XSDVehicle")
+@BillPlugin(busiObj = "XSDVehicleInfo")
 public class CarInfoPlugin extends AbstractBillPlugin {
 
 
