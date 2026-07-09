@@ -34,6 +34,16 @@
             <groupId>com.yonyou.ucf</groupId>
             <artifactId>c-dev-tcm-hrdev-service</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.dameng</groupId>
+            <artifactId>DmJdbcDriver18</artifactId>
+            <version>8.1.3.140</version>
+            <scope>compile</scope>
+        </dependency>
         <!--        当前工程其他模块     end-->
         <!--使用spring-boot启动单独加入mysql-connector-j和spring-boot-starter-web-->
 <!--        <dependency>-->
