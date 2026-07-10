@@ -7,13 +7,15 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * 海信考勤接口响应DTO
- * 用于解析海信接口返回的完整JSON结构
+ * 海信接口通用响应DTO
+ * 用于解析海信接口返回的完整JSON结构，支持泛型数据类型
+ *
+ * @param <T> 数据列表中的元素类型
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class HiSenseAttendanceResponseDTO {
+public class HiSenseResponseDTO<T> {
 
     /** 响应码 */
     private Integer code;
@@ -33,8 +35,8 @@ public class HiSenseAttendanceResponseDTO {
     /** 编排结果 */
     private Object orchResult;
 
-    /** 考勤数据列表 */
-    private List<HiSenseAttendanceDataDTO> result;
+    /** 数据列表 */
+    private List<T> result;
 
     /** HTTP状态码 */
     private Integer status;

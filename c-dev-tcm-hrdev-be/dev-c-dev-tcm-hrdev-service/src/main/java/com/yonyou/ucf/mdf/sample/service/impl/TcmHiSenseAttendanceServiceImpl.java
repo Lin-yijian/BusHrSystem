@@ -10,9 +10,10 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
-import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceResponseDTO;
+import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -51,6 +52,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Autowired
     protected IBillQueryRepository queryService;
 
+    @Autowired
+    private TcmCarService tcmCarService;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -62,11 +66,15 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     @Override
     public Integer countByRunDate(String runDate) {
-        List<TcmHisenseAttendanceData> list = getByRunDate(runDate);
-        return list.size();
+        return getByRunDate(runDate).size();
     }
 
     private List<TcmHisenseAttendanceData> getByRunDate(String runDate) {
+
+        if (StringUtil.isEmpty(runDate)) {
+            throw new RuntimeException("日期參數不能爲空");
+        }
+
         String tenantId = InvocationInfoProxy.getTenantid();
 
         LambdaQueryCondition<TcmHisenseAttendanceData> carCondition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
@@ -90,7 +98,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     public void syncData(String runDate) {
         List<HiSenseAttendanceMergedDTO> hiSenseDataList = getHiSenseDataByRunData(runDate);
         if (hiSenseDataList.isEmpty()) {
-            throw new RuntimeException("当前日期数据为空，请稍后再试");
+            throw new RuntimeException("當前日期數據爲空，請稍後再試");
         }
 
         removeByRunDate(runDate);
@@ -106,7 +114,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         String tenantId = InvocationInfoProxy.getTenantid();
 
-        Map<String, TCMCar> stringTCMCarMap = groupCarMapByPlateNumber(busCardIdList, tenantId);
+        Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
 
         Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
 
@@ -148,31 +156,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         billRepository.insert(dataList);
 
 
-    }
-
-    /**
-     * 分组
-     * @param busCardIdList
-     * @param tenantId
-     * @return
-     */
-    private Map<String,TCMCar> groupCarMapByPlateNumber(List<String> busCardIdList,String tenantId) {
-
-        LambdaQueryCondition<TCMCar> carCondition = new LambdaQueryCondition<>(new TCMCar());
-        carCondition.in(TCMCar::getPlate_number, busCardIdList)
-                .eq(TCMCar::getYtenantId,tenantId)
-                .eq(TCMCar::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
-        List<TCMCar> list = billRepository.queryByClause(carCondition);
-
-        if (list.isEmpty()) {
-            throw new RuntimeException("车辆信息档案缺失，请先完善档案内容，车牌号：" + busCardIdList);
-        }
-
-        return list.stream().collect(Collectors.toMap(
-                TCMCar::getPlate_number,
-                item -> item,
-                (existing, replacement) -> existing
-        ));
     }
 
     /**
@@ -219,8 +202,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         String result = restTemplate.postForObject(HI_SENSE_ATTENDANCE_URL, body, String.class);
 
         try {
-            // 解析JSON响应为HiSenseAttendanceResponseDTO对象
-            HiSenseAttendanceResponseDTO response = objectMapper.readValue(result, HiSenseAttendanceResponseDTO.class);
+            // 解析JSON响应为HiSenseResponseDTO对象（使用泛型）
+            HiSenseResponseDTO<HiSenseAttendanceDataDTO> response = objectMapper.readValue(result,
+                    objectMapper.getTypeFactory().constructParametricType(HiSenseResponseDTO.class, HiSenseAttendanceDataDTO.class));
             List<HiSenseAttendanceDataDTO> attendanceDataList = response.getResult();
 
             return mergeAttendanceData(attendanceDataList);

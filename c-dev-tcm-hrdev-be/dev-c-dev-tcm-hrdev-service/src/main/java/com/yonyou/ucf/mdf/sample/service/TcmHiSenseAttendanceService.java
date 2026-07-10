@@ -1,9 +1,5 @@
 package com.yonyou.ucf.mdf.sample.service;
 
-import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
-
-import java.util.List;
-
 public interface TcmHiSenseAttendanceService {
 
     /**
