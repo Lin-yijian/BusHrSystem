@@ -11,11 +11,14 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseLoginRecordDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseWaybillLoginRecordService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
+import org.imeta.core.base.ConditionOperator;
+import org.imeta.orm.schema.SimpleCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -110,11 +113,9 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
 
     @Override
     public void removeByActDate(String actDate) {
-        List<TcmHisenseWaybillLoginRecord> list = getByActDate(actDate);
-        for (TcmHisenseWaybillLoginRecord data : list) {
-            data.setDr(BaseEnum.IS_DELETED.getIntCode());
-        }
-        billRepository.update(list);
+        List<SimpleCondition> conditionList = new ArrayList<>();
+        conditionList.add(new SimpleCondition("date", ConditionOperator.in, actDate));
+        billRepository.batchRemove(UrlEnum.WAYBILL_LOGIN_RECORD.getUrl(), conditionList);
     }
 
     private List<TcmHisenseWaybillLoginRecord> getByActDate(String actDate) {

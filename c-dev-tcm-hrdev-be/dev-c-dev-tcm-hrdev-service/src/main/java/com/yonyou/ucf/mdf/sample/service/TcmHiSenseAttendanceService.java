@@ -18,6 +18,10 @@ public interface TcmHiSenseAttendanceService {
     Integer countByRunDate(String runDate);
 
 
+    /**
+     * 根据日期删除数据
+     * @param runDate 业务日期
+     */
     void removeByRunDate(String runDate);
 
 }

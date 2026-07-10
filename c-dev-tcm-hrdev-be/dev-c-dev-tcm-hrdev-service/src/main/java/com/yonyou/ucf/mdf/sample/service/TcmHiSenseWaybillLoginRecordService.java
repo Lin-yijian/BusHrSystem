@@ -18,6 +18,10 @@ public interface TcmHiSenseWaybillLoginRecordService {
     Integer countByActDate(String actDate);
 
 
+    /**
+     * 根据日期删除数据
+     * @param actDate 业务日期
+     */
     void removeByActDate(String actDate);
     
     

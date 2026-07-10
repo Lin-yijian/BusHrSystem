@@ -18,8 +18,10 @@ import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
+import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
+import org.imeta.orm.schema.SimpleCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -87,11 +89,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     @Override
     public void removeByRunDate(String runDate) {
-        List<TcmHisenseAttendanceData> list = getByRunDate(runDate);
-        for (TcmHisenseAttendanceData data : list) {
-            data.setDr(BaseEnum.IS_DELETED.getIntCode());
-        }
-        billRepository.update(list);
+
+        List<SimpleCondition> conditionList = new ArrayList<>();
+        conditionList.add(new SimpleCondition("run_date", ConditionOperator.in, runDate));
+        billRepository.batchRemove(UrlEnum.HISENSE_ATTENDANCE.getUrl(), conditionList);
     }
 
     @Override
