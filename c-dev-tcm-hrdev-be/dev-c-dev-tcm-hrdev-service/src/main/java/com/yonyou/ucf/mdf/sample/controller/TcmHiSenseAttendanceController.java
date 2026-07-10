@@ -27,4 +27,14 @@ public class TcmHiSenseAttendanceController {
         service.syncData(runDate);
         return ResponseUtil.success("成功获取海信数据");
     }
+
+
+    @GetMapping("/count")
+    public ResponseEntity<?> count(@RequestParam String runDate) {
+
+        Integer count = service.countByRunDate(runDate);
+        return ResponseUtil.success(runDate +" 存在数据数：" + count,count);
+    }
+    
+    
 }

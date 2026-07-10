@@ -60,6 +60,31 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
+    @Override
+    public Integer countByRunDate(String runDate) {
+        List<TcmHisenseAttendanceData> list = getByRunDate(runDate);
+        return list.size();
+    }
+
+    private List<TcmHisenseAttendanceData> getByRunDate(String runDate) {
+        String tenantId = InvocationInfoProxy.getTenantid();
+
+        LambdaQueryCondition<TcmHisenseAttendanceData> carCondition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
+        carCondition.eq(TcmHisenseAttendanceData::getRun_date, runDate)
+                .eq(TcmHisenseAttendanceData::getYtenantId,tenantId)
+                .eq(TcmHisenseAttendanceData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(carCondition);
+    }
+
+
+    @Override
+    public void removeByRunDate(String runDate) {
+        List<TcmHisenseAttendanceData> list = getByRunDate(runDate);
+        for (TcmHisenseAttendanceData data : list) {
+            data.setDr(BaseEnum.IS_DELETED.getIntCode());
+        }
+        billRepository.update(list);
+    }
 
     @Override
     public void syncData(String runDate) {
@@ -67,6 +92,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         if (hiSenseDataList.isEmpty()) {
             throw new RuntimeException("当前日期数据为空，请稍后再试");
         }
+
+        removeByRunDate(runDate);
 
         List<TcmHisenseAttendanceData> dataList = new ArrayList<>();
 
@@ -85,7 +112,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
 
         for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
+            String id = ymsOidGenerator.nextStrId();
             TcmHisenseAttendanceData data = new TcmHisenseAttendanceData();
+            data.setId(id);
+            data.setYtenantId(tenantId);
             data.setFake_flag(hiSenseData.getFakeflag());
             data.setTrouble_flag(hiSenseData.getTroubleflag());
             data.setReal_arrive_time(hiSenseData.getRealarrivetime());
@@ -97,6 +127,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             data.setDriver_name(hiSenseData.getDriverName());
             data.setWaybill_employee_id(hiSenseData.getEmployeeId());
             data.setRun_date(runDate);
+            data.setCount(hiSenseData.getCount());
 
             TCMCar tcmCar = stringTCMCarMap.get(hiSenseData.getBuscardid());
             if (tcmCar == null) {
@@ -364,6 +395,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         HiSenseAttendanceDataDTO last = group.get(group.size() - 1);
 
         HiSenseAttendanceMergedDTO merged = new HiSenseAttendanceMergedDTO();
+
+        // 记录合并数量（当前合并组包含的原始记录条数）
+        merged.setCount(group.size());
 
         // 基本信息取第一条
         merged.setRundate(first.getRundate());

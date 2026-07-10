@@ -12,4 +12,16 @@ public interface TcmHiSenseAttendanceService {
      * @return 合并后的考勤数据列表
      */
     void syncData(String runDate);
+
+
+    /**
+     * 统计数据数量
+     * @param runDate 业务日期
+     * @return 数量
+     */
+    Integer countByRunDate(String runDate);
+
+
+    void removeByRunDate(String runDate);
+
 }
