@@ -1,6 +1,7 @@
 package com.yonyou.ucf.mdf.sample.controller;
 
 
+import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
 import com.yonyou.ucf.mdf.sample.utils.ResponseUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 
 @RestController
-@RequestMapping("/Attendance/hiSense")
+@RequestMapping("/attendance/hiSense")
 public class TcmHiSenseAttendanceController {
 
     @Autowired

@@ -5,8 +5,9 @@ import lombok.Getter;
 @Getter
 public enum UrlEnum {
 
-    CAR_INFO("XSDcar.XSDcar.csd_car_info", "developplatform"),
-    CAR_INFO_HISTORY("XSDcar.XSDcar.csd_car_info_history", "developplatform");
+    ROUTE("TCMBaseInfo.TCMBaseInfo.TCMRoute", "c-dev-tcm-hrdev"),
+    HISENSE_ATTENDANCE("unitfyEnum.TCMCaptainAttendance.tcmHisenseAttendanceData", "c-dev-tcm-hrdev"),
+    CAR_INFO("TCMBaseInfo.TCMBaseInfo.TCMCar", "c-dev-tcm-hrdev");
 
     private final String url;
     private final String domainKey;
