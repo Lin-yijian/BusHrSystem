@@ -16,15 +16,5 @@ public class SafetyPlugin extends AbstractBillPlugin {
         super.beforeSave(billContext);
 
 
-        System.out.println("测试123");
-        System.out.println(billContext.toString());
-        IBillDO billDO = billContext.getBillDO();
-
-        System.out.println(billDO.toString());
-        log.info("测试打印日志");
-        log.info(billDO.toString());
-        log.info("------------------");
-        throw new RuntimeException("测试报错");
-
     }
 }
