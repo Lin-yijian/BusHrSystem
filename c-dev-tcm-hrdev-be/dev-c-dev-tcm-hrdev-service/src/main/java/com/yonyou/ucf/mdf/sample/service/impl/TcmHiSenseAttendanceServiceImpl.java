@@ -24,6 +24,7 @@ import org.imeta.orm.schema.QuerySchema;
 import org.imeta.orm.schema.SimpleCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -95,6 +96,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         billRepository.batchRemove(UrlEnum.HISENSE_ATTENDANCE.getUrl(), conditionList);
     }
 
+    @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public void syncData(String runDate) {
         List<HiSenseAttendanceMergedDTO> hiSenseDataList = getHiSenseDataByRunData(runDate);
@@ -177,7 +179,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     private Map<String,String> getStaffByCardIds(List<String> ids,String tenantId) {
         QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
         querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
-        querySchema.appendQueryCondition(QueryCondition.name("ytenantId").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
         List<Map<String, Object>> mapList = queryService.queryMapBySchema(UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
 
