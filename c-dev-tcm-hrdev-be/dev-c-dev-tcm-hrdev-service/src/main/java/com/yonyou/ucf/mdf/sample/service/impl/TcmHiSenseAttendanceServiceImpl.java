@@ -108,12 +108,17 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         List<String> routeNameList = new ArrayList<>();
         List<String> busCardIdList = new ArrayList<>();
+        List<String> employeeIdList = new ArrayList<>();
         for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
             routeNameList.add(hiSenseData.getRoutename());
             busCardIdList.add(hiSenseData.getBuscardid());
+            employeeIdList.add(hiSenseData.getEmployeeId());
+
         }
 
         String tenantId = InvocationInfoProxy.getTenantid();
+
+        Map<String, String> staffMap = getStaffByCardIds(employeeIdList, tenantId);
 
         Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
 
@@ -148,6 +153,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 throw new RuntimeException("路线信息档案缺失，请先完善档案内容，路线：" + hiSenseData.getRoutename());
             }
 
+            String staffId = staffMap.get(hiSenseData.getEmployeeId());
+            data.setEmployee_id(staffId);
+
             data.setCar(tcmCar.getId());
             data.setRoute(tcmRoute.getId());
             dataList.add(data);
@@ -156,6 +164,33 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         billRepository.insert(dataList);
 
+
+    }
+
+
+    /**
+     * 查询BIP员工信息
+     * @param ids
+     * @param tenantId
+     * @return
+     */
+    private Map<String,String> getStaffByCardIds(List<String> ids,String tenantId) {
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
+        querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenantId").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        List<Map<String, Object>> mapList = queryService.queryMapBySchema(UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+
+        if (mapList == null || mapList.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        Map<String,String> finalMap = new HashMap<>();
+        for (Map<String, Object> map : mapList) {
+            finalMap.put((String) map.get("cardId"),(String) map.get("id"));
+        }
+
+        return finalMap;
 
     }
 
