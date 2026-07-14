@@ -3,16 +3,23 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
+import com.yonyou.yonbip.iuap.xport.importing.processor.ImportEventExtendProcessor;
+import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
+import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.List;
 
 
 @BillPlugin(busiObj = "TCMSafety")
 @Slf4j
-public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
+public class DriverOvertimeRecordPlugin extends AbstractBillPlugin implements ImportEventExtendProcessor {
 
     @Autowired
     private CommonUtil util;
@@ -32,5 +39,14 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     }
 
 
+    @Override
+    public void beforeTranslate(@NotNull ImportBatchData importBatchData, @NotNull ImportEventBO importEventBO) {
+        ImportEventExtendProcessor.super.beforeTranslate(importBatchData, importEventBO);
 
+        List<ImportSingleData> dataList = importBatchData.getData();
+        for (ImportSingleData importSingleData : dataList) {
+
+        }
+
+    }
 }
