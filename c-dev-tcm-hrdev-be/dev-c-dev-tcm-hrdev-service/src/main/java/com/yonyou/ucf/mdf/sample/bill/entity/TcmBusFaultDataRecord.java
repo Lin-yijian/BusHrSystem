@@ -8,7 +8,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 巴士故障數據記錄
- * @Date 2026-07-14 14:32:10
+ * @Date 2026-07-14 16:39:18
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMCaptainAttendance.CJ26030001.tcmBusFaultDataRecord", domain = "c-dev-tcm-hrdev")
@@ -21,7 +21,6 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
     public static final String BUS_ARRANGE = "bus_arrange";
     public static final String IS_CHANGE_BUS_MIDWAY = "is_change_bus_midway";
     public static final String DRIVER_NO = "driver_no";
-    public static final String EMPLOYEE_ID = "employee_id";
     public static final String FOLLOW_UP_STATUS = "follow_up_status";
     public static final String OCC_GROUP_LEADER = "occ_group_leader";
     public static final String ROUTE = "route";
@@ -53,10 +52,8 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
     private String bus_arrange;
     /* 是否中途換車 */
     private Boolean is_change_bus_midway;
-    /* 車長編號 */
+    /* 車長编號 */
     private String driver_no;
-    /* 車長工號 */
-    private String employee_id;
     /* 跟進情況 */
     private String follow_up_status;
     /* OCC組長 */
@@ -120,10 +117,6 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
 
     public void setDriver_no(String driver_no) {
         this.driver_no = driver_no;
-    }
-
-    public void setEmployee_id(String employee_id) {
-        this.employee_id = employee_id;
     }
 
     public void setFollow_up_status(String follow_up_status) {
@@ -224,10 +217,6 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
 
     public String getDriver_no() {
         return driver_no;
-    }
-
-    public String getEmployee_id() {
-        return employee_id;
     }
 
     public String getFollow_up_status() {

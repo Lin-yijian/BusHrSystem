@@ -15,7 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @BillPlugin(busiObj = "tcmBusFaultDataRecord")
 @Slf4j
@@ -27,14 +29,14 @@ public class BusFaultDataRecord extends AbstractBillPlugin implements ImportEven
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
-        String tenantId = InvocationInfoProxy.getTenantid();
+//        String tenantId = InvocationInfoProxy.getTenantid();
 
-        TcmBusFaultDataRecord entity = (TcmBusFaultDataRecord) billContext.getBillDO();
-        log.info(entity.toString());
-        if (null == entity.getEmployee_id()){
-            String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
-            entity.setEmployee_id(staffId);
-        }
+//        TcmBusFaultDataRecord entity = (TcmBusFaultDataRecord) billContext.getBillDO();
+//        log.info(entity.toString());
+//        if (null == entity.getDriver_no()){
+//            String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
+//            entity.setDriver_no(staffId);
+//        }
 
     }
 
@@ -45,9 +47,24 @@ public class BusFaultDataRecord extends AbstractBillPlugin implements ImportEven
         ImportEventExtendProcessor.super.beforeTranslate(importBatchData, importEventBO);
 
         List<ImportSingleData> dataList = importBatchData.getData();
-        for (ImportSingleData importSingleData : dataList) {
+        List<String> ids = new ArrayList<>();
 
+        for (ImportSingleData data : dataList) {
+            TcmBusFaultDataRecord record = (TcmBusFaultDataRecord) data.getData();
+            if (null == record.getWaybill_employee_id()){
+                throw new RuntimeException("澳巴工号不能为空");
+            }
+            ids.add(record.getWaybill_employee_id());
         }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        Map<String, String> staffMap = util.getStaffByCardIds(ids, tenantId);
+
+        for (ImportSingleData data : dataList) {
+            Map<String, Object> dataMap = data.getData();
+            String id = (String) dataMap.get("waybill_employee_id");
+            dataMap.put("driver_no",staffMap.get(id));
+        }
+
 
     }
 
