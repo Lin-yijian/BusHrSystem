@@ -1,14 +1,10 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
-
-import com.yonyou.iuap.BusinessException;
-import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMDriverService;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
-import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.ImportEventExtendProcessor;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -80,7 +76,7 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
             String carPlateNum = (String) data.getValueByKey(TCMDriverService.CAR_PLATE_NUMBER);
             if (carPlateNum != null && !carPlateNum.isEmpty()) {
                 if (!carMap.containsKey(carPlateNum)) {
-                    throw new RuntimeException("车牌号【" + carPlateNum + "】在车辆档案中不存在");
+                    throw new RuntimeException("車牌號【" + carPlateNum + "】在車輛檔案中不存在");
                 } else {
                     data.getData().put(TCMDriverService.CAR, carMap.get(carPlateNum).getId());
                 }
@@ -89,7 +85,7 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
             String routeCode = (String) data.getValueByKey(TCMDriverService.ROUTE_ROUTE_CODE);
             if (routeCode != null && !routeCode.isEmpty()) {
                 if (!routeMap.containsKey(routeCode)) {
-                    throw new RuntimeException("路线编号【" + routeCode + "】在路线档案中不存在");
+                    throw new RuntimeException("路線編號【" + routeCode + "】在路線檔案中不存在");
                 } else {
                     data.getData().put(TCMDriverService.ROUTE, routeMap.get(routeCode).getId());
                 }

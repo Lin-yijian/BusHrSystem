@@ -10,14 +10,15 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 司機服務記錄
- * @Date 2026-07-14 11:42:56
+ * @Date 2026-07-14 16:19:25
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMBaseInfo.TCMBaseInfo.TCMDriverService", domain = "c-dev-tcm-hrdev")
 public class TCMDriverService extends SuperDO implements ICode,ILogicDelete {
     public static final String ENTITY_NAME = "TCMBaseInfo.TCMBaseInfo.TCMDriverService";
     public static final String DATE = "date";
-    public static final String DRIVER_NO = "driver_no";
+    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
+    public static final String EMPLOYEE_ID = "employee_id";
     public static final String CONTENT = "content";
     public static final String ROUTE = "route";
     public static final String ROUTE_ROUTE_CODE = "route_route_code";
@@ -40,8 +41,10 @@ public class TCMDriverService extends SuperDO implements ICode,ILogicDelete {
 
     /* 日期 */
     private String date;
-    /* 工號 */
-    private String driver_no;
+    /* 澳巴工號 */
+    private String waybill_employee_id;
+    /* 人員編號 */
+    private String employee_id;
     /* 内容 */
     private String content;
     /* 路綫編號 */
@@ -81,8 +84,12 @@ public class TCMDriverService extends SuperDO implements ICode,ILogicDelete {
         this.date = date;
     }
 
-    public void setDriver_no(String driver_no) {
-        this.driver_no = driver_no;
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
+    }
+
+    public void setEmployee_id(String employee_id) {
+        this.employee_id = employee_id;
     }
 
     public void setContent(String content) {
@@ -157,8 +164,12 @@ public class TCMDriverService extends SuperDO implements ICode,ILogicDelete {
         return date;
     }
 
-    public String getDriver_no() {
-        return driver_no;
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
+    }
+
+    public String getEmployee_id() {
+        return employee_id;
     }
 
     public String getContent() {
