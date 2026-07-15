@@ -5,6 +5,7 @@ import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMDriverService;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
+import com.yonyou.ucf.mdf.sample.bill.entity.TCMSerivceIndex;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
@@ -43,6 +44,7 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
         Set<String> plateNumbers = new HashSet<>();
         Set<String> routeCodes = new HashSet<>();
         Set<String> cardIds = new HashSet<>();
+        Set<String> indexCodes = new HashSet<>();
         for (ImportSingleData data : dataList) {
             String plate = (String) data.getValueByKey(TCMDriverService.CAR_PLATE_NUMBER);
             if (plate != null && !plate.isEmpty()) {
@@ -55,6 +57,10 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
             String cardId = (String) data.getValueByKey(TCMDriverService.WAYBILL_EMPLOYEE_ID);
             if (cardId != null && !cardId.isEmpty()) {
                 cardIds.add(cardId);
+            }
+            String indexCode = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
+            if (indexCode != null && !indexCode.isEmpty()) {
+                indexCodes.add(indexCode);
             }
         }
 
@@ -87,6 +93,18 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
         Map<String, String> cardMap = Collections.emptyMap();
         if (!cardIds.isEmpty()) {
             cardMap = commonUtil.getStaffByCardIds(new ArrayList<>(cardIds), tenantid);
+        }
+
+        // 获取指标数据
+        Map<Object, TCMSerivceIndex> indexMap = Collections.emptyMap();
+        if (!indexCodes.isEmpty()) {
+            LambdaQueryCondition<TCMSerivceIndex> indexCondition = new LambdaQueryCondition<>(new TCMSerivceIndex());
+            indexCondition.in(TCMSerivceIndex::getIndex_code, new ArrayList<>(indexCodes))
+                    .eq(TCMSerivceIndex::getYtenantId, tenantid)
+                    .eq(TCMSerivceIndex::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+            List<TCMSerivceIndex> indexList = billRepository.queryByClause(indexCondition);
+            indexMap = indexList.stream().collect(Collectors.toMap(
+                    TCMSerivceIndex::getIndex_code, r -> r, (a, b) -> a));
         }
 
         // 校验
@@ -123,6 +141,16 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
                     throw new RuntimeException("路線編號【" + routeCode + "】在路線檔案中不存在");
                 } else {
                     data.getData().put(TCMDriverService.ROUTE, routeMap.get(routeCode).getId());
+                }
+            }
+            // 指标
+            String indexCode = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
+            if (indexCode != null && !indexCode.isEmpty()) {
+                if (!indexMap.containsKey(indexCode)) {
+                    throw new RuntimeException("指標編號【" + indexCode + "】在指標檔案中不存在");
+                } else {
+                    data.getData().put(TCMDriverService.INDEX_NO, indexMap.get(indexCode).getId());
+                    data.getData().put(TCMDriverService.INDEX_DESC, indexMap.get(indexCode).getContent());
                 }
             }
         }

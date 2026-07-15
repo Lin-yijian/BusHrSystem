@@ -26,6 +26,7 @@ public class TCMDriverService extends SuperDO implements ICode,ILogicDelete {
     public static final String CAR = "car";
     public static final String CAR_PLATE_NUMBER = "car_plate_number";
     public static final String INDEX_NO = "index_no";
+    public static final String INDEX_NO_INDEX_CODE = "index_no_index_code";
     public static final String TIME = "time";
     public static final String REWARD_RIO = "reward_rio";
     public static final String INDEX_DESC = "index_desc";
