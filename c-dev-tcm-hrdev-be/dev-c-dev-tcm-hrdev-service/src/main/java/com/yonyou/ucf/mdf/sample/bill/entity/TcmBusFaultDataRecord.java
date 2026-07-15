@@ -44,6 +44,8 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
     public static final String MODIFYTIME = "modifyTime";
     public static final String PUBTS = "pubts";
     public static final String YTENANTID = "ytenantId";
+    public static final String ROUTE_ROUTE_CODE = "route_route_code";
+    public static final String CAR_PLATE_NUMBER = "car_plate_number";
 
     /* 停車位置 */
     private String parking_location;
