@@ -20,7 +20,7 @@ import java.util.List;
 
 @BillPlugin(busiObj = "tcmControlCenterLog")
 @Slf4j
-public class TcmControlCenterLogPlugin extends AbstractBillPlugin implements ImportEventExtendProcessor {
+public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
 
     @Autowired
     private CommonUtil util;
@@ -40,11 +40,7 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin implements Imp
     }
 
 
-
-    @Override
-    public void beforeTranslate(@NotNull ImportBatchData importBatchData, @NotNull ImportEventBO importEventBO) {
-        ImportEventExtendProcessor.super.beforeTranslate(importBatchData, importEventBO);
-
+    public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
         List<ImportSingleData> dataList = importBatchData.getData();
         for (ImportSingleData importSingleData : dataList) {
 

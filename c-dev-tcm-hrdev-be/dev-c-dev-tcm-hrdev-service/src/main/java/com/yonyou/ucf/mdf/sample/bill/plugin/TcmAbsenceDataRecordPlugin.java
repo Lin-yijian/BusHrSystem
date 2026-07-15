@@ -20,7 +20,7 @@ import java.util.List;
 
 @BillPlugin(busiObj = "tcmAbsenceDataRecord")
 @Slf4j
-public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin implements ImportEventExtendProcessor {
+public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
 
     @Autowired
     private CommonUtil util;
@@ -39,12 +39,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin implements Im
 
     }
 
-
-
-    @Override
-    public void beforeTranslate(@NotNull ImportBatchData importBatchData, @NotNull ImportEventBO importEventBO) {
-        ImportEventExtendProcessor.super.beforeTranslate(importBatchData, importEventBO);
-
+    public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
         List<ImportSingleData> dataList = importBatchData.getData();
         for (ImportSingleData importSingleData : dataList) {
 

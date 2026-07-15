@@ -21,7 +21,7 @@ import java.util.Map;
 
 @BillPlugin(busiObj = "tcmBusFaultDataRecord")
 @Slf4j
-public class BusFaultDataRecord extends AbstractBillPlugin implements ImportEventExtendProcessor {
+public class BusFaultDataRecord extends AbstractBillPlugin {
 
     @Autowired
     private CommonUtil util;
@@ -40,12 +40,7 @@ public class BusFaultDataRecord extends AbstractBillPlugin implements ImportEven
 
     }
 
-
-
-    @Override
-    public void beforeTranslate(@NotNull ImportBatchData importBatchData, @NotNull ImportEventBO importEventBO) {
-        ImportEventExtendProcessor.super.beforeTranslate(importBatchData, importEventBO);
-
+    public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
         List<ImportSingleData> dataList = importBatchData.getData();
         List<String> ids = new ArrayList<>();
 

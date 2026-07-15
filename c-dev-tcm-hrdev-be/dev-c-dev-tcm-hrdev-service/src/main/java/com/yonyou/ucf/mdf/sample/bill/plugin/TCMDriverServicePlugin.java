@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  * @date
  */
 @BillPlugin(busiObj = "TCMDriverService")
-public class TCMDriverServicePlugin extends AbstractBillPlugin implements ImportEventExtendProcessor {
+public class TCMDriverServicePlugin extends AbstractBillPlugin {
 
     @Autowired
     private IBillRepository billRepository;
@@ -35,8 +35,12 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
     @Autowired
     private CommonUtil commonUtil;
 
-    @Override
-    public void beforeTranslate(@NotNull ImportBatchData importBatchData, @NotNull ImportEventBO importEventBO) {
+    /**
+     *
+     * @param importBatchData
+     * @param importEventBO
+     */
+    public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
         // 获取导入数据列表
         List<ImportSingleData> dataList = importBatchData.getData();
 
@@ -155,7 +159,7 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin implements Import
             }
         }
 
-        ImportEventExtendProcessor.super.beforeTranslate(importBatchData, importEventBO);
+
     }
 
 }
