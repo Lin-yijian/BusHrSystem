@@ -8,6 +8,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMSerivceIndex;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.ImportEventExtendProcessor;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -35,131 +36,55 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin {
     @Autowired
     private CommonUtil commonUtil;
 
-    /**
-     *
-     * @param importBatchData
-     * @param importEventBO
-     */
+    @Autowired
+    private ImportValidateUtil importValidateUtil;
+
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
-        // 获取导入数据列表
         List<ImportSingleData> dataList = importBatchData.getData();
 
-        // 收集所有需要校验的相关信息
-        Set<String> plateNumbers = new HashSet<>();
-        Set<String> routeCodes = new HashSet<>();
-        Set<String> cardIds = new HashSet<>();
+        // 收集 + 批量查询车辆、路线、员工
+        ImportValidateUtil.ValidateContext ctx = importValidateUtil.collectAndQuery(
+                dataList,
+                TCMDriverService.CAR_PLATE_NUMBER,
+                TCMDriverService.ROUTE_ROUTE_CODE,
+                TCMDriverService.WAYBILL_EMPLOYEE_ID
+        );
+
+        // 收集指标编码 + 批量查询指标
         Set<String> indexCodes = new HashSet<>();
         for (ImportSingleData data : dataList) {
-            String plate = (String) data.getValueByKey(TCMDriverService.CAR_PLATE_NUMBER);
-            if (plate != null && !plate.isEmpty()) {
-                plateNumbers.add(plate);
-            }
-            String route = (String) data.getValueByKey(TCMDriverService.ROUTE_ROUTE_CODE);
-            if (route != null && !route.isEmpty()) {
-                routeCodes.add(route);
-            }
-            String cardId = (String) data.getValueByKey(TCMDriverService.WAYBILL_EMPLOYEE_ID);
-            if (cardId != null && !cardId.isEmpty()) {
-                cardIds.add(cardId);
-            }
-            String indexCode = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
-            if (indexCode != null && !indexCode.isEmpty()) {
-                indexCodes.add(indexCode);
+            String code = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
+            if (code != null && !code.isEmpty()) {
+                indexCodes.add(code);
             }
         }
-
-        String tenantid = InvocationInfoProxy.getTenantid();
-        // 查询车辆信息
-        Map<String, TCMCar> carMap = Collections.emptyMap();
-        if (!plateNumbers.isEmpty()) {
-            LambdaQueryCondition<TCMCar> carCondition = new LambdaQueryCondition<>(new TCMCar());
-            carCondition.in(TCMCar::getPlate_number, new ArrayList<>(plateNumbers))
-                    .eq(TCMCar::getYtenantId, tenantid)
-                    .eq(TCMCar::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
-            List<TCMCar> carList = billRepository.queryByClause(carCondition);
-            carMap = carList.stream().collect(Collectors.toMap(
-                    TCMCar::getPlate_number, r -> r, (a, b) -> a));
-        }
-
-        // 查询路线信息
-        Map<String, TCMRoute> routeMap = Collections.emptyMap();
-        if (!routeCodes.isEmpty()) {
-            LambdaQueryCondition<TCMRoute> routeCondition = new LambdaQueryCondition<>(new TCMRoute());
-            routeCondition.in(TCMRoute::getRoute_code, new ArrayList<>(routeCodes))
-                    .eq(TCMRoute::getYtenantId, tenantid)
-                    .eq(TCMRoute::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
-            List<TCMRoute> routeList = billRepository.queryByClause(routeCondition);
-            routeMap = routeList.stream().collect(Collectors.toMap(
-                    TCMRoute::getRoute_code, r -> r, (a, b) -> a));
-        }
-
-        // 根据澳巴工号获取员工信息
-        Map<String, String> cardMap = Collections.emptyMap();
-        if (!cardIds.isEmpty()) {
-            cardMap = commonUtil.getStaffByCardIds(new ArrayList<>(cardIds), tenantid);
-        }
-
-        // 获取指标数据
         Map<Object, TCMSerivceIndex> indexMap = Collections.emptyMap();
         if (!indexCodes.isEmpty()) {
-            LambdaQueryCondition<TCMSerivceIndex> indexCondition = new LambdaQueryCondition<>(new TCMSerivceIndex());
-            indexCondition.in(TCMSerivceIndex::getIndex_code, new ArrayList<>(indexCodes))
-                    .eq(TCMSerivceIndex::getYtenantId, tenantid)
+            LambdaQueryCondition<TCMSerivceIndex> condition = new LambdaQueryCondition<>(new TCMSerivceIndex());
+            condition.in(TCMSerivceIndex::getIndex_code, new ArrayList<>(indexCodes))
+                    .eq(TCMSerivceIndex::getYtenantId, InvocationInfoProxy.getTenantid())
                     .eq(TCMSerivceIndex::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
-            List<TCMSerivceIndex> indexList = billRepository.queryByClause(indexCondition);
-            indexMap = indexList.stream().collect(Collectors.toMap(
-                    TCMSerivceIndex::getIndex_code, r -> r, (a, b) -> a));
+            indexMap = billRepository.queryByClause(condition).stream()
+                    .collect(Collectors.toMap(TCMSerivceIndex::getIndex_code, r -> r, (a, b) -> a));
         }
 
-        // 校验
+        // 逐行校验
         for (ImportSingleData data : dataList) {
-            // 姓名
-            String name = (String) data.getValueByKey(TCMDriverService.DIVER_NAME);
-            if (name == null || name.isEmpty()) {
-                throw new RuntimeException("數據中姓名為空，請檢查");
-            }
-            // 工号
-            String cardId = (String) data.getValueByKey(TCMDriverService.WAYBILL_EMPLOYEE_ID);
-            if (cardId != null && !cardId.isEmpty()) {
-                if (!cardMap.containsKey(cardId)) {
-                    throw new RuntimeException("工號【" + cardId + "】在員工檔案中不存在");
-                } else {
-                    data.getData().put(TCMDriverService.EMPLOYEE_ID, cardMap.get(cardId));
-                }
-            } else {
-                throw new RuntimeException("數據中澳巴工號為空，請檢查");
-            }
-            // 车辆
-            String carPlateNum = (String) data.getValueByKey(TCMDriverService.CAR_PLATE_NUMBER);
-            if (carPlateNum != null && !carPlateNum.isEmpty()) {
-                if (!carMap.containsKey(carPlateNum)) {
-                    throw new RuntimeException("車牌號【" + carPlateNum + "】在車輛檔案中不存在");
-                } else {
-                    data.getData().put(TCMDriverService.CAR, carMap.get(carPlateNum).getId());
-                }
-            }
-            // 路线
-            String routeCode = (String) data.getValueByKey(TCMDriverService.ROUTE_ROUTE_CODE);
-            if (routeCode != null && !routeCode.isEmpty()) {
-                if (!routeMap.containsKey(routeCode)) {
-                    throw new RuntimeException("路線編號【" + routeCode + "】在路線檔案中不存在");
-                } else {
-                    data.getData().put(TCMDriverService.ROUTE, routeMap.get(routeCode).getId());
-                }
-            }
-            // 指标
+            importValidateUtil.validateRow(data, ctx,
+                    TCMDriverService.DIVER_NAME,
+                    TCMDriverService.WAYBILL_EMPLOYEE_ID, TCMDriverService.EMPLOYEE_ID,
+                    TCMDriverService.CAR_PLATE_NUMBER, TCMDriverService.CAR,
+                    TCMDriverService.ROUTE_ROUTE_CODE, TCMDriverService.ROUTE
+            );
+            // 指标校验
             String indexCode = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
             if (indexCode != null && !indexCode.isEmpty()) {
                 if (!indexMap.containsKey(indexCode)) {
                     throw new RuntimeException("指標編號【" + indexCode + "】在指標檔案中不存在");
-                } else {
-                    data.getData().put(TCMDriverService.INDEX_NO, indexMap.get(indexCode).getId());
-                    data.getData().put(TCMDriverService.INDEX_DESC, indexMap.get(indexCode).getContent());
                 }
+                data.getData().put(TCMDriverService.INDEX_NO, indexMap.get(indexCode).getId());
+                data.getData().put(TCMDriverService.INDEX_DESC, indexMap.get(indexCode).getContent());
             }
         }
-
-
     }
-
 }

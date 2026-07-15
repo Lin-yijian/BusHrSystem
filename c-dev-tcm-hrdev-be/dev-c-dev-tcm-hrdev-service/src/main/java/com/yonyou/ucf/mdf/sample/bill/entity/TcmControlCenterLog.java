@@ -1,5 +1,5 @@
+/*--------------------JavaPOJO for 控制中心日誌(tcmControlCenterLog)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
-
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
 import com.yonyou.ypd.bill.base.*;
@@ -9,15 +9,18 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 控制中心日誌
- * @Date 2026-07-14 14:49:48
+ * @Date 2026-07-15 17:37:18
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMCaptainAttendance.CJ26030001.tcmControlCenterLog", domain = "c-dev-tcm-hrdev")
 public class TcmControlCenterLog extends SuperDO implements ICode,ILogicDelete {
     public static final String ENTITY_NAME = "TCMCaptainAttendance.CJ26030001.tcmControlCenterLog";
     public static final String DATE = "date";
+    public static final String CAR = "car";
     public static final String VEHICLE_NO = "vehicle_no";
+    public static final String DEPART_TIME = "depart_time";
     public static final String DRIVER_NO = "driver_no";
+    public static final String RETURN_TIME = "return_time";
     public static final String EMPLOYEE_ID = "employee_id";
     public static final String TYPE = "type";
     public static final String CONTENT = "content";
@@ -37,13 +40,21 @@ public class TcmControlCenterLog extends SuperDO implements ICode,ILogicDelete {
     public static final String MODIFYTIME = "modifyTime";
     public static final String PUBTS = "pubts";
     public static final String YTENANTID = "ytenantId";
+    public static final String ROUTE_ROUTE_CODE = "route_route_code";
+    public static final String CAR_PLATE_NUMBER = "car_plate_number";
 
     /* 日期 */
     private String date;
+    /* 車牌號 */
+    private String car;
     /* 車號 */
     private String vehicle_no;
+    /* 發車時間 */
+    private String depart_time;
     /* 車長編號 */
     private String driver_no;
+    /* 收車時間 */
+    private String return_time;
     /* 車長工號 */
     private String employee_id;
     /* 類型 */
@@ -87,12 +98,24 @@ public class TcmControlCenterLog extends SuperDO implements ICode,ILogicDelete {
         this.date = date;
     }
 
+    public void setCar(String car) {
+        this.car = car;
+    }
+
     public void setVehicle_no(String vehicle_no) {
         this.vehicle_no = vehicle_no;
     }
 
+    public void setDepart_time(String depart_time) {
+        this.depart_time = depart_time;
+    }
+
     public void setDriver_no(String driver_no) {
         this.driver_no = driver_no;
+    }
+
+    public void setReturn_time(String return_time) {
+        this.return_time = return_time;
     }
 
     public void setEmployee_id(String employee_id) {
@@ -175,12 +198,24 @@ public class TcmControlCenterLog extends SuperDO implements ICode,ILogicDelete {
         return date;
     }
 
+    public String getCar() {
+        return car;
+    }
+
     public String getVehicle_no() {
         return vehicle_no;
     }
 
+    public String getDepart_time() {
+        return depart_time;
+    }
+
     public String getDriver_no() {
         return driver_no;
+    }
+
+    public String getReturn_time() {
+        return return_time;
     }
 
     public String getEmployee_id() {
@@ -267,4 +302,3 @@ public class TcmControlCenterLog extends SuperDO implements ICode,ILogicDelete {
         }
     }
 }
-
