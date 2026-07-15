@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 巴士故障數據記錄(tcmBusFaultDataRecord)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -8,7 +9,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 巴士故障數據記錄
- * @Date 2026-07-14 16:39:18
+ * @Date 2026-07-15 17:02:27
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMCaptainAttendance.CJ26030001.tcmBusFaultDataRecord", domain = "c-dev-tcm-hrdev")
@@ -21,15 +22,19 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
     public static final String BUS_ARRANGE = "bus_arrange";
     public static final String IS_CHANGE_BUS_MIDWAY = "is_change_bus_midway";
     public static final String DRIVER_NO = "driver_no";
+    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
+    public static final String EMPLOYEE_ID = "employee_id";
     public static final String FOLLOW_UP_STATUS = "follow_up_status";
     public static final String OCC_GROUP_LEADER = "occ_group_leader";
     public static final String ROUTE = "route";
     public static final String REPORT_TIME = "report_time";
     public static final String FAULT_CONSUME_TIME = "fault_consume_time";
-    public static final String FAULT_DETAIL_DESC = "fault_detail_desc";
     public static final String BUS_CODE = "bus_code";
+    public static final String FAULT_DETAIL_DESC = "fault_detail_desc";
+    public static final String CAR = "car";
+    public static final String DEPART_TIME = "depart_time";
+    public static final String RETURN_TIME = "return_time";
     public static final String REPORT_DATE = "report_date";
-    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -52,8 +57,12 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
     private String bus_arrange;
     /* 是否中途換車 */
     private Boolean is_change_bus_midway;
-    /* 車長编號 */
+    /* 車長編號 */
     private String driver_no;
+    /* 澳巴工號 */
+    private String waybill_employee_id;
+    /* 人員編號 */
+    private String employee_id;
     /* 跟進情況 */
     private String follow_up_status;
     /* OCC組長 */
@@ -64,14 +73,18 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
     private String report_time;
     /* 故障耗時 */
     private String fault_consume_time;
-    /* 故障詳情描述 */
-    private String fault_detail_desc;
     /* 巴士編號 */
     private String bus_code;
+    /* 故障詳情描述 */
+    private String fault_detail_desc;
+    /* 車牌號 */
+    private String car;
+    /* 發車時間 */
+    private String depart_time;
+    /* 收車時間 */
+    private String return_time;
     /* 報告日期 */
     private String report_date;
-    /* 澳巴工號 */
-    private String waybill_employee_id;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -119,6 +132,14 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
         this.driver_no = driver_no;
     }
 
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
+    }
+
+    public void setEmployee_id(String employee_id) {
+        this.employee_id = employee_id;
+    }
+
     public void setFollow_up_status(String follow_up_status) {
         this.follow_up_status = follow_up_status;
     }
@@ -139,20 +160,28 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
         this.fault_consume_time = fault_consume_time;
     }
 
-    public void setFault_detail_desc(String fault_detail_desc) {
-        this.fault_detail_desc = fault_detail_desc;
-    }
-
     public void setBus_code(String bus_code) {
         this.bus_code = bus_code;
     }
 
-    public void setReport_date(String report_date) {
-        this.report_date = report_date;
+    public void setFault_detail_desc(String fault_detail_desc) {
+        this.fault_detail_desc = fault_detail_desc;
     }
 
-    public void setWaybill_employee_id(String waybill_employee_id) {
-        this.waybill_employee_id = waybill_employee_id;
+    public void setCar(String car) {
+        this.car = car;
+    }
+
+    public void setDepart_time(String depart_time) {
+        this.depart_time = depart_time;
+    }
+
+    public void setReturn_time(String return_time) {
+        this.return_time = return_time;
+    }
+
+    public void setReport_date(String report_date) {
+        this.report_date = report_date;
     }
 
     public void setCode(String code) {
@@ -219,6 +248,14 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
         return driver_no;
     }
 
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
+    }
+
+    public String getEmployee_id() {
+        return employee_id;
+    }
+
     public String getFollow_up_status() {
         return follow_up_status;
     }
@@ -239,20 +276,28 @@ public class TcmBusFaultDataRecord extends SuperDO implements ICode,ILogicDelete
         return fault_consume_time;
     }
 
-    public String getFault_detail_desc() {
-        return fault_detail_desc;
-    }
-
     public String getBus_code() {
         return bus_code;
     }
 
-    public String getReport_date() {
-        return report_date;
+    public String getFault_detail_desc() {
+        return fault_detail_desc;
     }
 
-    public String getWaybill_employee_id() {
-        return waybill_employee_id;
+    public String getCar() {
+        return car;
+    }
+
+    public String getDepart_time() {
+        return depart_time;
+    }
+
+    public String getReturn_time() {
+        return return_time;
+    }
+
+    public String getReport_date() {
+        return report_date;
     }
 
     public String getCode() {
