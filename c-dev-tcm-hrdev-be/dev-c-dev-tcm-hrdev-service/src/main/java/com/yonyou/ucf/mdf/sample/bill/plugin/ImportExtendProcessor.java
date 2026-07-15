@@ -22,16 +22,16 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
     private final Map<String, BiConsumer<ImportBatchData, ImportEventBO>> strategyMap = new HashMap<>();
 
     @Autowired
-    public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecord p2,
-                               DriverOvertimeRecordPlugin p3, TcmAbsenceDataRecordPlugin p4,
-                               TcmControlCenterLogPlugin p5,
-                               TCMDriverSafePlugin p6) {
+    public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecord p2, DriverOvertimeRecordPlugin p3,
+                               TcmAbsenceDataRecordPlugin p4, TcmControlCenterLogPlugin p5, TCMDriverSafePlugin p6,
+                               TCMTrafficAccidentPlugin p7) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
         strategyMap.put("TCMSafety", p3::beforeTranslate);
         strategyMap.put("tcmAbsenceDataRecord", p4::beforeTranslate);
         strategyMap.put("tcmControlCenterLog", p5::beforeTranslate);
-        strategyMap.put("TCMSafety", p6::processBeforeImport);
+        strategyMap.put("TCMDriverSafe", p6::processBeforeImport);
+        strategyMap.put("TCMTrafficAccident", p7::processBeforeImport);
     }
 
     @Override
