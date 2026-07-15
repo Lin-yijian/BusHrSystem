@@ -19,6 +19,12 @@ public class CommonUtil {
     protected IBillQueryRepository queryService;
 
 
+    /**
+     * 根据澳巴工号获取员工信息
+     * @param ids 澳巴工号集合
+     * @param tenantId 租户ID
+     * @return k->澳巴工号   v->员工信息ID
+     */
     public Map<String,String> getStaffByCardIds(List<String> ids, String tenantId) {
         QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
         querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
@@ -39,6 +45,12 @@ public class CommonUtil {
 
     }
 
+    /**
+     * 根据澳巴工号获取员工信息
+     * @param id 澳巴工号
+     * @param tenantId 租户ID
+     * @return 员工信息ID
+     */
     public String getStaffByCardId(String id, String tenantId) {
         QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
         querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").eq(id));

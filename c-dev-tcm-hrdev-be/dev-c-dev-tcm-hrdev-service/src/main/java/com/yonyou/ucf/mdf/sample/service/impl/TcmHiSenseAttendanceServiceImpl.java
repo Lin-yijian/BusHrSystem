@@ -7,6 +7,7 @@ import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
@@ -107,6 +108,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         removeByRunDate(runDate);
 
         List<TcmHisenseAttendanceData> dataList = new ArrayList<>();
+        List<TcmDriverHolidayWorkRecord> driverHolidayWorkRecordList = new ArrayList<>();
 
         List<String> routeNameList = new ArrayList<>();
         List<String> busCardIdList = new ArrayList<>();
@@ -160,11 +162,20 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
             data.setCar(tcmCar.getId());
             data.setRoute(tcmRoute.getId());
+
+            TcmDriverHolidayWorkRecord driverHolidayWorkRecord = new TcmDriverHolidayWorkRecord();
+            driverHolidayWorkRecord.setEmployee_id(data.getEmployee_id());
+            driverHolidayWorkRecord.setDriver_no(data.getWaybill_employee_id());
+            driverHolidayWorkRecord.setDriver_name(data.getDriver_name());
+            driverHolidayWorkRecord.setDate(runDate);
+            driverHolidayWorkRecordList.add(driverHolidayWorkRecord);
             dataList.add(data);
 
         }
 
         billRepository.insert(dataList);
+        // 車長假期工作記錄
+        billRepository.insert(driverHolidayWorkRecordList);
 
 
     }
