@@ -24,29 +24,15 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
     @Autowired
     public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecord p2, DriverOvertimeRecordPlugin p3,
                                TcmAbsenceDataRecordPlugin p4, TcmControlCenterLogPlugin p5, TCMDriverSafePlugin p6,
-                               TCMTrafficAccidentPlugin p7,
-                               TCMgsPlugin p8,
-                               TCMqttrainingPlugin p9,
-                               TCMtjcheckPlugin p10,
-                               TCMzy01Plugin p11,
-                               TCMgftrainingPlugin p12,
-                               TcmVehicleDutyRecordPlugin p13,
-                               TCMcztrainingPlugin p14) {
+                               TCMTrafficAccidentPlugin p7,TcmFuelGasDataRecordPlugin p8) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
-        strategyMap.put("tcmDriverOvertimeRecord", p3::beforeTranslate);
+        strategyMap.put("TCMSafety", p3::beforeTranslate);
         strategyMap.put("tcmAbsenceDataRecord", p4::beforeTranslate);
         strategyMap.put("tcmControlCenterLog", p5::beforeTranslate);
         strategyMap.put("TCMDriverSafe", p6::processBeforeImport);
         strategyMap.put("TCMTrafficAccident", p7::processBeforeImport);
-
-        strategyMap.put("TCMgs", p8::beforeTranslate);
-        strategyMap.put("TCMqttraining", p9::beforeTranslate);
-        strategyMap.put("TCMtjcheck", p10::beforeTranslate);
-        strategyMap.put("TCMzy01", p11::beforeTranslate);
-        strategyMap.put("TCMgftraining", p12::beforeTranslate);
-        strategyMap.put("tcmVehicleDutyRecord", p13::beforeTranslate);
-        strategyMap.put("TCMcztraining", p14::beforeTranslate);
+        strategyMap.put("tcmFuelGasDataRecord",p8::beforeTranslate);
     }
 
     @Override
@@ -58,4 +44,5 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
             handler.accept(importBatchData, importEventBO);
         }
     }
+
 }
