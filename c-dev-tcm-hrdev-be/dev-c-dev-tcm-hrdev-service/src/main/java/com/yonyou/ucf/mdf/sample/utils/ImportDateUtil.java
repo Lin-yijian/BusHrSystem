@@ -4,9 +4,11 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 
+@Component
 public class ImportDateUtil {
 
     @Autowired
