@@ -9,11 +9,11 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 服务奖指标
- * @Date 2026-07-13 15:01:47
+ * @Date 2026-07-16 16:30:38
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMBaseInfo.TCMBaseInfo.TCMSerivceIndex", domain = "c-dev-tcm-hrdev")
-public class TCMSerivceIndex extends SuperDO implements ICode,ILogicDelete {
+public class TCMSerivceIndex extends SuperDO implements ICode,IEnable,ILogicDelete {
     public static final String ENTITY_NAME = "TCMBaseInfo.TCMBaseInfo.TCMSerivceIndex";
     public static final String INDEX_CODE = "index_code";
     public static final String CONTENT = "content";
@@ -24,7 +24,10 @@ public class TCMSerivceIndex extends SuperDO implements ICode,ILogicDelete {
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
+    public static final String DISABLETS = "disablets";
     public static final String DR = "dr";
+    public static final String ENABLE = "enable";
+    public static final String ENABLETS = "enablets";
     public static final String ID = "id";
     public static final String MODIFIER = "modifier";
     public static final String MODIFYTIME = "modifyTime";
@@ -49,8 +52,14 @@ public class TCMSerivceIndex extends SuperDO implements ICode,ILogicDelete {
     private Date createTime;
     /* 创建人 */
     private String creator;
+    /* 停用时间 */
+    private Date disablets;
     /* 逻辑删除 */
     private Short dr;
+    /* 档案状态 */
+    private String enable;
+    /* 启用时间 */
+    private Date enablets;
     /* id */
     private String id;
     /* 修改人 */
@@ -98,8 +107,20 @@ public class TCMSerivceIndex extends SuperDO implements ICode,ILogicDelete {
         this.creator = creator;
     }
 
+    public void setDisablets(Date disablets) {
+        this.disablets = disablets;
+    }
+
     public void setDr(Short dr) {
         this.dr = dr;
+    }
+
+    public void setEnable(String enable) {
+        this.enable = enable;
+    }
+
+    public void setEnablets(Date enablets) {
+        this.enablets = enablets;
     }
 
     public void setId(String id) {
@@ -158,8 +179,20 @@ public class TCMSerivceIndex extends SuperDO implements ICode,ILogicDelete {
         return creator;
     }
 
+    public Date getDisablets() {
+        return disablets;
+    }
+
     public Short getDr() {
         return dr;
+    }
+
+    public String getEnable() {
+        return enable;
+    }
+
+    public Date getEnablets() {
+        return enablets;
     }
 
     public String getId() {
@@ -190,4 +223,3 @@ public class TCMSerivceIndex extends SuperDO implements ICode,ILogicDelete {
         }
     }
 }
-
