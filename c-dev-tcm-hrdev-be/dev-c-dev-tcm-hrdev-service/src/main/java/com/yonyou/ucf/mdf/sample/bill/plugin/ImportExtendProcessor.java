@@ -31,7 +31,8 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
                                TCMzy01Plugin p11,
                                TCMgftrainingPlugin p12,
                                TcmVehicleDutyRecordPlugin p13,
-                               TCMcztrainingPlugin p14) {
+                               TCMcztrainingPlugin p14,
+                               TcmFuelGasDataRecordPlugin p15) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
         strategyMap.put("tcmDriverOvertimeRecord", p3::beforeTranslate);
@@ -47,6 +48,8 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
         strategyMap.put("TCMgftraining", p12::beforeTranslate);
         strategyMap.put("tcmVehicleDutyRecord", p13::beforeTranslate);
         strategyMap.put("TCMcztraining", p14::beforeTranslate);
+
+        strategyMap.put("tcmFuelGasDataRecord",p15::beforeTranslate);
     }
 
     @Override
@@ -58,4 +61,5 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
             handler.accept(importBatchData, importEventBO);
         }
     }
+
 }
