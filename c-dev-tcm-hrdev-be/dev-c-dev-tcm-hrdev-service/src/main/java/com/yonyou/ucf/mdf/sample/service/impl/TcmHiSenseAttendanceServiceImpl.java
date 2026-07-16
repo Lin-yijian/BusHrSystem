@@ -5,10 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
-import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
-import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
@@ -28,6 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -109,6 +108,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         List<TcmHisenseAttendanceData> dataList = new ArrayList<>();
         List<TcmDriverHolidayWorkRecord> driverHolidayWorkRecordList = new ArrayList<>();
+        List<TcmBaTypeAttendanceData> baTypeAttendanceDataList = new ArrayList<>();
 
         List<String> routeNameList = new ArrayList<>();
         List<String> busCardIdList = new ArrayList<>();
@@ -163,12 +163,29 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             data.setCar(tcmCar.getId());
             data.setRoute(tcmRoute.getId());
 
+            // 车长假期工作
             TcmDriverHolidayWorkRecord driverHolidayWorkRecord = new TcmDriverHolidayWorkRecord();
             driverHolidayWorkRecord.setEmployee_id(data.getEmployee_id());
             driverHolidayWorkRecord.setDriver_no(data.getWaybill_employee_id());
             driverHolidayWorkRecord.setDriver_name(data.getDriver_name());
             driverHolidayWorkRecord.setDate(runDate);
             driverHolidayWorkRecordList.add(driverHolidayWorkRecord);
+
+            // 巴型转数
+            TcmBaTypeAttendanceData baTypeAttendanceData = new TcmBaTypeAttendanceData();
+            baTypeAttendanceData.settCMCar(tcmCar.getId());
+            baTypeAttendanceData.settCMCarType(tcmCar.getCar_type());
+            baTypeAttendanceData.setPlate_number(hiSenseData.getBuscardid());
+            baTypeAttendanceData.setDriver_name(hiSenseData.getDriverName());
+            baTypeAttendanceData.setData_count(String.valueOf(hiSenseData.getCount()));
+            baTypeAttendanceData.setDate(runDate);
+            baTypeAttendanceData.setEmployee_id(data.getEmployee_id());
+            baTypeAttendanceData.setBus_transfer_times(calculateHourDifferencePrecise(hiSenseData.getRealleavetime(),hiSenseData.getRealarrivetime()));
+            baTypeAttendanceDataList.add(baTypeAttendanceData);
+
+
+
+
             dataList.add(data);
 
         }
@@ -176,8 +193,29 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         billRepository.insert(dataList);
         // 車長假期工作記錄
         billRepository.insert(driverHolidayWorkRecordList);
+        // 巴型转数
+        billRepository.insert(baTypeAttendanceDataList);
 
 
+    }
+
+
+    /**
+     * 巴型转数计算方法
+     * @param startTime 实际发车时间
+     * @param endTime 实际到达时间
+     * @return .
+     */
+    public BigDecimal calculateHourDifferencePrecise(Date startTime, Date endTime) {
+        if (startTime == null || endTime == null) {
+            throw new IllegalArgumentException("时间参数不能为null");
+        }
+
+        long diffInMillis = endTime.getTime() - startTime.getTime();
+        BigDecimal diffInHours = BigDecimal.valueOf(diffInMillis)
+                .divide(BigDecimal.valueOf(1000 * 60 * 60), 10, RoundingMode.HALF_UP);
+
+        return diffInHours.multiply(BigDecimal.valueOf(24));
     }
 
 

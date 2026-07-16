@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 
 
-@BillPlugin(busiObj = "TCMSafety")
+@BillPlugin(busiObj = "tcmDriverOvertimeRecord")
 @Slf4j
 public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
 

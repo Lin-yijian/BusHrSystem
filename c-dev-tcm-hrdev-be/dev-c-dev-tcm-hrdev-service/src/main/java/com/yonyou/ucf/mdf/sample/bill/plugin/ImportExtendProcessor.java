@@ -27,7 +27,7 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
                                TCMTrafficAccidentPlugin p7) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
-        strategyMap.put("TCMSafety", p3::beforeTranslate);
+        strategyMap.put("tcmDriverOvertimeRecord", p3::beforeTranslate);
         strategyMap.put("tcmAbsenceDataRecord", p4::beforeTranslate);
         strategyMap.put("tcmControlCenterLog", p5::beforeTranslate);
         strategyMap.put("TCMDriverSafe", p6::processBeforeImport);
