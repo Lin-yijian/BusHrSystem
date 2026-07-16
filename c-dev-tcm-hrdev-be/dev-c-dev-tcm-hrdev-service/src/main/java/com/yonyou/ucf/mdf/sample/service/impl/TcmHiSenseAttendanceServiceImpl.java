@@ -169,6 +169,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             driverHolidayWorkRecord.setDriver_no(data.getWaybill_employee_id());
             driverHolidayWorkRecord.setDriver_name(data.getDriver_name());
             driverHolidayWorkRecord.setDate(runDate);
+            driverHolidayWorkRecord.setYtenantId(tenantId);
             driverHolidayWorkRecordList.add(driverHolidayWorkRecord);
 
             // 巴型转数
@@ -180,6 +181,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             baTypeAttendanceData.setData_count(String.valueOf(hiSenseData.getCount()));
             baTypeAttendanceData.setDate(runDate);
             baTypeAttendanceData.setEmployee_id(data.getEmployee_id());
+            baTypeAttendanceData.setWaybill_employee_id(data.getWaybill_employee_id());
+            baTypeAttendanceData.setYtenantId(tenantId);
             baTypeAttendanceData.setBus_transfer_times(calculateHourDifferencePrecise(hiSenseData.getRealleavetime(),hiSenseData.getRealarrivetime()));
             baTypeAttendanceDataList.add(baTypeAttendanceData);
 
