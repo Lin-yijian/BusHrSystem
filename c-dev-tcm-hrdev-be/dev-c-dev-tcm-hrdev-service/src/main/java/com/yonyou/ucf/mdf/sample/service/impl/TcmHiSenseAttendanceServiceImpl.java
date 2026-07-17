@@ -11,6 +11,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -57,6 +58,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     @Autowired
     private TcmCarService tcmCarService;
+
+    @Autowired
+    private TcmAttendanceCorrectionService attendanceCorrectionService;
 
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
@@ -120,14 +124,14 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         }
 
+        // 基礎信息
         String tenantId = InvocationInfoProxy.getTenantid();
-
         Map<String, String> staffMap = getStaffByCardIds(employeeIdList, tenantId);
-
         Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
-
         Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
 
+        // 收集條件
+        Set<String> staffSet = new HashSet<>();
 
         for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
             String id = ymsOidGenerator.nextStrId();
@@ -158,6 +162,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             }
 
             String staffId = staffMap.get(hiSenseData.getEmployeeId());
+            staffSet.add(staffId);
             data.setEmployee_id(staffId);
 
             data.setCar(tcmCar.getId());
@@ -187,11 +192,13 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             baTypeAttendanceDataList.add(baTypeAttendanceData);
 
 
-
-
             dataList.add(data);
 
         }
+
+        // 更新考勤修正数据
+        assemblyCorrection(dataList, runDate, staffSet);
+
 
         billRepository.insert(dataList);
         // 車長假期工作記錄
@@ -200,6 +207,86 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         billRepository.insert(baTypeAttendanceDataList);
 
 
+    }
+
+    /**
+     * 为 TcmAttendanceCorrection 填充符合条件的数据
+     * @param dataList 海信考勤数据
+     * @param runDate 日期
+     * @param staffIdList 员工ID集合
+     */
+    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList,String runDate, Collection<String> staffIdList){
+        List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateListAndStaffIds(runDate, staffIdList);
+
+        Map<String, List<TcmHisenseAttendanceData>> m2 = dataList.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(TcmHisenseAttendanceData::getEmployee_id));
+
+
+        for (TcmAttendanceCorrection correction : correctionList) {
+            String employeeId = correction.getEmployee_id();
+            List<TcmHisenseAttendanceData> attendanceDataList = m2.get(employeeId);
+
+            if (attendanceDataList == null || attendanceDataList.isEmpty()) {
+                continue;
+            }
+
+            // 1. kq_one_departure_time：取数据集中 real_leave_time 的最小值
+            Date minRealLeaveTime = attendanceDataList.stream()
+                    .map(TcmHisenseAttendanceData::getReal_leave_time)
+                    .filter(Objects::nonNull)
+                    .min(Date::compareTo)
+                    .orElse(null);
+            correction.setKq_one_departure_time(minRealLeaveTime);
+
+            // 2. kq_one_return_time：取数据集中 real_arrive_time 与 pg_one_return_time 最接近的值
+            Date pgOneReturnTime = correction.getPg_one_return_time();
+            Date closestArriveTime1 = findClosestDate(attendanceDataList, pgOneReturnTime, true);
+            correction.setKq_one_return_time(closestArriveTime1);
+
+            // 3. kq_two_departure_time：取数据集中 real_leave_time 与 pg_two_departure_time 最接近的值
+            Date pgTwoDepartureTime = correction.getPg_two_departure_time();
+            Date closestLeaveTime2 = findClosestDate(attendanceDataList, pgTwoDepartureTime, false);
+            correction.setKq_two_departure_time(closestLeaveTime2);
+
+            // 4. kq_two_return_time：取数据集中 real_arrive_time 与 pg_two_return_time 最接近的值
+            Date pgTwoReturnTime = correction.getPg_two_return_time();
+            Date closestArriveTime2 = findClosestDate(attendanceDataList, pgTwoReturnTime, true);
+            correction.setKq_two_return_time(closestArriveTime2);
+        }
+
+        billRepository.update(correctionList);
+
+    }
+
+    /**
+     * 在海信考勤数据列表中查找与目标时间最接近的时间
+     * @param dataList 海信考勤数据列表
+     * @param targetDate 目标时间
+     * @param findArriveTime true表示查找real_arrive_time，false表示查找real_leave_time
+     * @return 最接近的时间，如果列表为空或目标时间为空则返回null
+     */
+    private Date findClosestDate(List<TcmHisenseAttendanceData> dataList, Date targetDate, boolean findArriveTime) {
+        if (targetDate == null || dataList == null || dataList.isEmpty()) {
+            return null;
+        }
+
+        long targetTime = targetDate.getTime();
+        Date closestDate = null;
+        long minDiff = Long.MAX_VALUE;
+
+        for (TcmHisenseAttendanceData data : dataList) {
+            Date dateToCompare = findArriveTime ? data.getReal_arrive_time() : data.getReal_leave_time();
+            if (dateToCompare != null) {
+                long diff = Math.abs(dateToCompare.getTime() - targetTime);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestDate = dateToCompare;
+                }
+            }
+        }
+
+        return closestDate;
     }
 
 
