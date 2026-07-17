@@ -56,10 +56,9 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         DataFormatter formatter = new DataFormatter();
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
 
             Sheet dataSheet = workbook.getSheet("Data");
-            String baseDate = getCellString(dataSheet, colToIndex("B"), 0, formatter, evaluator);
+            String baseDate = getCellString(dataSheet, colToIndex("B"), 0, formatter);
             if (baseDate == null || baseDate.isEmpty()) {
                 baseDate = "2026-04-13";
             }
@@ -67,8 +66,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             Map<String, String> hisunMap = new LinkedHashMap<>();
             if (dataSheet != null) {
                 for (int r = 2; r <= dataSheet.getLastRowNum(); r++) {
-                    String t = getCellString(dataSheet, colToIndex("A"), r, formatter, evaluator);
-                    String h = getCellString(dataSheet, colToIndex("B"), r, formatter, evaluator);
+                    String t = getCellString(dataSheet, colToIndex("A"), r, formatter);
+                    String h = getCellString(dataSheet, colToIndex("B"), r, formatter);
                     if (t != null && !t.isEmpty() && h != null && !h.isEmpty()) {
                         hisunMap.put(t, h);
                     }
@@ -89,23 +88,23 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                 int emptyCount = 0;
 
                 for (int r = 4; r <= sheet.getLastRowNum(); r++) {
-                    String amTask = getCellString(sheet, colToIndex("F"), r, formatter, evaluator);
+                    String amTask = getCellString(sheet, colToIndex("F"), r, formatter);
                     if (amTask != null && !amTask.isEmpty()) {
                         emptyCount = 0;
                         globalSeq++;
                         allRecords.add(makeRecord(baseDate, globalSeq, name, amTask, hisunMap,
-                                sheet, r, "AM", formatter, evaluator));
+                                sheet, r, "AM", formatter));
                     } else {
                         emptyCount++;
                     }
 
                     if (!isN) {
-                        String pmTask = getCellString(sheet, colToIndex("Z"), r, formatter, evaluator);
+                        String pmTask = getCellString(sheet, colToIndex("Z"), r, formatter);
                         if (pmTask != null && !pmTask.isEmpty()) {
                             emptyCount = 0;
                             globalSeq++;
                             allRecords.add(makeRecord(baseDate, globalSeq, name, pmTask, hisunMap,
-                                    sheet, r, "PM", formatter, evaluator));
+                                    sheet, r, "PM", formatter));
                         }
                     }
 
@@ -120,7 +119,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
     private WaybillExcelRecord makeRecord(String baseDate, int globalSeq, String routeSheet,
                                            String taskId, Map<String, String> hisunMap,
                                            Sheet sheet, int row, String shiftType,
-                                           DataFormatter formatter, FormulaEvaluator evaluator) {
+                                           DataFormatter formatter) {
         String carCol = "AM".equals(shiftType) ? "E" : "Y";
         String depCol = "AM".equals(shiftType) ? "G" : "AA";
         String retCol = "AM".equals(shiftType) ? "O" : "AI";
@@ -132,19 +131,19 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         record.setDataCount(globalSeq);
         record.setTaskId(taskId);
         record.setHisunId(lookupHisun(taskId, hisunMap));
-        record.setPlate(getCellString(sheet, colToIndex(carCol), row, formatter, evaluator));
+        record.setPlate(getCellString(sheet, colToIndex(carCol), row, formatter));
         record.setRouteSheet(routeSheet);
-        record.setDepartTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(depCol), row, formatter, evaluator)));
-        record.setReturnTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(retCol), row, formatter, evaluator)));
+        record.setDepartTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(depCol), row, formatter)));
+        record.setReturnTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(retCol), row, formatter)));
 
-        String mealStr = getCellString(sheet, colToIndex(mealCol), row, formatter, evaluator);
+        String mealStr = getCellString(sheet, colToIndex(mealCol), row, formatter);
         try {
             record.setMealCount(mealStr != null && !mealStr.isEmpty() ? Integer.parseInt(mealStr) : 0);
         } catch (NumberFormatException e) {
             record.setMealCount(0);
         }
 
-        String loc = getCellString(sheet, colToIndex(locCol), row, formatter, evaluator);
+        String loc = getCellString(sheet, colToIndex(locCol), row, formatter);
         record.setLocation(loc != null ? loc.replaceAll("[\\r\\n]+", "") : "");
         record.setParkingSpace("");
 
@@ -286,13 +285,13 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         return result;
     }
 
-    private static String getCellString(Sheet sheet, int colIdx, int rowIdx, DataFormatter formatter, FormulaEvaluator evaluator) {
+    private static String getCellString(Sheet sheet, int colIdx, int rowIdx, DataFormatter formatter) {
         if (sheet == null) return null;
         Row row = sheet.getRow(rowIdx);
         if (row == null) return null;
         Cell cell = row.getCell(colIdx);
         if (cell == null) return null;
-        String val = formatter.formatCellValue(cell, evaluator).trim();
+        String val = formatter.formatCellValue(cell).trim();
         return val.isEmpty() ? null : val;
     }
 
