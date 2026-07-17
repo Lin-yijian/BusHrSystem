@@ -11,13 +11,9 @@ import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmWaybillImportService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
-import io.edap.util.StringUtil;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
-import org.imeta.orm.schema.SimpleCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,8 +30,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             "Data", "車號", "首頁", "中途插入", "包車", "Sheet1"
     ));
 
-    private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("yyyy-MM-dd");
-    private static final SimpleDateFormat DATE_TIME_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
     @Autowired
     private IBillRepository billRepository;
@@ -60,7 +55,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         List<WaybillExcelRecord> allRecords = new ArrayList<>();
         DataFormatter formatter = new DataFormatter();
 
-        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
 
             Sheet dataSheet = workbook.getSheet("Data");
             String baseDate = getCellString(dataSheet, colToIndex("B"), 0, formatter);
@@ -186,7 +181,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             String h = parts[0].length() == 1 ? "0" + parts[0] : parts[0];
             String m = parts.length > 1 ? parts[1] : "00";
             String s = parts.length > 2 ? parts[2] : "00";
-            return DATE_TIME_FMT.parse(dateStr + " " + h + ":" + m + ":" + s);
+//            return new SimpleDateFormat(DATE_TIME_PATTERN).parse(dateStr + " " + h + ":" + m + ":" + s);
+            return new SimpleDateFormat(DATE_TIME_PATTERN).parse(dateStr + " " + h + ":" + m + ":" + s);
         } catch (Exception e) {
             return null;
         }
@@ -217,7 +213,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         for (WaybillExcelRecord record : records) {
             String hisunId = record.getHisunId() != null ? record.getHisunId() : "";
             Map<String, Object> staff = staffMap.get(hisunId);
-            if (staff == null && hisunId != null && !hisunId.isEmpty()) {
+            if (hisunId.isEmpty() || staff == null) {
                 failCount++;
                 if (errors.size() < 5) errors.add("Staff未找到: hisunId=" + hisunId);
                 continue;
