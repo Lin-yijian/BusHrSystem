@@ -46,13 +46,15 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         int mergedGroups = 0;
         int skippedGroups = 0;
         int skippedRecords = 0;
-        int scheduleSuccess = 0;
+        int scheduleInserted = 0;
+        int scheduleUpdated = 0;
         int scheduleFail = 0;
         int correctionInserted = 0;
         int correctionUpdated = 0;
         int correctionFail = 0;
 
-        List<TcmSheduleShiftsData> scheduleList = new ArrayList<>();
+        List<TcmSheduleShiftsData> scheduleInsertList = new ArrayList<>();
+        List<TcmSheduleShiftsData> scheduleUpdateList = new ArrayList<>();
         List<TcmAttendanceCorrection> correctionInsertList = new ArrayList<>();
         List<TcmAttendanceCorrection> correctionUpdateList = new ArrayList<>();
 
@@ -64,12 +66,15 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 singleGroups++;
                 TcmWaybillSheduleShiftsData row = rows.get(0);
 
-                TcmSheduleShiftsData schedule = buildSchedule(row, row.getDeparture_time(), row.getFinish_time(), tenantId);
-                if (schedule != null) {
-                    scheduleList.add(schedule);
-                    scheduleSuccess++;
+                TcmSheduleShiftsData scheduleExisting = queryExistingSchedule(
+                        row.getDate(), row.getEmployee_id(), row.getTask_code(), tenantId);
+                if (scheduleExisting != null) {
+                    fillScheduleFields(scheduleExisting, row, row.getDeparture_time(), row.getFinish_time());
+                    scheduleUpdateList.add(scheduleExisting);
+                    scheduleUpdated++;
                 } else {
-                    scheduleFail++;
+                    scheduleInsertList.add(buildSchedule(row, row.getDeparture_time(), row.getFinish_time(), tenantId));
+                    scheduleInserted++;
                 }
 
                 TcmAttendanceCorrection existing = queryExistingCorrection(
@@ -104,12 +109,15 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                     continue;
                 }
 
-                TcmSheduleShiftsData schedule = buildSchedule(earlyRow, earlyRow.getDeparture_time(), lateRow.getFinish_time(), tenantId);
-                if (schedule != null) {
-                    scheduleList.add(schedule);
-                    scheduleSuccess++;
+                TcmSheduleShiftsData scheduleExisting = queryExistingSchedule(
+                        earlyRow.getDate(), earlyRow.getEmployee_id(), earlyRow.getTask_code(), tenantId);
+                if (scheduleExisting != null) {
+                    fillScheduleFields(scheduleExisting, earlyRow, earlyRow.getDeparture_time(), lateRow.getFinish_time());
+                    scheduleUpdateList.add(scheduleExisting);
+                    scheduleUpdated++;
                 } else {
-                    scheduleFail++;
+                    scheduleInsertList.add(buildSchedule(earlyRow, earlyRow.getDeparture_time(), lateRow.getFinish_time(), tenantId));
+                    scheduleInserted++;
                 }
 
                 TcmAttendanceCorrection existing = queryExistingCorrection(
@@ -129,8 +137,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             }
         }
 
-        if (!scheduleList.isEmpty()) {
-            billRepository.insert(scheduleList);
+        if (!scheduleInsertList.isEmpty()) {
+            billRepository.insert(scheduleInsertList);
+        }
+        if (!scheduleUpdateList.isEmpty()) {
+            billRepository.update(scheduleUpdateList);
         }
         if (!correctionInsertList.isEmpty()) {
             billRepository.insert(correctionInsertList);
@@ -146,7 +157,8 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         result.put("mergedGroups", mergedGroups);
         result.put("skippedGroups", skippedGroups);
         result.put("skippedRecords", skippedRecords);
-        result.put("scheduleInserted", scheduleSuccess);
+        result.put("scheduleInserted", scheduleInserted);
+        result.put("scheduleUpdated", scheduleUpdated);
         result.put("scheduleFailed", scheduleFail);
         result.put("correctionInserted", correctionInserted);
         result.put("correctionUpdated", correctionUpdated);
@@ -179,13 +191,28 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setYtenantId(tenantId);
         entity.setDate(row.getDate());
         entity.setEmployee_id(row.getEmployee_id());
+        entity.setTask_code(row.getTask_code());
+        fillScheduleFields(entity, row, departureTime, finishTime);
+        return entity;
+    }
+
+    private void fillScheduleFields(TcmSheduleShiftsData entity, TcmWaybillSheduleShiftsData row, Date departureTime, Date finishTime) {
         entity.setWaybill_employee_id(row.getWaybill_employee_id());
         entity.setName(row.getDriver_name());
         entity.setDeparture_time(departureTime);
         entity.setFinish_time(finishTime);
         entity.setMeal(row.getMeal_time());
-        entity.setTask_code(row.getTask_code());
-        return entity;
+    }
+
+    private TcmSheduleShiftsData queryExistingSchedule(String date, String employeeId, String taskCode, String tenantId) {
+        LambdaQueryCondition<TcmSheduleShiftsData> condition = new LambdaQueryCondition<>(new TcmSheduleShiftsData());
+        condition.eq(TcmSheduleShiftsData::getDate, date)
+                .eq(TcmSheduleShiftsData::getEmployee_id, employeeId)
+                .eq(TcmSheduleShiftsData::getTask_code, taskCode)
+                .eq(TcmSheduleShiftsData::getYtenantId, tenantId)
+                .eq(TcmSheduleShiftsData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmSheduleShiftsData> list = billRepository.queryByClause(condition);
+        return list.isEmpty() ? null : list.get(0);
     }
 
     private TcmAttendanceCorrection buildCorrection(TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, String tenantId) {
@@ -201,6 +228,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     }
 
     private void fillCorrectionFields(TcmAttendanceCorrection entity, TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow) {
+        entity.setWaybill_employee_id(earlyRow.getWaybill_employee_id());
         entity.setDriver_name(earlyRow.getDriver_name());
         entity.setPg_one_departure_time(earlyRow.getDeparture_time());
         entity.setPg_one_return_time(earlyRow.getFinish_time());
@@ -212,6 +240,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             entity.setPg_two_return_time(lateRow.getFinish_time());
             entity.setJl_two_departure_time(lateRow.getDeparture_time());
             entity.setJl_two_return_time(lateRow.getFinish_time());
+        } else {
+            entity.setPg_two_departure_time(null);
+            entity.setPg_two_return_time(null);
+            entity.setJl_two_departure_time(null);
+            entity.setJl_two_return_time(null);
         }
     }
 
