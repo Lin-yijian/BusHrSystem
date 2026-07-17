@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -56,9 +57,10 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         DataFormatter formatter = new DataFormatter();
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
 
             Sheet dataSheet = workbook.getSheet("Data");
-            String baseDate = getCellString(dataSheet, colToIndex("B"), 0, formatter);
+            String baseDate = getCellString(dataSheet, colToIndex("B"), 0, formatter, evaluator);
             if (baseDate == null || baseDate.isEmpty()) {
                 baseDate = "2026-04-13";
             }
@@ -66,8 +68,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             Map<String, String> hisunMap = new LinkedHashMap<>();
             if (dataSheet != null) {
                 for (int r = 2; r <= dataSheet.getLastRowNum(); r++) {
-                    String t = getCellString(dataSheet, colToIndex("A"), r, formatter);
-                    String h = getCellString(dataSheet, colToIndex("B"), r, formatter);
+                    String t = getCellString(dataSheet, colToIndex("A"), r, formatter, evaluator);
+                    String h = getCellString(dataSheet, colToIndex("B"), r, formatter, evaluator);
                     if (t != null && !t.isEmpty() && h != null && !h.isEmpty()) {
                         hisunMap.put(t, h);
                     }
@@ -88,23 +90,23 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                 int emptyCount = 0;
 
                 for (int r = 4; r <= sheet.getLastRowNum(); r++) {
-                    String amTask = getCellString(sheet, colToIndex("F"), r, formatter);
+                    String amTask = getCellString(sheet, colToIndex("F"), r, formatter, evaluator);
                     if (amTask != null && !amTask.isEmpty()) {
                         emptyCount = 0;
                         globalSeq++;
                         allRecords.add(makeRecord(baseDate, globalSeq, name, amTask, hisunMap,
-                                sheet, r, "AM", formatter));
+                                sheet, r, "AM", formatter, evaluator));
                     } else {
                         emptyCount++;
                     }
 
                     if (!isN) {
-                        String pmTask = getCellString(sheet, colToIndex("Z"), r, formatter);
+                        String pmTask = getCellString(sheet, colToIndex("Z"), r, formatter, evaluator);
                         if (pmTask != null && !pmTask.isEmpty()) {
                             emptyCount = 0;
                             globalSeq++;
                             allRecords.add(makeRecord(baseDate, globalSeq, name, pmTask, hisunMap,
-                                    sheet, r, "PM", formatter));
+                                    sheet, r, "PM", formatter, evaluator));
                         }
                     }
 
@@ -119,7 +121,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
     private WaybillExcelRecord makeRecord(String baseDate, int globalSeq, String routeSheet,
                                            String taskId, Map<String, String> hisunMap,
                                            Sheet sheet, int row, String shiftType,
-                                           DataFormatter formatter) {
+                                           DataFormatter formatter, FormulaEvaluator evaluator) {
         String carCol = "AM".equals(shiftType) ? "E" : "Y";
         String depCol = "AM".equals(shiftType) ? "G" : "AA";
         String retCol = "AM".equals(shiftType) ? "O" : "AI";
@@ -131,19 +133,19 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         record.setDataCount(globalSeq);
         record.setTaskId(taskId);
         record.setHisunId(lookupHisun(taskId, hisunMap));
-        record.setPlate(getCellString(sheet, colToIndex(carCol), row, formatter));
+        record.setPlate(getCellString(sheet, colToIndex(carCol), row, formatter, evaluator));
         record.setRouteSheet(routeSheet);
-        record.setDepartTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(depCol), row, formatter)));
-        record.setReturnTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(retCol), row, formatter)));
+        record.setDepartTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(depCol), row, formatter, evaluator)));
+        record.setReturnTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(retCol), row, formatter, evaluator)));
 
-        String mealStr = getCellString(sheet, colToIndex(mealCol), row, formatter);
+        String mealStr = getCellString(sheet, colToIndex(mealCol), row, formatter, evaluator);
         try {
             record.setMealCount(mealStr != null && !mealStr.isEmpty() ? Integer.parseInt(mealStr) : 0);
         } catch (NumberFormatException e) {
             record.setMealCount(0);
         }
 
-        String loc = getCellString(sheet, colToIndex(locCol), row, formatter);
+        String loc = getCellString(sheet, colToIndex(locCol), row, formatter, evaluator);
         record.setLocation(loc != null ? loc.replaceAll("[\\r\\n]+", "") : "");
         record.setParkingSpace("");
 
@@ -285,14 +287,19 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         return result;
     }
 
-    private static String getCellString(Sheet sheet, int colIdx, int rowIdx, DataFormatter formatter) {
+    private static String getCellString(Sheet sheet, int colIdx, int rowIdx, DataFormatter formatter, FormulaEvaluator evaluator) {
         if (sheet == null) return null;
         Row row = sheet.getRow(rowIdx);
         if (row == null) return null;
         Cell cell = row.getCell(colIdx);
         if (cell == null) return null;
-        String val = formatter.formatCellValue(cell).trim();
-        return val.isEmpty() ? null : val;
+        try {
+            String val = formatter.formatCellValue(cell, evaluator).trim();
+            return val.isEmpty() ? null : val;
+        } catch (Exception e) {
+            String val = formatter.formatCellValue(cell).trim();
+            return val.isEmpty() ? null : val;
+        }
     }
 
     private static int colToIndex(String col) {
@@ -302,4 +309,6 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         }
         return result - 1;
     }
+
+
 }
