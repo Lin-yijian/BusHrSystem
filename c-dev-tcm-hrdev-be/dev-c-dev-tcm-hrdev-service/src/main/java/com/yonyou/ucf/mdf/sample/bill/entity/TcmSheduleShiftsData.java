@@ -18,6 +18,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode, ILogicDelete
     public static final String DEPARTURE_TIME = "departure_time";
     public static final String FINISH_TIME = "finish_time";
     public static final String MEAL = "meal";
+    public static final String TASK_CODE = "task_code";
 
     private String date;
     private String employee_id;
@@ -26,6 +27,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode, ILogicDelete
     private Date departure_time;
     private Date finish_time;
     private Integer meal;
+    private String task_code;
     private String code;
     private Date createTime;
     private String creator;
@@ -56,6 +58,9 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode, ILogicDelete
 
     public Integer getMeal() { return meal; }
     public void setMeal(Integer meal) { this.meal = meal; }
+
+    public String getTask_code() { return task_code; }
+    public void setTask_code(String task_code) { this.task_code = task_code; }
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }

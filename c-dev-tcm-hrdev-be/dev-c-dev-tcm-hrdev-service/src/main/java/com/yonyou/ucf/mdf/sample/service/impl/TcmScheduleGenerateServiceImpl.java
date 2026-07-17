@@ -172,6 +172,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setDeparture_time(departureTime);
         entity.setFinish_time(finishTime);
         entity.setMeal(row.getMeal_time());
+        entity.setTask_code(row.getTask_code());
         return entity;
     }
 
@@ -187,6 +188,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setPg_one_return_time(earlyRow.getFinish_time());
         entity.setJl_one_departure_time(earlyRow.getDeparture_time());
         entity.setJl_one_return_time(earlyRow.getFinish_time());
+        entity.setTask_code(earlyRow.getTask_code());
 
         if (lateRow != null) {
             entity.setPg_two_departure_time(lateRow.getDeparture_time());

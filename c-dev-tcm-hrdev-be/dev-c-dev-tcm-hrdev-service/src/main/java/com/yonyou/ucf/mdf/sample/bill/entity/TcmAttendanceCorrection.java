@@ -24,6 +24,7 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode, ILogicDel
     private Date jl_two_departure_time;
     private Date jl_two_return_time;
     private String one_license_plate;
+    private String task_code;
     private String code;
     private Date createTime;
     private String creator;
@@ -69,6 +70,9 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode, ILogicDel
 
     public String getOne_license_plate() { return one_license_plate; }
     public void setOne_license_plate(String one_license_plate) { this.one_license_plate = one_license_plate; }
+
+    public String getTask_code() { return task_code; }
+    public void setTask_code(String task_code) { this.task_code = task_code; }
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
