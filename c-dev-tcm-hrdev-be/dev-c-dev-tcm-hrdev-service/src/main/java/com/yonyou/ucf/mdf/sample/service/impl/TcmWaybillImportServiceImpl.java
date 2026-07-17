@@ -63,18 +63,6 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                 baseDate = "2026-04-13";
             }
 
-            Map<String, String> plateMap = new LinkedHashMap<>();
-            Sheet ps = workbook.getSheet("車號");
-            if (ps != null) {
-                for (int r = 1; r <= ps.getLastRowNum(); r++) {
-                    String p = getCellString(ps, colToIndex("A"), r, formatter);
-                    String v = getCellString(ps, colToIndex("B"), r, formatter);
-                    if (p != null && !p.isEmpty() && v != null && !v.isEmpty()) {
-                        plateMap.put(p, v);
-                    }
-                }
-            }
-
             Map<String, String> hisunMap = new LinkedHashMap<>();
             if (dataSheet != null) {
                 for (int r = 2; r <= dataSheet.getLastRowNum(); r++) {
@@ -104,7 +92,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                     if (amTask != null && !amTask.isEmpty()) {
                         emptyCount = 0;
                         globalSeq++;
-                        allRecords.add(makeRecord(baseDate, globalSeq, name, amTask, plateMap, hisunMap,
+                        allRecords.add(makeRecord(baseDate, globalSeq, name, amTask, hisunMap,
                                 sheet, r, "AM", formatter));
                     } else {
                         emptyCount++;
@@ -115,7 +103,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                         if (pmTask != null && !pmTask.isEmpty()) {
                             emptyCount = 0;
                             globalSeq++;
-                            allRecords.add(makeRecord(baseDate, globalSeq, name, pmTask, plateMap, hisunMap,
+                            allRecords.add(makeRecord(baseDate, globalSeq, name, pmTask, hisunMap,
                                     sheet, r, "PM", formatter));
                         }
                     }
@@ -129,9 +117,10 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
     }
 
     private WaybillExcelRecord makeRecord(String baseDate, int globalSeq, String routeSheet,
-                                           String taskId, Map<String, String> plateMap,
-                                           Map<String, String> hisunMap, Sheet sheet, int row,
-                                           String shiftType, DataFormatter formatter) {
+                                           String taskId, Map<String, String> hisunMap,
+                                           Sheet sheet, int row, String shiftType,
+                                           DataFormatter formatter) {
+        String carCol = "AM".equals(shiftType) ? "E" : "Y";
         String depCol = "AM".equals(shiftType) ? "G" : "AA";
         String retCol = "AM".equals(shiftType) ? "O" : "AI";
         String locCol = "AM".equals(shiftType) ? "C" : "W";
@@ -142,7 +131,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         record.setDataCount(globalSeq);
         record.setTaskId(taskId);
         record.setHisunId(lookupHisun(taskId, hisunMap));
-        record.setPlate(plateMap.getOrDefault(taskId, ""));
+        record.setPlate(getCellString(sheet, colToIndex(carCol), row, formatter));
         record.setRouteSheet(routeSheet);
         record.setDepartTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(depCol), row, formatter)));
         record.setReturnTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(retCol), row, formatter)));
@@ -226,11 +215,10 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             entity.setId(id);
             entity.setYtenantId(tenantId);
             entity.setDate(record.getDate());
-            entity.setData_count(record.getDataCount());
             entity.setTask_code(record.getTaskId());
             entity.setWaybill_employee_id(hisunId);
             entity.setDriver_name(staff != null ? (String) staff.get("name") : null);
-            entity.setEmployee_id(staff != null ? (String) staff.get("code") : null);
+            entity.setEmployee_id(staff != null ? (String) staff.get("id") : null);
             entity.setCar_num(record.getPlate());
             entity.setDeparture_time(record.getDepartTime());
             entity.setFinish_time(record.getReturnTime());
