@@ -35,11 +35,9 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String JL_TWO_DEPARTURE_TIME = "jl_two_departure_time";
     public static final String JL_TWO_RETURN_TIME = "jl_two_return_time";
     public static final String ONE_LICENSE_PLATE = "one_license_plate";
-    public static final String ONE_CAR_TYPE = "one_car_type";
     public static final String ONE_TIME = "one_time";
     public static final String JL_VALID_TIME = "jl_valid_time";
     public static final String TWO_LICENSE_PLATE = "two_license_plate";
-    public static final String TWO_CAR_TYPE = "two_car_type";
     public static final String TWO_TIME = "two_time";
     public static final String OVERTIME_TIME = "overtime_time";
     public static final String LATE_DURATION = "late_duration";
@@ -89,13 +87,9 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String MODIFIER = "modifier";
     public static final String MODIFYTIME = "modifyTime";
     public static final String PUBTS = "pubts";
-    public static final String TCMABSENCERECORDLIST = "tcmAbsenceRecordList";
     public static final String TCMATTENDANCEABSENCEDATARECORDLIST = "tcmAttendanceAbsenceDataRecordList";
     public static final String TCMATTENDANCECONTROLCENTERLOGLIST = "tcmAttendanceControlCenterLogList";
     public static final String TCMATTENDANCEDRIVEROVERTIMERECORDLIST = "tcmAttendanceDriverOvertimeRecordList";
-    public static final String TCMCONTROLCENTERLOGLIST = "tcmControlCenterLogList";
-    public static final String TCMLEAVERECORDLIST = "tcmLeaveRecordList";
-    public static final String TCMOVERTIMEWORKRECORDLIST = "tcmOvertimeWorkRecordList";
     public static final String YTENANTID = "ytenantId";
 
     /* 日期 */
@@ -136,16 +130,12 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private Date jl_two_return_time;
     /* 一更車牌 */
     private String one_license_plate;
-    /* 一更車型 */
-    private String one_car_type;
     /* 一更時長（含用膳） */
     private String one_time;
     /* 計糧有效工時（扣除用膳） */
     private String jl_valid_time;
     /* 二更車牌 */
     private String two_license_plate;
-    /* 二更車型 */
-    private String two_car_type;
     /* 二更時長（含用膳） */
     private String two_time;
     /* 加班工時 */
@@ -250,8 +240,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private List<TcmAttendanceControlCenterLog> tcmAttendanceControlCenterLogList;
     /* 考勤修正-超時工作記錄 */
     private List<TcmAttendanceDriverOvertimeRecord> tcmAttendanceDriverOvertimeRecordList;
-    /* 控制中心日志 */
-    private List<TcmControlCenterLog> tcmControlCenterLogList;
     /* 租户id */
     private String ytenantId;
 
@@ -331,10 +319,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
         this.one_license_plate = one_license_plate;
     }
 
-    public void setOne_car_type(String one_car_type) {
-        this.one_car_type = one_car_type;
-    }
-
     public void setOne_time(String one_time) {
         this.one_time = one_time;
     }
@@ -345,10 +329,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
 
     public void setTwo_license_plate(String two_license_plate) {
         this.two_license_plate = two_license_plate;
-    }
-
-    public void setTwo_car_type(String two_car_type) {
-        this.two_car_type = two_car_type;
     }
 
     public void setTwo_time(String two_time) {
@@ -559,11 +539,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
         this.tcmAttendanceDriverOvertimeRecordList = tcmAttendanceDriverOvertimeRecordList;
     }
 
-    public void setTcmControlCenterLogList(List<TcmControlCenterLog> tcmControlCenterLogList) {
-        this.tcmControlCenterLogList = tcmControlCenterLogList;
-    }
-
-
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
     }
@@ -644,10 +619,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
         return one_license_plate;
     }
 
-    public String getOne_car_type() {
-        return one_car_type;
-    }
-
     public String getOne_time() {
         return one_time;
     }
@@ -658,10 +629,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
 
     public String getTwo_license_plate() {
         return two_license_plate;
-    }
-
-    public String getTwo_car_type() {
-        return two_car_type;
     }
 
     public String getTwo_time() {
@@ -871,11 +838,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public List<TcmAttendanceDriverOvertimeRecord> getTcmAttendanceDriverOvertimeRecordList() {
         return tcmAttendanceDriverOvertimeRecordList;
     }
-
-    public List<TcmControlCenterLog> getTcmControlCenterLogList() {
-        return tcmControlCenterLogList;
-    }
-
 
     public String getYtenantId() {
         return ytenantId;

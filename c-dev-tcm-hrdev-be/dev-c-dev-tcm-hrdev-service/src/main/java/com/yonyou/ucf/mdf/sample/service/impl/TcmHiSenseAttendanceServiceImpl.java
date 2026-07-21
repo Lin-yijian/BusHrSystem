@@ -223,56 +223,119 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 .collect(Collectors.groupingBy(TcmHisenseAttendanceData::getEmployee_id));
 
 
-        for (TcmAttendanceCorrection correction : correctionList) {
-            String employeeId = correction.getEmployee_id();
+        for (TcmAttendanceCorrection entity : correctionList) {
+            String employeeId = entity.getEmployee_id();
             List<TcmHisenseAttendanceData> attendanceDataList = m2.get(employeeId);
 
             if (attendanceDataList == null || attendanceDataList.isEmpty()) {
                 continue;
             }
 
+            // 创建可变列表用于跟踪已匹配的数据
+            List<TcmHisenseAttendanceData> availableDataList = new ArrayList<>(attendanceDataList);
+
+            // 记录第一步和第二步匹配到的数据（用于后续统一移除）
+            TcmHisenseAttendanceData step1Data = null;
+            TcmHisenseAttendanceData step2Data = null;
+
             // 1. kq_one_departure_time：取数据集中 real_leave_time 的最小值
-            Date minRealLeaveTime = attendanceDataList.stream()
-                    .map(TcmHisenseAttendanceData::getReal_leave_time)
-                    .filter(Objects::nonNull)
-                    .min(Date::compareTo)
+            // 注意：此时不移除，因为 kq_one_departure_time 和 kq_one_return_time 可以在同一条数据中取
+            step1Data = availableDataList.stream()
+                    .filter(d -> d.getReal_leave_time() != null)
+                    .min(Comparator.comparing(TcmHisenseAttendanceData::getReal_leave_time))
                     .orElse(null);
-            correction.setKq_one_departure_time(minRealLeaveTime);
+            if (step1Data != null) {
+                entity.setKq_one_departure_time(step1Data.getReal_leave_time());
+                entity.setOne_license_plate(step1Data.getCar());
+            } else {
+                entity.setKq_one_departure_time(null);
+            }
 
             // 2. kq_one_return_time：取数据集中 real_arrive_time 与 pg_one_return_time 最接近的值
-            Date pgOneReturnTime = correction.getPg_one_return_time();
-            Date closestArriveTime1 = findClosestDate(attendanceDataList, pgOneReturnTime, true);
-            correction.setKq_one_return_time(closestArriveTime1);
+            // 注意：此时不移除，因为 kq_one_departure_time 和 kq_one_return_time 可以在同一条数据中取
+            Date pgOneReturnTime = entity.getPg_one_return_time();
+            step2Data = findClosestData(availableDataList, pgOneReturnTime, true);
+            if (step2Data != null) {
+                entity.setKq_one_return_time(step2Data.getReal_arrive_time());
+            } else {
+                entity.setKq_one_return_time(null);
+            }
 
-            // 3. kq_two_departure_time：取数据集中 real_leave_time 与 pg_two_departure_time 最接近的值
-            Date pgTwoDepartureTime = correction.getPg_two_departure_time();
-            Date closestLeaveTime2 = findClosestDate(attendanceDataList, pgTwoDepartureTime, false);
-            correction.setKq_two_departure_time(closestLeaveTime2);
+            // 统一移除第一步和第二步匹配到的数据（避免重复移除同一条数据）
+            // kq_two_departure_time 和 kq_two_return_time 一定不会与前面两个字段在同一条数据中取
+            if (step1Data != null) {
+                availableDataList.remove(step1Data);
+            }
+            if (step2Data != null && step2Data != step1Data) {
+                availableDataList.remove(step2Data);
+            }
 
-            // 4. kq_two_return_time：取数据集中 real_arrive_time 与 pg_two_return_time 最接近的值
-            Date pgTwoReturnTime = correction.getPg_two_return_time();
-            Date closestArriveTime2 = findClosestDate(attendanceDataList, pgTwoReturnTime, true);
-            correction.setKq_two_return_time(closestArriveTime2);
+            // 3. kq_two_departure_time：取剩余数据集中 real_leave_time 与 pg_two_departure_time 最接近的值
+            Date pgTwoDepartureTime = entity.getPg_two_departure_time();
+            TcmHisenseAttendanceData matchedData2 = findClosestData(availableDataList, pgTwoDepartureTime, false);
+            if (matchedData2 != null) {
+                entity.setKq_two_departure_time(matchedData2.getReal_leave_time());
+                entity.setTwo_license_plate(matchedData2.getCar());
+            } else {
+                entity.setKq_two_departure_time(null);
+            }
+
+            // 4. kq_two_return_time：取剩余数据集中 real_arrive_time 的最大值
+            Date maxArriveTime = availableDataList.stream()
+                    .map(TcmHisenseAttendanceData::getReal_arrive_time)
+                    .filter(Objects::nonNull)
+                    .max(Date::compareTo)
+                    .orElse(null);
+            entity.setKq_two_return_time(maxArriveTime);
+
+//            // 计算时长
+//            // 一更时长
+//            String oneTimeDifference = getTimeDifference(entity.getKq_one_departure_time(), entity.getKq_one_return_time());
+//            entity.setOne_time(oneTimeDifference);
+//            // 二更时长
+//            String twoTimeDifference = getTimeDifference(entity.getKq_two_departure_time(), entity.getKq_two_return_time());
+//            entity.setTwo_time(twoTimeDifference);
         }
 
         billRepository.update(correctionList);
 
     }
 
+
     /**
-     * 在海信考勤数据列表中查找与目标时间最接近的时间
+     * 计算两个日期的时间差，返回 HH:mm 格式的字符串
+     * @param date1 第一个日期（被减数）
+     * @param date2 第二个日期（减数）
+     * @return 时间差字符串，格式为 HH:mm
+     */
+    public String getTimeDifference(Date date1, Date date2) {
+
+        if (date1 == null || date2 == null) {
+            return "00:00";
+        }
+
+        long diffInMillis = Math.abs(date1.getTime() - date2.getTime());
+
+        long hours = diffInMillis / (60 * 60 * 1000);
+        long minutes = (diffInMillis % (60 * 60 * 1000)) / (60 * 1000);
+
+        return String.format("%02d:%02d", hours, minutes);
+    }
+
+    /**
+     * 在海信考勤数据列表中查找与目标时间最接近的数据对象
      * @param dataList 海信考勤数据列表
      * @param targetDate 目标时间
      * @param findArriveTime true表示查找real_arrive_time，false表示查找real_leave_time
-     * @return 最接近的时间，如果列表为空或目标时间为空则返回null
+     * @return 最接近的数据对象，如果列表为空或目标时间为空则返回null
      */
-    private Date findClosestDate(List<TcmHisenseAttendanceData> dataList, Date targetDate, boolean findArriveTime) {
+    private TcmHisenseAttendanceData findClosestData(List<TcmHisenseAttendanceData> dataList, Date targetDate, boolean findArriveTime) {
         if (targetDate == null || dataList == null || dataList.isEmpty()) {
             return null;
         }
 
         long targetTime = targetDate.getTime();
-        Date closestDate = null;
+        TcmHisenseAttendanceData closestData = null;
         long minDiff = Long.MAX_VALUE;
 
         for (TcmHisenseAttendanceData data : dataList) {
@@ -281,12 +344,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 long diff = Math.abs(dateToCompare.getTime() - targetTime);
                 if (diff < minDiff) {
                     minDiff = diff;
-                    closestDate = dateToCompare;
+                    closestData = data;
                 }
             }
         }
 
-        return closestDate;
+        return closestData;
     }
 
 
