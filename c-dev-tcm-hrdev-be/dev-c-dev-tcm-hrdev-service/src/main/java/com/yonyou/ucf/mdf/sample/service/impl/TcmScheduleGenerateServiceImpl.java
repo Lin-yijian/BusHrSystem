@@ -8,6 +8,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -144,9 +145,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             billRepository.update(scheduleUpdateList);
         }
         if (!correctionInsertList.isEmpty()) {
+            processDate(correctionInsertList);
             billRepository.insert(correctionInsertList);
         }
         if (!correctionUpdateList.isEmpty()) {
+            processDate(correctionUpdateList);
             billRepository.update(correctionUpdateList);
         }
 
@@ -165,6 +168,33 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         result.put("correctionFailed", correctionFail);
         return result;
     }
+
+    /**
+     * 计算考勤结果数据
+     * @param list 修正数据集合
+     */
+    private void processDate(List<TcmAttendanceCorrection> list){
+        for (TcmAttendanceCorrection entity : list) {
+            // 一更时长 = 一更计量排更收车 - 一更计量排更发车
+            String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_departure_time(), entity.getJl_one_return_time());
+            entity.setOne_time(oneTimeDifference);
+            // 二更时长 = 二更计量排更收车 - 二更计量排更发车
+            String twoTimeDifference = DateUtil.getTimeDifference(entity.getJl_two_departure_time(), entity.getJl_two_return_time());
+            entity.setTwo_time(twoTimeDifference);
+            // 一更早退时长 = 一更计量排更收车 - 考勤一更收车
+            String one_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_one_departure_time(), entity.getKq_one_departure_time());
+            entity.setOne_early_leave_duration(one_early_leave_duration);
+            // 二更早退时长 = 二更计量排更收车 - 考勤二更收车
+            String two_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_two_departure_time(), entity.getKq_two_departure_time());
+            entity.setTwo_early_leave_duration(two_early_leave_duration);
+            // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）
+            entity.setJl_valid_time(DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference));
+            // 加班工时 = 计量有效工时 - 08:00
+            entity.setOvertime_time(DateUtil.addTimeDifferences(entity.getJl_valid_time(), "08:00"));
+        }
+    }
+
+
 
     private List<TcmWaybillSheduleShiftsData> queryWaybillData(String date, String tenantId) {
         LambdaQueryCondition<TcmWaybillSheduleShiftsData> condition = new LambdaQueryCondition<>(new TcmWaybillSheduleShiftsData());
