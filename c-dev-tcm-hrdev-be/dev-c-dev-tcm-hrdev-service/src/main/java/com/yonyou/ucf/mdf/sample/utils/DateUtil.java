@@ -323,6 +323,62 @@ public class DateUtil {
     }
 
     /**
+     * 计算两个时间差字符串的差值（第一个减第二个）
+     * @param time1 第一个时间差字符串，格式为 HH:mm（被减数）
+     * @param time2 第二个时间差字符串，格式为 HH:mm（减数）
+     * @return 差值字符串，格式为 HH:mm（绝对值，始终为正）
+     */
+    public static String subtractTimeDifferences(String time1, String time2) {
+
+        int diffMinutes = diffByTimeString(time1,time2);
+
+        // 转换为小时和分钟
+        int diffHours = diffMinutes / 60;
+        int diffMinutesRemainder = diffMinutes % 60;
+
+        return String.format("%02d:%02d", diffHours, diffMinutesRemainder);
+    }
+
+    /**
+     * 计算两个时间差字符串的差值（返回小时数）
+     * @param time1 第一个时间差字符串，格式为 HH:mm（被减数）
+     * @param time2 第二个时间差字符串，格式为 HH:mm（减数）
+     * @return 差值（小时），double类型
+     */
+    public static double subtractTimeDifferencesToHours(String time1, String time2) {
+
+        int diffMinutes = diffByTimeString(time1,time2);
+
+        // 转换为小时
+        return diffMinutes / 60.0;
+    }
+
+    private static int diffByTimeString(String time1, String time2) {
+        // 参数校验
+        if (time1 == null || time1.isEmpty() || !time1.matches("\\d{2}:\\d{2}")) {
+            time1 = "00:00";
+        }
+        if (time2 == null || time2.isEmpty() || !time2.matches("\\d{2}:\\d{2}")) {
+            time2 = "00:00";
+        }
+
+        // 解析时间
+        String[] parts1 = time1.split(":");
+        String[] parts2 = time2.split(":");
+
+        int hours1 = Integer.parseInt(parts1[0]);
+        int minutes1 = Integer.parseInt(parts1[1]);
+        int hours2 = Integer.parseInt(parts2[0]);
+        int minutes2 = Integer.parseInt(parts2[1]);
+
+        // 计算总分钟数
+        int totalMinutes1 = hours1 * 60 + minutes1;
+        int totalMinutes2 = hours2 * 60 + minutes2;
+
+        return Math.abs(totalMinutes1 - totalMinutes2);
+    }
+
+    /**
      * 将 HH:mm 格式的字符串转换为小时数（double）
      * @param timeStr HH:mm 格式的时间字符串，如 "01:30"
      * @return 小时数，如 1.5

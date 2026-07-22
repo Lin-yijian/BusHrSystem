@@ -81,6 +81,10 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String MEDIUM_BUS_TYPE_RPM = "medium_bus_type_rpm";
     public static final String LARGE_BUS_TYPE_RPM = "large_bus_type_rpm";
     public static final String EXTRA_LARGE_BUS_TYPE_RPM = "extra_large_bus_type_rpm";
+    public static final String MINIBUS_BASE_HOURS = "minibus_base_hours";
+    public static final String MEDIUM_BUS_BASE_HOURS = "medium_bus_base_hours";
+    public static final String LARGE_BUS_BASE_HOURS = "large_bus_base_hours";
+    public static final String EXTRA_LARGE_BUS_BASE_HOURS = "extra_large_bus_base_hours";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -224,6 +228,14 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private BigDecimal large_bus_type_rpm;
     /* 特大巴巴型轉數 */
     private BigDecimal extra_large_bus_type_rpm;
+    /* 小巴基本工時 */
+    private String minibus_base_hours;
+    /* 中巴基本工時 */
+    private String medium_bus_base_hours;
+    /* 大巴基本工時 */
+    private String large_bus_base_hours;
+    /* 特大巴基本工時 */
+    private String extra_large_bus_base_hours;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -249,6 +261,38 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     /* 租户id */
     private String ytenantId;
 
+
+    public String getMinibus_base_hours() {
+        return minibus_base_hours;
+    }
+
+    public void setMinibus_base_hours(String minibus_base_hours) {
+        this.minibus_base_hours = minibus_base_hours;
+    }
+
+    public String getMedium_bus_base_hours() {
+        return medium_bus_base_hours;
+    }
+
+    public void setMedium_bus_base_hours(String medium_bus_base_hours) {
+        this.medium_bus_base_hours = medium_bus_base_hours;
+    }
+
+    public String getLarge_bus_base_hours() {
+        return large_bus_base_hours;
+    }
+
+    public void setLarge_bus_base_hours(String large_bus_base_hours) {
+        this.large_bus_base_hours = large_bus_base_hours;
+    }
+
+    public String getExtra_large_bus_base_hours() {
+        return extra_large_bus_base_hours;
+    }
+
+    public void setExtra_large_bus_base_hours(String extra_large_bus_base_hours) {
+        this.extra_large_bus_base_hours = extra_large_bus_base_hours;
+    }
 
     public BigDecimal getMinibus_bus_type_rpm() {
         return minibus_bus_type_rpm;

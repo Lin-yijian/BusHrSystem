@@ -20,6 +20,7 @@ import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
@@ -40,6 +41,7 @@ import java.util.stream.Collectors;
  * 负责调用海信接口获取考勤数据，并按照业务规则进行合并处理
  */
 @Service
+@Slf4j
 public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceService {
 
     /** 海信考勤接口URL */
@@ -269,111 +271,196 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      */
     private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList){
         List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateListAndStaffIds(runDate, staffIdList);
+        if (correctionList.isEmpty()) {
+            return;
+        }
 
-        Map<String, List<TcmHisenseAttendanceData>> m2 = dataList.stream()
+        // 按员工ID分组考勤数据，预处理
+        Map<String, List<TcmHisenseAttendanceData>> attendanceGroupMap = dataList.stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(TcmHisenseAttendanceData::getEmployee_id));
 
+        // 预加载车型映射，避免重复查询
+        Map<String, TCMCarType> carTypeMap = carTypeService.mapByFieldGetter(TCMCarType::getId);
 
+        // 批量处理每条修正记录
         for (TcmAttendanceCorrection entity : correctionList) {
-
             String employeeId = entity.getEmployee_id();
-            List<TcmHisenseAttendanceData> attendanceDataList = m2.get(employeeId);
+            List<TcmHisenseAttendanceData> attendanceDataList = attendanceGroupMap.get(employeeId);
+
+            // 无考勤数据时跳过
             if (attendanceDataList == null || attendanceDataList.isEmpty()) {
                 continue;
             }
-            // 巴型转数数据
-            List<BaTypeAttendanceSummaryDTO> baTypeList = baTypeMap.get(employeeId);
 
             // 创建可变列表用于跟踪已匹配的数据
             List<TcmHisenseAttendanceData> availableDataList = new ArrayList<>(attendanceDataList);
 
-            // 记录第一步和第二步匹配到的数据（用于后续统一移除）
-            TcmHisenseAttendanceData step1Data = null;
-            TcmHisenseAttendanceData step2Data = null;
+            // 步骤1和步骤2：处理一更数据（两条可共享同一条记录）
+            processFirstShift(entity, availableDataList);
 
-            // 1. kq_one_departure_time：取数据集中 real_leave_time 的最小值
-            // 注意：此时不移除，因为 kq_one_departure_time 和 kq_one_return_time 可以在同一条数据中取
-            step1Data = availableDataList.stream()
-                    .filter(d -> d.getReal_leave_time() != null)
-                    .min(Comparator.comparing(TcmHisenseAttendanceData::getReal_leave_time))
-                    .orElse(null);
-            if (step1Data != null) {
-                entity.setKq_one_departure_time(step1Data.getReal_leave_time());
-                entity.setOne_license_plate(step1Data.getCar());
-            } else {
-                entity.setKq_one_departure_time(null);
-            }
+            // 步骤3和步骤4：处理二更数据（与一更数据隔离）
+            processSecondShift(entity, availableDataList);
 
-            // 2. kq_one_return_time：取数据集中 real_arrive_time 与 pg_one_return_time 最接近的值
-            // 注意：此时不移除，因为 kq_one_departure_time 和 kq_one_return_time 可以在同一条数据中取
-            Date pgOneReturnTime = entity.getPg_one_return_time();
-            step2Data = findClosestData(availableDataList, pgOneReturnTime, true);
-            if (step2Data != null) {
-                entity.setKq_one_return_time(step2Data.getReal_arrive_time());
-            } else {
-                entity.setKq_one_return_time(null);
-            }
-
-            // 统一移除第一步和第二步匹配到的数据（避免重复移除同一条数据）
-            // kq_two_departure_time 和 kq_two_return_time 一定不会与前面两个字段在同一条数据中取
-            if (step1Data != null) {
-                availableDataList.remove(step1Data);
-            }
-            if (step2Data != null && step2Data != step1Data) {
-                availableDataList.remove(step2Data);
-            }
-
-            // 3. kq_two_departure_time：取剩余数据集中 real_leave_time 与 pg_two_departure_time 最接近的值
-            Date pgTwoDepartureTime = entity.getPg_two_departure_time();
-            TcmHisenseAttendanceData matchedData2 = findClosestData(availableDataList, pgTwoDepartureTime, false);
-            if (matchedData2 != null) {
-                entity.setKq_two_departure_time(matchedData2.getReal_leave_time());
-                entity.setTwo_license_plate(matchedData2.getCar());
-            } else {
-                entity.setKq_two_departure_time(null);
-            }
-
-            // 4. kq_two_return_time：取剩余数据集中 real_arrive_time 的最大值
-            Date maxArriveTime = availableDataList.stream()
-                    .map(TcmHisenseAttendanceData::getReal_arrive_time)
-                    .filter(Objects::nonNull)
-                    .max(Date::compareTo)
-                    .orElse(null);
-            entity.setKq_two_return_time(maxArriveTime);
-
+            // 巴型工时计算
+            calculateTypeWorkHour(entity, baTypeMap.get(employeeId), carTypeMap);
         }
 
+        // 批量更新修正数据
         billRepository.update(correctionList);
-
     }
 
-    private void calculateTypeWorkHour(TcmAttendanceCorrection entity, List<BaTypeAttendanceSummaryDTO> baTypeList){
-        Map<String, TCMCarType> carTypeMap = carTypeService.mapByFieldGetter(TCMCarType::getId);
-        BigDecimal totalTimes = baTypeList.stream().map(BaTypeAttendanceSummaryDTO::getBusTransferTimes).reduce(BigDecimal.ZERO, BigDecimal::add);
-        // 将 baTypeList 按照
+    /**
+     * 处理一更数据
+     * kq_one_departure_time 和 kq_one_return_time 可以来自同一条记录
+     */
+    private void processFirstShift(TcmAttendanceCorrection entity, List<TcmHisenseAttendanceData> availableDataList) {
+        // kq_one_departure_time：取数据集中 real_leave_time 的最小值
+        TcmHisenseAttendanceData minLeaveTimeData = availableDataList.stream()
+                .filter(d -> d.getReal_leave_time() != null)
+                .min(Comparator.comparing(TcmHisenseAttendanceData::getReal_leave_time))
+                .orElse(null);
+        if (minLeaveTimeData != null) {
+            entity.setKq_one_departure_time(minLeaveTimeData.getReal_leave_time());
+            entity.setOne_license_plate(minLeaveTimeData.getCar());
+        } else {
+            entity.setKq_one_departure_time(null);
+            entity.setOne_license_plate(null);
+        }
+
+        // kq_one_return_time：取数据集中 real_arrive_time 与 pg_one_return_time 最接近的值
+        Date pgOneReturnTime = entity.getPg_one_return_time();
+        TcmHisenseAttendanceData closestArriveData = findClosestData(availableDataList, pgOneReturnTime, true);
+        if (closestArriveData != null) {
+            entity.setKq_one_return_time(closestArriveData.getReal_arrive_time());
+        } else {
+            entity.setKq_one_return_time(null);
+        }
+
+        // 统一移除第一步和第二步匹配到的数据
+        if (minLeaveTimeData != null) {
+            availableDataList.remove(minLeaveTimeData);
+        }
+        if (closestArriveData != null && closestArriveData != minLeaveTimeData) {
+            availableDataList.remove(closestArriveData);
+        }
+    }
+
+    /**
+     * 处理二更数据
+     * kq_two_departure_time 和 kq_two_return_time 与一更数据隔离
+     */
+    private void processSecondShift(TcmAttendanceCorrection entity, List<TcmHisenseAttendanceData> availableDataList) {
+        if (availableDataList.isEmpty()) {
+            entity.setKq_two_departure_time(null);
+            entity.setTwo_license_plate(null);
+            entity.setKq_two_return_time(null);
+            return;
+        }
+
+        //  kq_two_departure_time：取剩余数据集中 real_leave_time 与 pg_two_departure_time 最接近的值
+        Date pgTwoDepartureTime = entity.getPg_two_departure_time();
+        TcmHisenseAttendanceData closestLeaveData = findClosestData(availableDataList, pgTwoDepartureTime, false);
+        if (closestLeaveData != null) {
+            entity.setKq_two_departure_time(closestLeaveData.getReal_leave_time());
+            entity.setTwo_license_plate(closestLeaveData.getCar());
+//            availableDataList.remove(closestLeaveData);
+        } else {
+            entity.setKq_two_departure_time(null);
+            entity.setTwo_license_plate(null);
+        }
+
+        // kq_two_return_time：取剩余数据集中 real_arrive_time 的最大值
+        Date maxArriveTime = availableDataList.stream()
+                .map(TcmHisenseAttendanceData::getReal_arrive_time)
+                .filter(Objects::nonNull)
+                .max(Date::compareTo)
+                .orElse(null);
+        entity.setKq_two_return_time(maxArriveTime);
+    }
+
+    /**
+     * 巴型工时计算赋值
+     * @param entity 修正对象
+     * @param baTypeList 巴型转数数据
+     * @param carTypeMap 车型信息
+     */
+    private void calculateTypeWorkHour(TcmAttendanceCorrection entity, List<BaTypeAttendanceSummaryDTO> baTypeList, Map<String, TCMCarType> carTypeMap){
+        if (baTypeList == null || baTypeList.isEmpty()) {
+            return;
+        }
+
+        BigDecimal totalTimes = baTypeList.stream()
+                .map(BaTypeAttendanceSummaryDTO::getBusTransferTimes)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 处理除零情况
+        if (totalTimes.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+
+        String jlValidTime = entity.getJl_valid_time();
         for (BaTypeAttendanceSummaryDTO dto : baTypeList) {
-            String typeCode = carTypeMap.get(dto.getCarType()).getType_code();
+            TCMCarType carType = carTypeMap.get(dto.getCarType());
+            if (carType == null) {
+                continue;
+            }
+
+            String typeCode = carType.getType_code();
+            BigDecimal busTransferTimes = dto.getBusTransferTimes();
+            String runCarTime = calculate(jlValidTime, busTransferTimes, totalTimes);
+            String baseTime = calculate("08:00", busTransferTimes, totalTimes);
+            String overTime = DateUtil.subtractTimeDifferences(runCarTime, baseTime);
+
+            // 暂时以编号区分巴型
             switch (typeCode){
                 case "01":
-                    entity.setMinibus_bus_type_rpm(dto.getBusTransferTimes());
+                    entity.setMinibus_bus_type_rpm(busTransferTimes);
+                    entity.setMinibus_driving_hours(runCarTime);
+                    entity.setMinibus_base_hours(baseTime);
+                    entity.setMinibus_overtime_hours(overTime);
                     break;
                 case "02":
-                    entity.setMedium_bus_type_rpm(dto.getBusTransferTimes());
+                    entity.setMedium_bus_type_rpm(busTransferTimes);
+                    entity.setMedium_bus_driving_hours(runCarTime);
+                    entity.setMedium_bus_base_hours(baseTime);
+                    entity.setMedium_bus_overtime_hours(overTime);
                     break;
                 case "03":
-                    entity.setLarge_bus_type_rpm(dto.getBusTransferTimes());
+                    entity.setLarge_bus_type_rpm(busTransferTimes);
+                    entity.setLarge_bus_driving_hours(runCarTime);
+                    entity.setLarge_bus_base_hours(baseTime);
+                    entity.setLarge_bus_overtime_hours(overTime);
                     break;
                 case "04":
-                    entity.setExtra_large_bus_type_rpm(dto.getBusTransferTimes());
+                    entity.setExtra_large_bus_type_rpm(busTransferTimes);
+                    entity.setExtra_large_bus_driving_hours(runCarTime);
+                    entity.setExtra_large_bus_base_hours(baseTime);
+                    entity.setExtra_large_bus_overtime_hours(overTime);
                     break;
-
             }
         }
     }
 
-    private void calculate(String workHour, BigDecimal targetTime,BigDecimal totalTimes){
-//        DateUtil.
+    /**
+     * 巴型工时计算 = 有效工时 * (目标巴型转数/总巴型转数)
+     * @param workHour 有效工时
+     * @param targetTime 目标巴型转数
+     * @param totalTimes 总巴型转数
+     * @return 巴型工时
+     */
+    private String calculate(String workHour, BigDecimal targetTime, BigDecimal totalTimes){
+        // 空值和零值检查
+        if (StringUtil.isEmpty(workHour) || targetTime == null || totalTimes == null || totalTimes.compareTo(BigDecimal.ZERO) == 0) {
+            log.warn("巴型工时计算参数异常，返回默认值00:00。workHour={}, targetTime={}, totalTimes={}", 
+                    workHour, targetTime, totalTimes);
+            return "00:00";
+        }
+
+        BigDecimal workHourBigDecimal = DateUtil.timeStringToHoursBigDecimal(workHour, 8);
+        BigDecimal m2 = targetTime.divide(totalTimes, 8, RoundingMode.HALF_UP);
+        BigDecimal multiply = workHourBigDecimal.multiply(m2);
+        return DateUtil.hoursToTimeString(multiply);
     }
 
 
