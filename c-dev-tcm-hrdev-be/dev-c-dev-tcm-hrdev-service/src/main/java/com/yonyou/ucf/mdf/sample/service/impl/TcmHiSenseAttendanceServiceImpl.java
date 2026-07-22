@@ -12,10 +12,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
-import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
-import com.yonyou.ucf.mdf.sample.service.TcmCarService;
-import com.yonyou.ucf.mdf.sample.service.TcmCarTypeService;
-import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
+import com.yonyou.ucf.mdf.sample.service.*;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -70,6 +67,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     @Autowired
     private TcmCarTypeService carTypeService;
+
+    @Autowired
+    private TcmBaTypeAttendanceDataService baTypeAttendanceDataService;
+
+    @Autowired
+    private TcmDriverHolidayWorkRecordService driverHolidayWorkRecordService;
 
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
@@ -256,9 +259,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         billRepository.insert(dataList);
         // 車長假期工作記錄
-        billRepository.insert(driverHolidayWorkRecordList);
+        driverHolidayWorkRecordService.coverInsert(runDate,driverHolidayWorkRecordList);
+//        billRepository.insert(driverHolidayWorkRecordList);
         // 巴型转数
-        billRepository.insert(baTypeAttendanceDataList);
+        baTypeAttendanceDataService.coverInsert(runDate,baTypeAttendanceDataList);
+//        billRepository.insert(baTypeAttendanceDataList);
 
 
     }
