@@ -217,6 +217,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             for (HiSenseAttendanceDataDTO dto : dtoList) {
                 TcmBaTypeAttendanceData data = new TcmBaTypeAttendanceData();
 
+                data.setYtenantId(tenantId);
                 data.setEmployee_id(staffId);
                 TCMCar tcmCar = stringTCMCarMap.get(dto.getBuscardid());
                 data.setCar(tcmCar.getId());
