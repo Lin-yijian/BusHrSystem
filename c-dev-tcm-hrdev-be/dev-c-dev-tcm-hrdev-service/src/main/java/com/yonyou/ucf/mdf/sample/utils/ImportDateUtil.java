@@ -64,7 +64,7 @@ public class ImportDateUtil {
         // 姓名
         String name = (String) data.getValueByKey(nameKey);
         if (name == null || name.isEmpty()) {
-            throw new RuntimeException("數據中姓名為空，請檢查");
+//            throw new RuntimeException("數據中姓名為空，請檢查");
         }
         // 工号 → 员工ID
         String cardId = (String) data.getValueByKey(cardIdKey);
