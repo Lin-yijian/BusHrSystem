@@ -60,6 +60,7 @@ public class TcmAttendanceStatisticsServiceImpl implements TcmAttendanceStatisti
         String endStr = String.format("%04d-%02d-01", nextYear, nextMonth + 1);
 
         String tenantId = InvocationInfoProxy.getTenantid();
+        String username = InvocationInfoProxy.getUsername();
 
         // 查询修正数据
         List<Map<String, Object>> correctionData = queryMonthCorrectionData(startStr, endStr);
@@ -98,10 +99,10 @@ public class TcmAttendanceStatisticsServiceImpl implements TcmAttendanceStatisti
                     Map<String, Object> cor = corrections.get(0);
 
                     TcmAttendanceStatistics newStat = new TcmAttendanceStatistics();
-                    newStat.setNew1(getStringValue(cor, "date"));
+                    newStat.setMonth(getStringValue(cor, "date"));
                     newStat.setPosition(getStringValue(cor, "postName"));
-                    newStat.setPerson(getStringValue(cor, "driver_name"));
-                    newStat.setExecutor(null);
+                    newStat.setPerson(getStringValue(cor, "employee_id"));
+                    newStat.setExecutor(username);
                     newStat.setArchiveStatus_C("2");
                     newStat.setYtenantId(tenantId);
 
@@ -119,9 +120,9 @@ public class TcmAttendanceStatisticsServiceImpl implements TcmAttendanceStatisti
 
         // 构建返回结果
         Map<String, Object> result = new HashMap<>();
-        result.put("correctionData", correctionData);
-        result.put("addList", addList);
-        result.put("insertResult", insertResult);
+        result.put("correctionData", correctionData != null ? correctionData.size() : 0);
+        result.put("addList", addList != null ? addList.size() : 0);
+        result.put("insertResult", insertResult != null ? insertResult.size() : 0);
         return result;
     }
 
@@ -154,12 +155,12 @@ public class TcmAttendanceStatisticsServiceImpl implements TcmAttendanceStatisti
      * 查询当月统计表数据
      */
     private List<Map<String, Object>> queryMonthStatisticsData(String startStr, String endStr) {
-        String selectFields = "new1,position,person,executor,archiveStatus_C";
+        String selectFields = "month,position,person,executor,archiveStatus_C";
 
         QuerySchema querySchema = QuerySchema.create().addSelect(selectFields);
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
-        querySchema.appendQueryCondition(new QueryCondition("new1", ConditionOperator.egt, startStr));
-        querySchema.appendQueryCondition(new QueryCondition("new1", ConditionOperator.lt, endStr));
+        querySchema.appendQueryCondition(new QueryCondition("month", ConditionOperator.egt, startStr));
+        querySchema.appendQueryCondition(new QueryCondition("month", ConditionOperator.lt, endStr));
 
         return queryService.queryMapBySchema(
                 UrlEnum.ATTENDANCE_STATISTICS.getUrl(),

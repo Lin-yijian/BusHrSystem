@@ -9,12 +9,13 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 考勤统计
- * @Date 2026-07-21 19:32:15
+ * @Date 2026-07-22 11:37:29
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceStatistics", domain = "c-dev-tcm-hrdev")
 public class TcmAttendanceStatistics extends SuperDO implements ICode,ILogicDelete {
     public static final String ENTITY_NAME = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceStatistics";
+    public static final String MONTH = "month";
     public static final String NEW1 = "new1";
     public static final String POSITION = "position";
     public static final String PERSON = "person";
@@ -30,6 +31,8 @@ public class TcmAttendanceStatistics extends SuperDO implements ICode,ILogicDele
     public static final String PUBTS = "pubts";
     public static final String YTENANTID = "ytenantId";
 
+    /* 月份 */
+    private String month;
     /* 月份 */
     private String new1;
     /* 岗位 */
@@ -58,6 +61,10 @@ public class TcmAttendanceStatistics extends SuperDO implements ICode,ILogicDele
     private Date pubts;
     /* 租户id */
     private String ytenantId;
+
+    public void setMonth(String month) {
+        this.month = month;
+    }
 
     public void setNew1(String new1) {
         this.new1 = new1;
@@ -113,6 +120,10 @@ public class TcmAttendanceStatistics extends SuperDO implements ICode,ILogicDele
 
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
+    }
+
+    public String getMonth() {
+        return month;
     }
 
     public String getNew1() {

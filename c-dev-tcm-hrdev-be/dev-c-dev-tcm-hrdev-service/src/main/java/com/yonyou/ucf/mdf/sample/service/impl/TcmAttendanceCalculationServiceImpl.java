@@ -199,12 +199,13 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
             return 0L;
         }
         try {
-            return DATE_FORMAT.parse(str).getTime();
+            // 优先解析日期时间格式，避免日期格式在宽松模式下截断时间部分
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            return sdf.parse(str).getTime();
         } catch (ParseException e) {
-            // 尝试解析日期时间格式
+            // 再尝试解析纯日期格式
             try {
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                return sdf.parse(str).getTime();
+                return DATE_FORMAT.parse(str).getTime();
             } catch (ParseException ex) {
                 return 0L;
             }
@@ -249,29 +250,36 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         long totalMs = 0L;
 
         // 第一段
-        String depart1 = getStringValue(record, "pg_one_departure_time");
-        String return1 = getStringValue(record, "pg_one_return_time");
-        if (depart1 != null && return1 != null) {
-            long d1 = parseTime(depart1);
-            long r1 = parseTime(return1);
-            if (r1 > d1) {
-                totalMs += (r1 - d1);
-            }
+        long d1 = getTimeMs(record, "pg_one_departure_time");
+        long r1 = getTimeMs(record, "pg_one_return_time");
+        if (d1 > 0 && r1 > 0 && r1 > d1) {
+            totalMs += (r1 - d1);
         }
 
         // 第二段
-        String depart2 = getStringValue(record, "pg_two_departure_time");
-        String return2 = getStringValue(record, "pg_two_return_time");
-        if (depart2 != null && return2 != null) {
-            long d2 = parseTime(depart2);
-            long r2 = parseTime(return2);
-            if (r2 > d2) {
-                totalMs += (r2 - d2);
-            }
+        long d2 = getTimeMs(record, "pg_two_departure_time");
+        long r2 = getTimeMs(record, "pg_two_return_time");
+        if (d2 > 0 && r2 > 0 && r2 > d2) {
+            totalMs += (r2 - d2);
         }
 
         int totalSeconds = (int) (totalMs / 1000);
         return secondsToTime(totalSeconds);
+    }
+
+    /**
+     * 从Map中提取时间字段的毫秒值
+     * 兼容 Date 对象和字符串格式
+     */
+    private long getTimeMs(Map<String, Object> record, String key) {
+        Object value = record.get(key);
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Date) {
+            return ((Date) value).getTime();
+        }
+        return parseTime(value.toString());
     }
 
     /**
