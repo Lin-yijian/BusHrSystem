@@ -25,6 +25,8 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     @Autowired
     private YmsOidGenerator ymsOidGenerator;
 
+    public static final String WORK_TIME = "08:00";
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> generateSchedule(String date) throws Exception {
@@ -190,7 +192,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）
             entity.setJl_valid_time(DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference));
             // 加班工时 = 计量有效工时 - 08:00
-            entity.setOvertime_time(DateUtil.addTimeDifferences(entity.getJl_valid_time(), "08:00"));
+            if (DateUtil.isTimeLessOrEqual(entity.getJl_valid_time(),WORK_TIME)){
+                entity.setOvertime_time("00:00");
+                continue;
+            }
+            entity.setOvertime_time(DateUtil.subtractTimeDifferences(entity.getJl_valid_time(), WORK_TIME));
         }
     }
 

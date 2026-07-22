@@ -514,4 +514,163 @@ public class DateUtil {
     }
 
 
+    /**
+     * 比较两个 HH:mm 格式的时间字符串大小
+     * @param time1 第一个时间字符串，格式为 HH:mm
+     * @param time2 第二个时间字符串，格式为 HH:mm
+     * @return 1: time1 > time2, 0: time1 == time2, -1: time1 < time2
+     */
+    public static int compareTimeStrings(String time1, String time2) {
+        // 参数校验
+        if (time1 == null || !time1.matches("\\d{2}:\\d{2}")) {
+            time1 = "00:00";
+        }
+        if (time2 == null || !time2.matches("\\d{2}:\\d{2}")) {
+            time2 = "00:00";
+        }
+
+        String[] parts1 = time1.split(":");
+        String[] parts2 = time2.split(":");
+
+        int hours1 = Integer.parseInt(parts1[0]);
+        int minutes1 = Integer.parseInt(parts1[1]);
+        int hours2 = Integer.parseInt(parts2[0]);
+        int minutes2 = Integer.parseInt(parts2[1]);
+
+        // 先比较小时
+        if (hours1 > hours2) {
+            return 1;
+        } else if (hours1 < hours2) {
+            return -1;
+        } else {
+            // 小时相同，比较分钟
+            if (minutes1 > minutes2) {
+                return 1;
+            } else if (minutes1 < minutes2) {
+                return -1;
+            } else {
+                return 0;
+            }
+        }
+    }
+
+    /**
+     * 比较两个 HH:mm 格式的时间字符串大小（返回布尔值）
+     * @param time1 第一个时间字符串
+     * @param time2 第二个时间字符串
+     * @return true: time1 > time2
+     */
+    public static boolean isTimeGreater(String time1, String time2) {
+        return compareTimeStrings(time1, time2) > 0;
+    }
+
+    /**
+     * 检查 time1 是否大于等于 time2
+     */
+    public static boolean isTimeGreaterOrEqual(String time1, String time2) {
+        return compareTimeStrings(time1, time2) >= 0;
+    }
+
+    /**
+     * 检查 time1 是否小于 time2
+     */
+    public static boolean isTimeLess(String time1, String time2) {
+        return compareTimeStrings(time1, time2) < 0;
+    }
+
+    /**
+     * 检查 time1 是否小于等于 time2
+     */
+    public static boolean isTimeLessOrEqual(String time1, String time2) {
+        return compareTimeStrings(time1, time2) <= 0;
+    }
+
+    /**
+     * 检查两个时间是否相等
+     */
+    public static boolean isTimeEqual(String time1, String time2) {
+        return compareTimeStrings(time1, time2) == 0;
+    }
+
+    /**
+     * 获取两个时间中较大的那个
+     * @param time1 第一个时间字符串
+     * @param time2 第二个时间字符串
+     * @return 较大的时间字符串
+     */
+    public static String maxTime(String time1, String time2) {
+        return compareTimeStrings(time1, time2) >= 0 ? time1 : time2;
+    }
+
+    /**
+     * 获取两个时间中较小的那个
+     * @param time1 第一个时间字符串
+     * @param time2 第二个时间字符串
+     * @return 较小的时间字符串
+     */
+    public static String minTime(String time1, String time2) {
+        return compareTimeStrings(time1, time2) <= 0 ? time1 : time2;
+    }
+
+    /**
+     * 比较多个时间，返回最大值
+     * @param times 多个时间字符串
+     * @return 最大的时间字符串
+     */
+    public static String maxTime(String... times) {
+        if (times == null || times.length == 0) {
+            return "00:00";
+        }
+
+        String max = times[0];
+        for (int i = 1; i < times.length; i++) {
+            if (compareTimeStrings(times[i], max) > 0) {
+                max = times[i];
+            }
+        }
+        return max;
+    }
+
+    /**
+     * 比较多个时间，返回最小值
+     * @param times 多个时间字符串
+     * @return 最小的时间字符串
+     */
+    public static String minTime(String... times) {
+        if (times == null || times.length == 0) {
+            return "00:00";
+        }
+
+        String min = times[0];
+        for (int i = 1; i < times.length; i++) {
+            if (compareTimeStrings(times[i], min) < 0) {
+                min = times[i];
+            }
+        }
+        return min;
+    }
+
+    /**
+     * 检查时间是否在指定范围内（包含边界）
+     * @param time 要检查的时间
+     * @param start 起始时间
+     * @param end 结束时间
+     * @return true: 在范围内
+     */
+    public static boolean isTimeInRange(String time, String start, String end) {
+        return compareTimeStrings(time, start) >= 0 && compareTimeStrings(time, end) <= 0;
+    }
+
+    /**
+     * 检查时间是否在指定范围内（不包含边界）
+     * @param time 要检查的时间
+     * @param start 起始时间
+     * @param end 结束时间
+     * @return true: 在范围内
+     */
+    public static boolean isTimeInRangeExclusive(String time, String start, String end) {
+        return compareTimeStrings(time, start) > 0 && compareTimeStrings(time, end) < 0;
+    }
+
+
 }
