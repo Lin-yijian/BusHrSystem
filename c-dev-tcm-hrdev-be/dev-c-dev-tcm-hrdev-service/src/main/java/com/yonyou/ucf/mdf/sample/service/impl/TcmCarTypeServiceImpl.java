@@ -9,7 +9,11 @@ import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class TcmCarTypeServiceImpl implements TcmCarTypeService {
@@ -25,5 +29,15 @@ public class TcmCarTypeServiceImpl implements TcmCarTypeService {
         carCondition.eq(TCMCarType::getYtenantId, tenantId)
                 .eq(TCMCarType::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(carCondition);
+    }
+
+    @Override
+    public Map<String, TCMCarType> mapByFieldGetter(Function<TCMCarType, String> fieldGetter) {
+        List<TCMCarType> list = selectAll();
+        return list.stream().collect(Collectors.toMap(
+                fieldGetter,
+                item -> item,
+                (existing, replacement) -> existing
+        ));
     }
 }

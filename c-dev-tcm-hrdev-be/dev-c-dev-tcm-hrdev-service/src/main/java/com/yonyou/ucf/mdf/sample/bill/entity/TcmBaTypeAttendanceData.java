@@ -1,5 +1,5 @@
+/*--------------------JavaPOJO for 巴型考勤数据(tcmBaTypeAttendanceData)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
-
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
 import com.yonyou.ypd.bill.base.*;
@@ -17,14 +17,10 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDelete {
     public static final String ENTITY_NAME = "unitfyEnum.TCMCaptainAttendance.tcmBaTypeAttendanceData";
     public static final String DATE = "date";
-    public static final String DATA_COUNT = "data_count";
     public static final String EMPLOYEE_ID = "employee_id";
-    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
-    public static final String DRIVER_NAME = "driver_name";
-    public static final String TCMCAR = "tCMCar";
-    public static final String PLATE_NUMBER = "plate_number";
-    public static final String TCMCARTYPE = "tCMCarType";
     public static final String BUS_TRANSFER_TIMES = "bus_transfer_times";
+    public static final String ORDER_NO = "order_no";
+    public static final String CAR = "car";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -37,22 +33,14 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
 
     /* 日期 */
     private String date;
-    /* 数据条数 */
-    private String data_count;
-    /* 工号 */
+    /* 工號 */
     private String employee_id;
-    /* Waybill工号 */
-    private String waybill_employee_id;
-    /* 司机姓名 */
-    private String driver_name;
-    /* 车辆 */
-    private String tCMCar;
-    /* 车牌 */
-    private String plate_number;
-    /* 巴型 */
-    private String tCMCarType;
-    /* 巴型转数 */
+    /* 巴型轉數 */
     private BigDecimal bus_transfer_times;
+    /* 序號 */
+    private String order_no;
+    /* 車輛 */
+    private String car;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -76,36 +64,20 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
         this.date = date;
     }
 
-    public void setData_count(String data_count) {
-        this.data_count = data_count;
-    }
-
     public void setEmployee_id(String employee_id) {
         this.employee_id = employee_id;
     }
 
-    public void setWaybill_employee_id(String waybill_employee_id) {
-        this.waybill_employee_id = waybill_employee_id;
-    }
-
-    public void setDriver_name(String driver_name) {
-        this.driver_name = driver_name;
-    }
-
-    public void settCMCar(String tCMCar) {
-        this.tCMCar = tCMCar;
-    }
-
-    public void setPlate_number(String plate_number) {
-        this.plate_number = plate_number;
-    }
-
-    public void settCMCarType(String tCMCarType) {
-        this.tCMCarType = tCMCarType;
-    }
-
     public void setBus_transfer_times(BigDecimal bus_transfer_times) {
         this.bus_transfer_times = bus_transfer_times;
+    }
+
+    public void setOrder_no(String order_no) {
+        this.order_no = order_no;
+    }
+
+    public void setCar(String car) {
+        this.car = car;
     }
 
     public void setCode(String code) {
@@ -148,36 +120,20 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
         return date;
     }
 
-    public String getData_count() {
-        return data_count;
-    }
-
     public String getEmployee_id() {
         return employee_id;
     }
 
-    public String getWaybill_employee_id() {
-        return waybill_employee_id;
-    }
-
-    public String getDriver_name() {
-        return driver_name;
-    }
-
-    public String gettCMCar() {
-        return tCMCar;
-    }
-
-    public String getPlate_number() {
-        return plate_number;
-    }
-
-    public String gettCMCarType() {
-        return tCMCarType;
-    }
-
     public BigDecimal getBus_transfer_times() {
         return bus_transfer_times;
+    }
+
+    public String getOrder_no() {
+        return order_no;
+    }
+
+    public String getCar() {
+        return car;
     }
 
     public String getCode() {
@@ -224,4 +180,3 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
         }
     }
 }
-

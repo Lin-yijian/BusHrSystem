@@ -6,6 +6,7 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.*;
+import com.yonyou.ucf.mdf.sample.bill.entity.dto.BaTypeAttendanceSummaryDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
@@ -13,7 +14,9 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
+import com.yonyou.ucf.mdf.sample.service.TcmCarTypeService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
@@ -29,6 +32,7 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -61,6 +65,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     @Autowired
     private TcmAttendanceCorrectionService attendanceCorrectionService;
+
+    @Autowired
+    private TcmCarTypeService carTypeService;
 
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
@@ -103,11 +110,13 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public void syncData(String runDate) {
-        List<HiSenseAttendanceMergedDTO> hiSenseDataList = getHiSenseDataByRunData(runDate);
-        if (hiSenseDataList.isEmpty()) {
+        List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
+        if (hiSenseDTOList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
         }
 
+
+        List<HiSenseAttendanceMergedDTO> hiSenseDataList = mergeAttendanceData(hiSenseDTOList);
         removeByRunDate(runDate);
 
         List<TcmHisenseAttendanceData> dataList = new ArrayList<>();
@@ -177,27 +186,69 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             driverHolidayWorkRecord.setYtenantId(tenantId);
             driverHolidayWorkRecordList.add(driverHolidayWorkRecord);
 
-            // 巴型转数
-            TcmBaTypeAttendanceData baTypeAttendanceData = new TcmBaTypeAttendanceData();
-            baTypeAttendanceData.settCMCar(tcmCar.getId());
-            baTypeAttendanceData.settCMCarType(tcmCar.getCar_type());
-            baTypeAttendanceData.setPlate_number(hiSenseData.getBuscardid());
-            baTypeAttendanceData.setDriver_name(hiSenseData.getDriverName());
-            baTypeAttendanceData.setData_count(String.valueOf(hiSenseData.getCount()));
-            baTypeAttendanceData.setDate(runDate);
-            baTypeAttendanceData.setEmployee_id(data.getEmployee_id());
-            baTypeAttendanceData.setWaybill_employee_id(data.getWaybill_employee_id());
-            baTypeAttendanceData.setYtenantId(tenantId);
-            baTypeAttendanceData.setBus_transfer_times(calculateHourDifferencePrecise(hiSenseData.getRealleavetime(),hiSenseData.getRealarrivetime()));
-            baTypeAttendanceDataList.add(baTypeAttendanceData);
-
-
             dataList.add(data);
 
         }
 
+
+        // 巴型转数：按员工工号分组处理
+        Map<String, List<HiSenseAttendanceDataDTO>> groupedByEmployee = hiSenseDTOList.stream()
+                .filter(dto -> !StringUtil.isEmpty(parseEmployeeId(dto.getDrivername())))
+                .collect(Collectors.groupingBy(dto -> parseEmployeeId(dto.getDrivername())));
+
+        Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap = new HashMap<>();
+
+        for (Map.Entry<String, List<HiSenseAttendanceDataDTO>> entry : groupedByEmployee.entrySet()) {
+            String employeeId = entry.getKey();
+            List<HiSenseAttendanceDataDTO> dtoList = entry.getValue();
+
+            // 按实际发车时间升序排序
+            dtoList.sort(Comparator.comparing(HiSenseAttendanceDataDTO::getRealleavetime, Comparator.nullsLast(Date::compareTo)));
+
+            String staffId = staffMap.get(employeeId);
+
+            // 用于暂存当前员工各车型的汇总值（同一车型累加）
+            Map<String, BaTypeAttendanceSummaryDTO> carTypeSummaryMap = new HashMap<>();
+
+            // 循环处理每条数据，设置序号
+            int orderNo = 1;
+            for (HiSenseAttendanceDataDTO dto : dtoList) {
+                TcmBaTypeAttendanceData data = new TcmBaTypeAttendanceData();
+
+                data.setEmployee_id(staffId);
+                TCMCar tcmCar = stringTCMCarMap.get(dto.getBuscardid());
+                data.setCar(tcmCar.getId());
+                // 空值检查：如果发车时间或到达时间为空，巴型转数设为0
+                BigDecimal busTransferTimes = BigDecimal.ZERO;
+                if (dto.getRealleavetime() != null && dto.getRealarrivetime() != null) {
+                    double hours = DateUtil.getTimeDifferenceInHours(dto.getRealarrivetime(), dto.getRealleavetime(), 8);
+                    busTransferTimes = new BigDecimal(hours);
+                }
+                data.setBus_transfer_times(busTransferTimes);
+                data.setDate(runDate);
+                data.setOrder_no(String.valueOf(orderNo++));
+                baTypeAttendanceDataList.add(data);
+
+                // 按车型归类汇总巴型转数
+                String carType = tcmCar.getCar_type();
+                BaTypeAttendanceSummaryDTO summary = carTypeSummaryMap.get(carType);
+                if (summary == null) {
+                    // 车型不存在，新建记录
+                    summary = new BaTypeAttendanceSummaryDTO(staffId, carType, busTransferTimes);
+                    carTypeSummaryMap.put(carType, summary);
+                } else {
+                    // 车型已存在，累加巴型转数
+                    summary.setBusTransferTimes(summary.getBusTransferTimes().add(busTransferTimes));
+                }
+            }
+
+            // 将当前员工的汇总数据存入缓存
+            List<BaTypeAttendanceSummaryDTO> staffSummary = new ArrayList<>(carTypeSummaryMap.values());
+            baTypeMap.put(staffId, staffSummary);
+        }
+
         // 更新考勤修正数据
-        assemblyCorrection(dataList, runDate, staffSet);
+        assemblyCorrection(dataList, baTypeMap, runDate, staffSet);
 
 
         billRepository.insert(dataList);
@@ -212,10 +263,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     /**
      * 为 TcmAttendanceCorrection 填充符合条件的数据
      * @param dataList 海信考勤数据
+     * @param baTypeMap 巴型转数数据
      * @param runDate 日期
      * @param staffIdList 员工ID集合
      */
-    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList,String runDate, Collection<String> staffIdList){
+    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList){
         List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateListAndStaffIds(runDate, staffIdList);
 
         Map<String, List<TcmHisenseAttendanceData>> m2 = dataList.stream()
@@ -224,12 +276,14 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
 
         for (TcmAttendanceCorrection entity : correctionList) {
+
             String employeeId = entity.getEmployee_id();
             List<TcmHisenseAttendanceData> attendanceDataList = m2.get(employeeId);
-
             if (attendanceDataList == null || attendanceDataList.isEmpty()) {
                 continue;
             }
+            // 巴型转数数据
+            List<BaTypeAttendanceSummaryDTO> baTypeList = baTypeMap.get(employeeId);
 
             // 创建可变列表用于跟踪已匹配的数据
             List<TcmHisenseAttendanceData> availableDataList = new ArrayList<>(attendanceDataList);
@@ -288,39 +342,41 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     .orElse(null);
             entity.setKq_two_return_time(maxArriveTime);
 
-//            // 计算时长
-//            // 一更时长
-//            String oneTimeDifference = getTimeDifference(entity.getKq_one_departure_time(), entity.getKq_one_return_time());
-//            entity.setOne_time(oneTimeDifference);
-//            // 二更时长
-//            String twoTimeDifference = getTimeDifference(entity.getKq_two_departure_time(), entity.getKq_two_return_time());
-//            entity.setTwo_time(twoTimeDifference);
         }
 
         billRepository.update(correctionList);
 
     }
 
+    private void calculateTypeWorkHour(TcmAttendanceCorrection entity, List<BaTypeAttendanceSummaryDTO> baTypeList){
+        Map<String, TCMCarType> carTypeMap = carTypeService.mapByFieldGetter(TCMCarType::getId);
+        BigDecimal totalTimes = baTypeList.stream().map(BaTypeAttendanceSummaryDTO::getBusTransferTimes).reduce(BigDecimal.ZERO, BigDecimal::add);
+        // 将 baTypeList 按照
+        for (BaTypeAttendanceSummaryDTO dto : baTypeList) {
+            String typeCode = carTypeMap.get(dto.getCarType()).getType_code();
+            switch (typeCode){
+                case "01":
+                    entity.setMinibus_bus_type_rpm(dto.getBusTransferTimes());
+                    break;
+                case "02":
+                    entity.setMedium_bus_type_rpm(dto.getBusTransferTimes());
+                    break;
+                case "03":
+                    entity.setLarge_bus_type_rpm(dto.getBusTransferTimes());
+                    break;
+                case "04":
+                    entity.setExtra_large_bus_type_rpm(dto.getBusTransferTimes());
+                    break;
 
-    /**
-     * 计算两个日期的时间差，返回 HH:mm 格式的字符串
-     * @param date1 第一个日期（被减数）
-     * @param date2 第二个日期（减数）
-     * @return 时间差字符串，格式为 HH:mm
-     */
-    public String getTimeDifference(Date date1, Date date2) {
-
-        if (date1 == null || date2 == null) {
-            return "00:00";
+            }
         }
-
-        long diffInMillis = Math.abs(date1.getTime() - date2.getTime());
-
-        long hours = diffInMillis / (60 * 60 * 1000);
-        long minutes = (diffInMillis % (60 * 60 * 1000)) / (60 * 1000);
-
-        return String.format("%02d:%02d", hours, minutes);
     }
+
+    private void calculate(String workHour, BigDecimal targetTime,BigDecimal totalTimes){
+//        DateUtil.
+    }
+
+
 
     /**
      * 在海信考勤数据列表中查找与目标时间最接近的数据对象
@@ -350,25 +406,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         }
 
         return closestData;
-    }
-
-
-    /**
-     * 巴型转数计算方法
-     * @param startTime 实际发车时间
-     * @param endTime 实际到达时间
-     * @return .
-     */
-    public BigDecimal calculateHourDifferencePrecise(Date startTime, Date endTime) {
-        if (startTime == null || endTime == null) {
-            throw new IllegalArgumentException("时间参数不能为null");
-        }
-
-        long diffInMillis = endTime.getTime() - startTime.getTime();
-        BigDecimal diffInHours = BigDecimal.valueOf(diffInMillis)
-                .divide(BigDecimal.valueOf(1000 * 60 * 60), 10, RoundingMode.HALF_UP);
-
-        return diffInHours.multiply(BigDecimal.valueOf(24));
     }
 
 
@@ -430,7 +467,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @param runDate 业务日期
      * @return 合并后的考勤数据列表
      */
-    private  List<HiSenseAttendanceMergedDTO> getHiSenseDataByRunData(String runDate) {
+    private  List<HiSenseAttendanceDataDTO> getHiSenseDataByRunData(String runDate) {
         // 参数校验：业务日期不能为空
         if (StringUtil.isEmpty(runDate)) {
             throw new RuntimeException("业务日期不能为空");
@@ -445,9 +482,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 解析JSON响应为HiSenseResponseDTO对象（使用泛型）
             HiSenseResponseDTO<HiSenseAttendanceDataDTO> response = objectMapper.readValue(result,
                     objectMapper.getTypeFactory().constructParametricType(HiSenseResponseDTO.class, HiSenseAttendanceDataDTO.class));
-            List<HiSenseAttendanceDataDTO> attendanceDataList = response.getResult();
-
-            return mergeAttendanceData(attendanceDataList);
+            return response.getResult();
 
         } catch (Exception e) {
             throw new RuntimeException("解析海信考勤数据失败", e);

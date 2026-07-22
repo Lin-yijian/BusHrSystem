@@ -73,12 +73,14 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String LARGE_BUS_EXTRA_HOURS = "large_bus_extra_hours";
     public static final String EXTRA_LARGE_BUS_EXTRA_HOURS = "extra_large_bus_extra_hours";
     public static final String ATTENDANCE_MODIFICATION_REMARKS = "attendance_modification_remarks";
-    public static final String TCMCARTYPE = "tCMCarType";
-    public static final String BUS_TYPE_RPM = "bus_type_rpm";
     public static final String ANOMALY_VERIFICATION = "anomaly_verification";
     public static final String TCMBARTYPEHOURSTATUS = "tcmBarTypeHourStatus";
     public static final String IS_LESS_THAN_8_HOURS = "is_less_than_8_hours";
     public static final String IS_LATE_OR_EARLY_LEAVE = "is_late_or_early_leave";
+    public static final String MINIBUS_BUS_TYPE_RPM = "minibus_bus_type_rpm";
+    public static final String MEDIUM_BUS_TYPE_RPM = "medium_bus_type_rpm";
+    public static final String LARGE_BUS_TYPE_RPM = "large_bus_type_rpm";
+    public static final String EXTRA_LARGE_BUS_TYPE_RPM = "extra_large_bus_type_rpm";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -206,10 +208,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private String extra_large_bus_extra_hours;
     /* 考勤修改備註 */
     private String attendance_modification_remarks;
-    /* 巴型類型 */
-    private String tCMCarType;
-    /* 巴型轉數 */
-    private BigDecimal bus_type_rpm;
     /* 異常核對 */
     private String anomaly_verification;
     /* 巴型時數狀態 */
@@ -218,6 +216,14 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private Boolean is_less_than_8_hours;
     /* 是否遲到早退 */
     private Boolean is_late_or_early_leave;
+    /* 小巴巴型轉數 */
+    private BigDecimal minibus_bus_type_rpm;
+    /* 中巴巴型轉數 */
+    private BigDecimal medium_bus_type_rpm;
+    /* 大巴巴型轉數 */
+    private BigDecimal large_bus_type_rpm;
+    /* 特大巴巴型轉數 */
+    private BigDecimal extra_large_bus_type_rpm;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -242,6 +248,39 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private List<TcmAttendanceDriverOvertimeRecord> tcmAttendanceDriverOvertimeRecordList;
     /* 租户id */
     private String ytenantId;
+
+
+    public BigDecimal getMinibus_bus_type_rpm() {
+        return minibus_bus_type_rpm;
+    }
+
+    public void setMinibus_bus_type_rpm(BigDecimal minibus_bus_type_rpm) {
+        this.minibus_bus_type_rpm = minibus_bus_type_rpm;
+    }
+
+    public BigDecimal getMedium_bus_type_rpm() {
+        return medium_bus_type_rpm;
+    }
+
+    public void setMedium_bus_type_rpm(BigDecimal medium_bus_type_rpm) {
+        this.medium_bus_type_rpm = medium_bus_type_rpm;
+    }
+
+    public BigDecimal getLarge_bus_type_rpm() {
+        return large_bus_type_rpm;
+    }
+
+    public void setLarge_bus_type_rpm(BigDecimal large_bus_type_rpm) {
+        this.large_bus_type_rpm = large_bus_type_rpm;
+    }
+
+    public BigDecimal getExtra_large_bus_type_rpm() {
+        return extra_large_bus_type_rpm;
+    }
+
+    public void setExtra_large_bus_type_rpm(BigDecimal extra_large_bus_type_rpm) {
+        this.extra_large_bus_type_rpm = extra_large_bus_type_rpm;
+    }
 
     public void setDate(String date) {
         this.date = date;
@@ -471,13 +510,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
         this.attendance_modification_remarks = attendance_modification_remarks;
     }
 
-    public void settCMCarType(String tCMCarType) {
-        this.tCMCarType = tCMCarType;
-    }
-
-    public void setBus_type_rpm(BigDecimal bus_type_rpm) {
-        this.bus_type_rpm = bus_type_rpm;
-    }
 
     public void setAnomaly_verification(String anomaly_verification) {
         this.anomaly_verification = anomaly_verification;
@@ -769,14 +801,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
 
     public String getAttendance_modification_remarks() {
         return attendance_modification_remarks;
-    }
-
-    public String gettCMCarType() {
-        return tCMCarType;
-    }
-
-    public BigDecimal getBus_type_rpm() {
-        return bus_type_rpm;
     }
 
     public String getAnomaly_verification() {

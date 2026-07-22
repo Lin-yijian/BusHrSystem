@@ -5,6 +5,8 @@ import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -318,6 +320,141 @@ public class DateUtil {
         int totalMinutesRemainder = totalMinutes % 60;
 
         return String.format("%02d:%02d", totalHours, totalMinutesRemainder);
+    }
+
+    /**
+     * 将 HH:mm 格式的字符串转换为小时数（double）
+     * @param timeStr HH:mm 格式的时间字符串，如 "01:30"
+     * @return 小时数，如 1.5
+     */
+    public static double timeStringToHours(String timeStr) {
+        if (timeStr == null || timeStr.isEmpty()) {
+            return 0.0;
+        }
+
+        // 校验格式 HH:mm
+        if (!timeStr.matches("\\d{1,2}:\\d{2}")) {
+            throw new IllegalArgumentException("时间格式错误，应为 HH:mm，当前值: " + timeStr);
+        }
+
+        String[] parts = timeStr.split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+
+        // 分钟数不能超过59
+        if (minutes >= 60) {
+            throw new IllegalArgumentException("分钟数不能大于59，当前值: " + minutes);
+        }
+
+        return hours + minutes / 60.0;
+    }
+
+    /**
+     * 将 HH:mm 格式的字符串转换为小时数（BigDecimal，高精度）
+     * @param timeStr HH:mm 格式的时间字符串
+     * @param scale 小数位数
+     * @return 小时数（BigDecimal）
+     */
+    public static BigDecimal timeStringToHoursBigDecimal(String timeStr, int scale) {
+        if (timeStr == null || timeStr.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        if (!timeStr.matches("\\d{1,2}:\\d{2}")) {
+            throw new IllegalArgumentException("时间格式错误，应为 HH:mm，当前值: " + timeStr);
+        }
+
+        String[] parts = timeStr.split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+
+        if (minutes >= 60) {
+            throw new IllegalArgumentException("分钟数不能大于59，当前值: " + minutes);
+        }
+
+        BigDecimal hoursBd = BigDecimal.valueOf(hours);
+        BigDecimal minutesBd = BigDecimal.valueOf(minutes);
+        BigDecimal minutesInHours = minutesBd.divide(BigDecimal.valueOf(60), scale, RoundingMode.HALF_UP);
+
+        return hoursBd.add(minutesInHours);
+    }
+
+    /**
+     * 将小时数（double）转换为 HH:mm 格式的字符串
+     * @param hours 小时数，如 1.5
+     * @return HH:mm 格式的字符串，如 "01:30"
+     */
+    public static String hoursToTimeString(double hours) {
+        if (hours < 0) {
+            throw new IllegalArgumentException("小时数不能为负数: " + hours);
+        }
+
+        int totalMinutes = (int) Math.round(hours * 60);
+        int h = totalMinutes / 60;
+        int m = totalMinutes % 60;
+
+        return String.format("%02d:%02d", h, m);
+    }
+
+    /**
+     * 将小时数（double）转换为 HH:mm 格式的字符串（支持自定义舍入模式）
+     * @param hours 小时数，如 1.5
+     * @param roundingMode 舍入模式
+     * @return HH:mm 格式的字符串
+     */
+    public static String hoursToTimeString(double hours, RoundingMode roundingMode) {
+        if (hours < 0) {
+            throw new IllegalArgumentException("小时数不能为负数: " + hours);
+        }
+
+        BigDecimal hoursBd = BigDecimal.valueOf(hours);
+        BigDecimal minutesBd = hoursBd.multiply(BigDecimal.valueOf(60));
+        int totalMinutes = minutesBd.setScale(0, roundingMode).intValue();
+
+        int h = totalMinutes / 60;
+        int m = totalMinutes % 60;
+
+        return String.format("%02d:%02d", h, m);
+    }
+
+    /**
+     * 将小时数（BigDecimal）转换为 HH:mm 格式的字符串
+     * @param hours 小时数（BigDecimal）
+     * @return HH:mm 格式的字符串
+     */
+    public static String hoursToTimeString(BigDecimal hours) {
+        if (hours == null || hours.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("小时数不能为负数");
+        }
+
+        BigDecimal minutesBd = hours.multiply(BigDecimal.valueOf(60));
+        int totalMinutes = minutesBd.setScale(0, RoundingMode.HALF_UP).intValue();
+
+        int h = totalMinutes / 60;
+        int m = totalMinutes % 60;
+
+        return String.format("%02d:%02d", h, m);
+    }
+
+    /**
+     * 将小时数（double）转换为 HH:mm 格式的字符串（保留小数部分为分钟）
+     * @param hours 小时数，如 1.29611111
+     * @param scale 小数位数（用于精度控制）
+     * @return HH:mm 格式的字符串，如 "01:18"
+     */
+    public static String hoursToTimeStringPrecise(double hours, int scale) {
+        if (hours < 0) {
+            throw new IllegalArgumentException("小时数不能为负数: " + hours);
+        }
+
+        BigDecimal hoursBd = BigDecimal.valueOf(hours);
+        BigDecimal minutesBd = hoursBd.multiply(BigDecimal.valueOf(60));
+        int totalMinutes = minutesBd.setScale(scale, RoundingMode.HALF_UP).intValue();
+
+        int h = totalMinutes / 60;
+        int m = totalMinutes % 60;
+
+        return String.format("%02d:%02d", h, m);
     }
 
 

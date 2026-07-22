@@ -1,5 +1,9 @@
 package com.yonyou.ucf.mdf.sample.service;
 
+import com.yonyou.ucf.mdf.sample.bill.entity.dto.BaTypeAttendanceSummaryDTO;
+
+import java.util.List;
+
 public interface TcmHiSenseAttendanceService {
 
     /**
