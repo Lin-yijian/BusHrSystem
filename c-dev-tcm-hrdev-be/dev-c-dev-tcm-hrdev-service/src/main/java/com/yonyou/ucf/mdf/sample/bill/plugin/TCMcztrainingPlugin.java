@@ -14,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,22 +35,38 @@ public class TCMcztrainingPlugin extends AbstractBillPlugin {
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 
-        List<String> wayBillIds  = new ArrayList<>();
+
+
+         List<String> wayBillIds  = new ArrayList<>();
+         List<String> codeList = new ArrayList<>();
+
+
+
         for (ImportSingleData data : dataList) {
             wayBillIds.add((String) data.getData().get("waybill_employee_id"));
+            codeList.add((String) data.getData().get("cz01_code"));
         }
 
+
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
+        Map<String, String> staffByCodes = util.getStaffByCodes(codeList,tenantId);
 
         for (ImportSingleData data : dataList) {
 
             String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
             String employee_id = staffByCardIds.get(waybill_employee_id);
             if (StringUtils.isEmpty(employee_id)){
-                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+                employee_id = staffByCodes.get("cz01_code");
             }
+            if (StringUtils.isEmpty(employee_id)){
+              throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+
+            }
+
             data.getData().put("cz01",employee_id);
         }
+
+
 
     }
 }

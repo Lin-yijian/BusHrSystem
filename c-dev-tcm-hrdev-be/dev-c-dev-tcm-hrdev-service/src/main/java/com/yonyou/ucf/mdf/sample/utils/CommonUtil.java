@@ -45,6 +45,8 @@ public class CommonUtil {
 
     }
 
+
+
     /**
      * 根据澳巴工号获取员工信息
      * @param id 澳巴工号
@@ -65,4 +67,38 @@ public class CommonUtil {
         return (String) mapList.get(0).get("id");
 
     }
+
+
+
+    /**
+     * 根据员工编号获取员工信息（批量）
+     * @param codes 员工编号集合
+     * @param tenantId 租户ID
+     * @return k->员工编号   v->员工信息ID
+     */
+    public Map<String,String> getStaffByCodes(List<String> codes, String tenantId) {
+        if (codes == null || codes.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, code");
+        querySchema.appendQueryCondition(QueryCondition.name("code").in(codes));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        List<Map<String, Object>> mapList = queryService.queryMapBySchema(UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+
+        if (mapList == null || mapList.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        Map<String,String> finalMap = new HashMap<>();
+        for (Map<String, Object> map : mapList) {
+            finalMap.put((String) map.get("code"), (String) map.get("id"));
+        }
+
+        return finalMap;
+    }
+
+
+
 }
