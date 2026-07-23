@@ -31,9 +31,10 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
 
 
 
-        // 收集 + 批量查询车辆、路线、员工
+        // 收集 + 批量查询员工
+        // 注意：这里需要同时传入澳巴工号字段和员工编号字段
         ImportDateUtil.ValidateContext ctx = importDateUtil.collectAndQuery(
-                dataList,TcmFuelGasDataRecord.WAYBILL_EMPLOYEE_ID
+                dataList,TcmFuelGasDataRecord.WAYBILL_EMPLOYEE_ID,TcmFuelGasDataRecord.EMPLOYEE_ID
         );
 
         // 逐行校验
