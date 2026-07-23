@@ -45,6 +45,8 @@ public class ImportDateUtil {
         ImportDateUtil.ValidateContext ctx = new ImportDateUtil.ValidateContext();
 
         ctx.cardMap = queryCards(cardIds, tenantId);
+
+        ctx.employeeCodeMap = queryEmployeeCodes(employeeCodes,tenantId);
         return ctx;
     }
 

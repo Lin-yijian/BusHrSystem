@@ -35,6 +35,9 @@ public class ImportValidateUtil {
         public Map<String, TCMCar> carMap = Collections.emptyMap();
         public Map<String, TCMRoute> routeMap = Collections.emptyMap();
         public Map<String, String> cardMap = Collections.emptyMap(); // cardId → employeeId
+
+
+
     }
 
     /**
@@ -47,6 +50,7 @@ public class ImportValidateUtil {
         Set<String> plateNumbers = new HashSet<>();
         Set<String> routeCodes = new HashSet<>();
         Set<String> cardIds = new HashSet<>();
+
 
         for (ImportSingleData data : dataList) {
             collectValue(data, carPlateKey, plateNumbers);
