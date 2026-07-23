@@ -35,6 +35,9 @@ public class TCMcztrainingPlugin extends AbstractBillPlugin {
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 
+        if (dataList == null || dataList.isEmpty()) {
+            throw new RuntimeException("导入数据为空");
+        }
 
 
          List<String> wayBillIds  = new ArrayList<>();
@@ -53,17 +56,19 @@ public class TCMcztrainingPlugin extends AbstractBillPlugin {
 
         for (ImportSingleData data : dataList) {
 
-            String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
-            String employee_id = staffByCardIds.get(waybill_employee_id);
-            if (StringUtils.isEmpty(employee_id)){
-                employee_id = staffByCodes.get("cz01_code");
+            String waybillEmployeeId = (String) data.getData().get("waybill_employee_id");
+            String cz01Code = (String) data.getData().get("cz01_code");
+            String employeeId = staffByCardIds.get(waybillEmployeeId);
+
+            if (StringUtils.isEmpty(employeeId)){
+                employeeId = staffByCodes.get(cz01Code);
             }
-            if (StringUtils.isEmpty(employee_id)){
-              throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+            if (StringUtils.isEmpty(employeeId)){
+              throw new RuntimeException("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
 
             }
 
-            data.getData().put("cz01",employee_id);
+            data.getData().put("cz01",employeeId);
         }
 
 
