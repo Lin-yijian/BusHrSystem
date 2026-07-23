@@ -35,7 +35,9 @@ import java.util.Map;
 @Service
 public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybillLoginRecordService {
 
-    /** 海信车载机登入数据接口URL */
+    /**
+     * 海信车载机登入数据接口URL
+     */
     public static final String HI_SENSE_LOGIN_RECORD_URL = "http://10.102.128.7:8080/sdata/rest/service/dataapi/rest/2208919096862354";
 
     private final ObjectMapper objectMapper;
@@ -60,8 +62,8 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         // 忽略未知属性，避免接口返回新增字段导致反序列化失败
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
-    
-    
+
+
     @Override
     public void syncByActDate(String actDate) {
         List<HiSenseLoginRecordDataDTO> hiSenseDataList = getHiSenseDataByActDate(actDate);
@@ -102,8 +104,8 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         }
 
         billRepository.insert(list);
-        
-        
+
+
     }
 
     @Override
@@ -127,7 +129,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmHisenseWaybillLoginRecord> carCondition = new LambdaQueryCondition<>(new TcmHisenseWaybillLoginRecord());
         carCondition.eq(TcmHisenseWaybillLoginRecord::getDate, actDate)
-                .eq(TcmHisenseWaybillLoginRecord::getYtenantId,tenantId)
+                .eq(TcmHisenseWaybillLoginRecord::getYtenantId, tenantId)
                 .eq(TcmHisenseWaybillLoginRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(carCondition);
     }
@@ -139,7 +141,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
      * @return 登入记录数据列表
      */
     private List<HiSenseLoginRecordDataDTO> getHiSenseDataByActDate(String actDate) {
-        
+
         if (StringUtil.isEmpty(actDate)) {
             throw new RuntimeException("日期參數不能爲空");
         }
@@ -162,6 +164,6 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
             throw new RuntimeException("同步海信車載機登錄記錄數據失敗", e);
         }
     }
-    
-    
+
+
 }

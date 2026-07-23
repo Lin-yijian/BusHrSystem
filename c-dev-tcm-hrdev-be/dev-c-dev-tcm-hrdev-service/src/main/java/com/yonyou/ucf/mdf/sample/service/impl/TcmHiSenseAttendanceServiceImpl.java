@@ -41,10 +41,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceService {
 
-    /** 海信考勤接口URL */
+    /**
+     * 海信考勤接口URL
+     */
     public static final String HI_SENSE_ATTENDANCE_URL = "http://10.102.128.7:8080/sdata/rest/service/dataapi/rest/6903218280134273";
 
-    /** 一小时的毫秒数，用于判断两趟车是否需要合并 */
+    /**
+     * 一小时的毫秒数，用于判断两趟车是否需要合并
+     */
     private static final long ONE_HOUR_IN_MILLIS = 60 * 60 * 1000L;
 
 
@@ -98,7 +102,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         LambdaQueryCondition<TcmHisenseAttendanceData> carCondition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
         carCondition.eq(TcmHisenseAttendanceData::getRun_date, runDate)
-                .eq(TcmHisenseAttendanceData::getYtenantId,tenantId)
+                .eq(TcmHisenseAttendanceData::getYtenantId, tenantId)
                 .eq(TcmHisenseAttendanceData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(carCondition);
     }
@@ -259,10 +263,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         billRepository.insert(dataList);
         // 車長假期工作記錄
-        driverHolidayWorkRecordService.coverInsert(runDate,driverHolidayWorkRecordList);
+        driverHolidayWorkRecordService.coverInsert(runDate, driverHolidayWorkRecordList);
 //        billRepository.insert(driverHolidayWorkRecordList);
         // 巴型转数
-        baTypeAttendanceDataService.coverInsert(runDate,baTypeAttendanceDataList);
+        baTypeAttendanceDataService.coverInsert(runDate, baTypeAttendanceDataList);
 //        billRepository.insert(baTypeAttendanceDataList);
 
 
@@ -270,12 +274,13 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 为 TcmAttendanceCorrection 填充符合条件的数据
-     * @param dataList 海信考勤数据
-     * @param baTypeMap 巴型转数数据
-     * @param runDate 日期
+     *
+     * @param dataList    海信考勤数据
+     * @param baTypeMap   巴型转数数据
+     * @param runDate     日期
      * @param staffIdList 员工ID集合
      */
-    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList){
+    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList) {
         List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateListAndStaffIds(runDate, staffIdList);
         if (correctionList.isEmpty()) {
             return;
@@ -387,11 +392,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 巴型工时计算赋值
-     * @param entity 修正对象
+     *
+     * @param entity     修正对象
      * @param baTypeList 巴型转数数据
      * @param carTypeMap 车型信息
      */
-    private void calculateTypeWorkHour(TcmAttendanceCorrection entity, List<BaTypeAttendanceSummaryDTO> baTypeList, Map<String, TCMCarType> carTypeMap){
+    private void calculateTypeWorkHour(TcmAttendanceCorrection entity, List<BaTypeAttendanceSummaryDTO> baTypeList, Map<String, TCMCarType> carTypeMap) {
         if (baTypeList == null || baTypeList.isEmpty()) {
             return;
         }
@@ -419,7 +425,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             String overTime = DateUtil.subtractTimeDifferences(runCarTime, baseTime);
 
             // 暂时以编号区分巴型
-            switch (typeCode){
+            switch (typeCode) {
                 case "01":
                     entity.setMinibus_bus_type_rpm(busTransferTimes);
                     entity.setMinibus_driving_hours(runCarTime);
@@ -450,15 +456,16 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 巴型工时计算 = 有效工时 * (目标巴型转数/总巴型转数)
-     * @param workHour 有效工时
+     *
+     * @param workHour   有效工时
      * @param targetTime 目标巴型转数
      * @param totalTimes 总巴型转数
      * @return 巴型工时
      */
-    private String calculate(String workHour, BigDecimal targetTime, BigDecimal totalTimes){
+    private String calculate(String workHour, BigDecimal targetTime, BigDecimal totalTimes) {
         // 空值和零值检查
         if (StringUtil.isEmpty(workHour) || targetTime == null || totalTimes == null || totalTimes.compareTo(BigDecimal.ZERO) == 0) {
-            log.warn("巴型工时计算参数异常，返回默认值00:00。workHour={}, targetTime={}, totalTimes={}", 
+            log.warn("巴型工时计算参数异常，返回默认值00:00。workHour={}, targetTime={}, totalTimes={}",
                     workHour, targetTime, totalTimes);
             return "00:00";
         }
@@ -470,11 +477,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     }
 
 
-
     /**
      * 在海信考勤数据列表中查找与目标时间最接近的数据对象
-     * @param dataList 海信考勤数据列表
-     * @param targetDate 目标时间
+     *
+     * @param dataList       海信考勤数据列表
+     * @param targetDate     目标时间
      * @param findArriveTime true表示查找real_arrive_time，false表示查找real_leave_time
      * @return 最接近的数据对象，如果列表为空或目标时间为空则返回null
      */
@@ -504,11 +511,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 查询BIP员工信息
+     *
      * @param ids
      * @param tenantId
      * @return
      */
-    private Map<String,String> getStaffByCardIds(List<String> ids,String tenantId) {
+    private Map<String, String> getStaffByCardIds(List<String> ids, String tenantId) {
         QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
         querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
         querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
@@ -519,9 +527,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return new HashMap<>();
         }
 
-        Map<String,String> finalMap = new HashMap<>();
+        Map<String, String> finalMap = new HashMap<>();
         for (Map<String, Object> map : mapList) {
-            finalMap.put((String) map.get("cardId"),(String) map.get("id"));
+            finalMap.put((String) map.get("cardId"), (String) map.get("id"));
         }
 
         return finalMap;
@@ -530,15 +538,16 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 分组
+     *
      * @param routeNameList
      * @param tenantId
      * @return
      */
-    private Map<String,TCMRoute> groupRouteMapByPlateNumber(List<String> routeNameList,String tenantId) {
+    private Map<String, TCMRoute> groupRouteMapByPlateNumber(List<String> routeNameList, String tenantId) {
 
         LambdaQueryCondition<TCMRoute> routeCondition = new LambdaQueryCondition<>(new TCMRoute());
         routeCondition.in(TCMRoute::getRoute_code, routeNameList)
-                .eq(TCMRoute::getYtenantId,tenantId)
+                .eq(TCMRoute::getYtenantId, tenantId)
                 .eq(TCMRoute::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         List<TCMRoute> list = billRepository.queryByClause(routeCondition);
 
@@ -560,7 +569,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @param runDate 业务日期
      * @return 合并后的考勤数据列表
      */
-    private  List<HiSenseAttendanceDataDTO> getHiSenseDataByRunData(String runDate) {
+    private List<HiSenseAttendanceDataDTO> getHiSenseDataByRunData(String runDate) {
         // 参数校验：业务日期不能为空
         if (StringUtil.isEmpty(runDate)) {
             throw new RuntimeException("业务日期不能为空");

@@ -126,6 +126,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         String depCol = "AM".equals(shiftType) ? "G" : "AA";
         String retCol = "AM".equals(shiftType) ? "O" : "AI";
         String locCol = "AM".equals(shiftType) ? "C" : "W";
+        String getCarCol = "AM".equals(shiftType) ? "C" : "W";
+        String outCarCol = "AM".equals(shiftType) ? "R" : "AL";
         String mealCol = "AM".equals(shiftType) ? "T" : "AM";
 
         WaybillExcelRecord record = new WaybillExcelRecord();
@@ -147,6 +149,14 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
         String loc = getCellString(sheet, colToIndex(locCol), row, formatter, evaluator);
         record.setLocation(loc != null ? loc.replaceAll("[\\r\\n]+", "") : "");
+
+        String getCar = getCellString(sheet, colToIndex(getCarCol), row, formatter, evaluator);
+        String outCar = getCellString(sheet, colToIndex(outCarCol), row, formatter, evaluator);
+
+        record.setGetCar(getCar != null ? getCar.replaceAll("[\\r\\n]+", "") : "");
+        record.setOutCar(outCar != null ? outCar.replaceAll("[\\r\\n]+", "") : "");
+
+
         record.setParkingSpace("");
 
         return record;
@@ -228,6 +238,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             entity.setParking_space(record.getParkingSpace());
             entity.setMeal_time(record.getMealCount());
             entity.setMacau_car_park(record.getLocation());
+            entity.setGet_car(record.getGetCar());
+            entity.setOut_car(record.getOutCar());
 
             dataList.add(entity);
         }

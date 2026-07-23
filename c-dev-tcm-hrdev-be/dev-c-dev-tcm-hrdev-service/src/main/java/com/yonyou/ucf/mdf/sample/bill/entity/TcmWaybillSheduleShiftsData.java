@@ -20,6 +20,7 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     public static final String EMPLOYEE_ID = "employee_id";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String DRIVER_NAME = "driver_name";
+    public static final String CAR = "car";
     public static final String CAR_NUM = "car_num";
     public static final String DEPARTURE_TIME = "departure_time";
     public static final String FINISH_TIME = "finish_time";
@@ -27,6 +28,8 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     public static final String PARKING_SPACE = "parking_space";
     public static final String MEAL_TIME = "meal_time";
     public static final String MACAU_CAR_PARK = "macau_car_park";
+    public static final String GET_CAR = "get_car";
+    public static final String OUT_CAR = "out_car";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -37,28 +40,80 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     public static final String PUBTS = "pubts";
     public static final String YTENANTID = "ytenantId";
 
+    /* 日期 */
     private String date;
+    /* 數據條數 */
     private Integer data_count;
+    /* 任务编号 */
     private String task_code;
+    /* 工號 */
     private String employee_id;
+    /* 海信/Waybill工號 */
     private String waybill_employee_id;
+    /* 司機姓名 */
     private String driver_name;
+    /* 車輛 */
+    private String car;
+    /* 車辆编号 */
     private String car_num;
+    /* 發車時間 */
     private Date departure_time;
+    /* 收車時間 */
     private Date finish_time;
+    /* 路綫 */
     private String line;
+    /* 車位 */
     private String parking_space;
+    /* 用膳次數 */
     private Integer meal_time;
+    /* 澳門車場 */
     private String macau_car_park;
+    /* 取車點 */
+    private String get_car;
+    /* 交車點 */
+    private String out_car;
+    /* 编码 */
     private String code;
+    /* 创建时间 */
     private Date createTime;
+    /* 创建人 */
     private String creator;
+    /* 逻辑删除 */
     private Short dr;
+    /* id */
     private String id;
+    /* 修改人 */
     private String modifier;
+    /* 修改时间 */
     private Date modifyTime;
+    /* pubts */
     private Date pubts;
+    /* 租户id */
     private String ytenantId;
+
+    public String getCar() {
+        return car;
+    }
+
+    public void setCar(String car) {
+        this.car = car;
+    }
+
+    public String getGet_car() {
+        return get_car;
+    }
+
+    public void setGet_car(String get_car) {
+        this.get_car = get_car;
+    }
+
+    public String getOut_car() {
+        return out_car;
+    }
+
+    public void setOut_car(String out_car) {
+        this.out_car = out_car;
+    }
 
     public String getDate() { return date; }
     public void setDate(String date) { this.date = date; }

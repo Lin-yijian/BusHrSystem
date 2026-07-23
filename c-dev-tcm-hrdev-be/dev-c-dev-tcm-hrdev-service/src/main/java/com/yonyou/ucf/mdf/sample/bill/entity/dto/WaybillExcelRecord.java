@@ -17,7 +17,25 @@ public class WaybillExcelRecord {
     private Date returnTime;
     private int mealCount;
     private String location;
+    private String getCar;
+    private String outCar;
     private String parkingSpace;
+
+    public String getGetCar() {
+        return getCar;
+    }
+
+    public void setGetCar(String getCar) {
+        this.getCar = getCar;
+    }
+
+    public String getOutCar() {
+        return outCar;
+    }
+
+    public void setOutCar(String outCar) {
+        this.outCar = outCar;
+    }
 
     public String getDate() { return date; }
     public void setDate(String date) { this.date = date; }
