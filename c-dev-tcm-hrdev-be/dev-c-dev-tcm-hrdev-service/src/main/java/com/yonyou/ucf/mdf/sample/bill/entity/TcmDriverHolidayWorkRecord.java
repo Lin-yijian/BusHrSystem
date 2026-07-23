@@ -17,6 +17,7 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
     public static final String DATE = "date";
     public static final String EMPLOYEE_ID = "employee_id";
     public static final String DRIVER_NO = "driver_no";
+    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String DRIVER_NAME = "driver_name";
     public static final String DEPARTMENT = "department";
     public static final String POST = "post";
@@ -41,6 +42,8 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
     private String employee_id;
     /* 澳巴工號 */
     private String driver_no;
+    /* 澳巴工號 */
+    private String waybill_employee_id;
     /* 姓名 */
     private String driver_name;
     /* 部門 */
@@ -155,6 +158,13 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
     }
+
+
+
+    //新增澳巴工號set get 方法
+    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
+    public String getWaybillEmployeeId(){return waybill_employee_id;}
+
 
     public String getDate() {
         return date;

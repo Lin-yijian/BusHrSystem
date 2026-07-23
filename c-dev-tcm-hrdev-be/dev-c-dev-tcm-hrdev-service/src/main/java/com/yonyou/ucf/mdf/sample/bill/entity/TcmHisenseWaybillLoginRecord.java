@@ -17,6 +17,7 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
     public static final String DATE = "date";
     public static final String DRIVER_NAME = "driver_name";
     public static final String HISENSE_WAYBILL_NO = "hisense_waybill_no";
+    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String CAR = "car";
     public static final String VEHICLE_NO = "vehicle_no";
     public static final String DRIVER_NO = "driver_no";
@@ -38,6 +39,8 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
     private String driver_name;
     /* 海信/Waybill工號 */
     private String hisense_waybill_no;
+    /* 海信/Waybill工號 */
+    private String waybill_employee_id;
     /* 車輛 */
     private String car;
     /* 車輛 */
@@ -134,6 +137,12 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
     }
+
+    //新增澳巴工號set get 方法
+    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
+    public String getWaybillEmployeeId(){return waybill_employee_id;}
+
+
 
     public String getDate() {
         return date;
