@@ -17,6 +17,7 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
     public static final String DATE = "date";
     public static final String EMPLOYEE_ID = "employee_id";
     public static final String DRIVER_NO = "driver_no";
+    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String DRIVER_NAME = "driver_name";
     public static final String VEHICLE_EXCHANGE_COUNT = "vehicle_exchange_count";
     public static final String CODE = "code";
@@ -35,6 +36,8 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
     private String employee_id;
     /* 澳巴工號 */
     private String driver_no;
+    /* 澳巴工號 */
+    private String waybill_employee_id;
     /* 姓名 */
     private String driver_name;
     /* 交取車次數 */
@@ -113,6 +116,13 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
     }
+
+
+    //新增澳巴工號set get 方法
+    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
+    public String getWaybillEmployeeId(){return waybill_employee_id;}
+
+
 
     public String getDate() {
         return date;
