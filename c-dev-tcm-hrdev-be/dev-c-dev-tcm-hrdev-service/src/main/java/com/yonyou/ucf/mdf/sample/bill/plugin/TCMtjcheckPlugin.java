@@ -33,21 +33,48 @@ public class TCMtjcheckPlugin extends AbstractBillPlugin {
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 
+        if (dataList == null || dataList.isEmpty()) {
+            throw new RuntimeException("导入数据为空");
+        }
+
+
         List<String> wayBillIds  = new ArrayList<>();
+        List<String> codeList = new ArrayList<>();
+
         for (ImportSingleData data : dataList) {
             wayBillIds.add((String) data.getData().get("waybill_employee_id"));
+            //新增获取员工编号
+            codeList.add((String) data.getData().get("tj01_code"));
         }
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
+        Map<String, String> staffByCodes = util.getStaffByCodes(codeList,tenantId);
+
 
         for (ImportSingleData data : dataList) {
+//
+//            String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
+//            String employee_id = staffByCardIds.get(waybill_employee_id);
+//            if (StringUtils.isEmpty(employee_id)){
+//                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+//            }
+//            data.getData().put("tj01",employee_id);
 
-            String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
-            String employee_id = staffByCardIds.get(waybill_employee_id);
-            if (StringUtils.isEmpty(employee_id)){
-                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+
+
+            String waybillEmployeeId = (String) data.getData().get("waybill_employee_id");
+            String code = (String) data.getData().get("tj01_code");
+
+            String employeeId = staffByCardIds.get(waybillEmployeeId);
+
+            if (StringUtils.isEmpty(employeeId)){
+                employeeId = staffByCodes.get(code);
             }
-            data.getData().put("tj01",employee_id);
+            if (StringUtils.isEmpty(employeeId)){
+                throw new RuntimeException("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
+
+            }
+            data.getData().put("tj01",employeeId);
         }
 
     }

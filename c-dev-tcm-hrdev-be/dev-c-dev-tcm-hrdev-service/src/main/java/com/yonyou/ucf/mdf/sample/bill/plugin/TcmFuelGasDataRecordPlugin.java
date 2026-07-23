@@ -25,10 +25,14 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private ImportDateUtil importDateUtil;
 
+    // 声明为成员变量
+    private List<ImportSingleData> dataList;
+
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
-        List<ImportSingleData> dataList = importBatchData.getData();
+//        List<ImportSingleData> dataList = importBatchData.getData();
 
+        this.dataList = importBatchData.getData();
 
 
         // 收集 + 批量查询员工
