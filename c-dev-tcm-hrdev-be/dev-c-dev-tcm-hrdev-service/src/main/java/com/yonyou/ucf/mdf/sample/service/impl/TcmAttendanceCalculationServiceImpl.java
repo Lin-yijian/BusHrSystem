@@ -154,9 +154,13 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
         QuerySchema querySchema = QuerySchema.create().addSelect(selectFields);
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
-        querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
         if (employeeCode != null && !employeeCode.isEmpty()) {
+            querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
             querySchema.appendQueryCondition(QueryCondition.name("employee_id.code").eq(employeeCode));
+        } else {
+            String[] monthRange = getMonthRange(dateStr);
+            querySchema.appendQueryCondition(QueryCondition.name("date").egt(monthRange[0]));
+            querySchema.appendQueryCondition(QueryCondition.name("date").lt(monthRange[1]));
         }
 
         return queryService.queryMapBySchema(
@@ -172,11 +176,15 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
     private List<TcmAttendanceCalculation> queryCalculationData(String dateStr, String employeeCode, String tenantId) {
         LambdaQueryCondition<TcmAttendanceCalculation> condition =
                 new LambdaQueryCondition<>(new TcmAttendanceCalculation());
-        condition.eq(TcmAttendanceCalculation::getDate, dateStr)
-                .eq(TcmAttendanceCalculation::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
+        condition.eq(TcmAttendanceCalculation::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
                 .eq(TcmAttendanceCalculation::getYtenantId, tenantId);
         if (employeeCode != null && !employeeCode.isEmpty()) {
-            condition.eq(TcmAttendanceCalculation::getEmployee_id, employeeCode);
+            condition.eq(TcmAttendanceCalculation::getDate, dateStr)
+                    .eq(TcmAttendanceCalculation::getEmployee_id, employeeCode);
+        } else {
+            String[] monthRange = getMonthRange(dateStr);
+            condition.ge(TcmAttendanceCalculation::getDate, monthRange[0])
+                    .lt(TcmAttendanceCalculation::getDate, monthRange[1]);
         }
         return billRepository.queryByClause(condition);
     }
@@ -189,6 +197,25 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
             return null;
         }
         return DATE_FORMAT.format(date);
+    }
+
+    /**
+     * 根据日期计算当月范围，返回 [当月第一天, 下月第一天]
+     * 如输入 2026-04-13 → [2026-04-01, 2026-05-01]
+     * 如输入 2026-12-25 → [2026-12-01, 2027-01-01]
+     */
+    private String[] getMonthRange(String dateStr) {
+        try {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(DATE_FORMAT.parse(dateStr));
+            cal.set(Calendar.DAY_OF_MONTH, 1);
+            String startStr = DATE_FORMAT.format(cal.getTime());
+            cal.add(Calendar.MONTH, 1);
+            String endStr = DATE_FORMAT.format(cal.getTime());
+            return new String[]{startStr, endStr};
+        } catch (ParseException e) {
+            return new String[]{dateStr, dateStr};
+        }
     }
 
     /**
