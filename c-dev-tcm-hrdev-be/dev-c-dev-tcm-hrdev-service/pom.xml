@@ -17,6 +17,14 @@
     </properties>
 
     <dependencies>
+        <!-- iText 7 -->
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itext7-core</artifactId>
+            <version>7.2.5</version>
+            <type>pom</type>
+        </dependency>
+
         <dependency>
             <groupId>com.yonyou.iuap</groupId>
             <artifactId>iuap-ap-ypd-starter</artifactId>
