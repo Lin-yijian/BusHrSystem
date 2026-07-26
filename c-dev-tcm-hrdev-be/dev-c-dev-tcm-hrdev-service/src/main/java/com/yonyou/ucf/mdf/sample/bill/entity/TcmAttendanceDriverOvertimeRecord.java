@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 考勤修正-超時工作記錄(tcmAttendanceDriverOvertimeRecord)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
