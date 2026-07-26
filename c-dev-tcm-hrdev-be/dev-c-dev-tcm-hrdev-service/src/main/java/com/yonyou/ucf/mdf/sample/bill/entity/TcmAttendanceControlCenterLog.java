@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 考勤修正子表-控制中心日志(tcmAttendanceControlCenterLog)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -8,7 +9,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 考勤修正子表-控制中心日志
- * @Date 2026-07-17 15:30:54
+ * @Date 2026-07-26 20:01:35
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceControlCenterLog", domain = "c-dev-tcm-hrdev")
@@ -134,4 +135,3 @@ public class TcmAttendanceControlCenterLog extends SuperDO implements ILogicDele
         }
     }
 }
-

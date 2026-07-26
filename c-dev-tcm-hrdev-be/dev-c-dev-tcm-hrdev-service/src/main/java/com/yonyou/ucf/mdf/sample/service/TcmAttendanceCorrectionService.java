@@ -4,6 +4,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 考勤修正
@@ -26,4 +27,12 @@ public interface TcmAttendanceCorrectionService {
      * @return
      */
     List<TcmAttendanceCorrection> getByDateListAndStaffIds(String date, Collection<String> staffIdList);
+
+    /**
+     *
+     * @param dateList 日期 yyyy-MM-dd
+     * @param staffIdList 員工ID集合
+     * @return
+     */
+    Map<String,String> getByDateListAndStaffIds(List<String> dateList, Collection<String> staffIdList);
 }
