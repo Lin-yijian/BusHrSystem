@@ -8,6 +8,7 @@ import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,7 @@ public class CommonUtil {
      * @param tenantId 租户ID
      * @return k->澳巴工号   v->员工信息ID
      */
-    public Map<String,String> getStaffByCardIds(List<String> ids, String tenantId) {
+    public Map<String,String> getStaffByCardIds(Collection<String> ids, String tenantId) {
         QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
         querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
         querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));

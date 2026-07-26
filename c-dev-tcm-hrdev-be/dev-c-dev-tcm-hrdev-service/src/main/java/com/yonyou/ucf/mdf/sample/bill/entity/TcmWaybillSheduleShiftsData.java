@@ -15,7 +15,6 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
 
     public static final String ENTITY_NAME = "unitfyEnum.TCMCaptainAttendance.tcmWaybillSheduleShiftsData";
     public static final String DATE = "date";
-    public static final String DATA_COUNT = "data_count";
     public static final String TASK_CODE = "task_code";
     public static final String EMPLOYEE_ID = "employee_id";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
@@ -27,9 +26,13 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     public static final String LINE = "line";
     public static final String PARKING_SPACE = "parking_space";
     public static final String MEAL_TIME = "meal_time";
-    public static final String MACAU_CAR_PARK = "macau_car_park";
     public static final String GET_CAR = "get_car";
     public static final String OUT_CAR = "out_car";
+    public static final String RUN_CAR_LOCATION = "run_car_location";
+    public static final String BACK_CAR_LOCATION = "back_car_location";
+    public static final String REMARK = "remark";
+    public static final String SHIFT = "shift";
+    public static final String LINE_STR = "line_str";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -42,8 +45,6 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
 
     /* 日期 */
     private String date;
-    /* 數據條數 */
-    private Integer data_count;
     /* 任务编号 */
     private String task_code;
     /* 工號 */
@@ -66,12 +67,20 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     private String parking_space;
     /* 用膳次數 */
     private Integer meal_time;
-    /* 澳門車場 */
-    private String macau_car_park;
     /* 取車點 */
     private String get_car;
     /* 交車點 */
     private String out_car;
+    /* 發車地點 */
+    private String run_car_location;
+    /* 收車地點 */
+    private String back_car_location;
+    /* 備註 */
+    private String remark;
+    /* 班次 */
+    private String shift;
+    /* 路綫名稱(原表) */
+    private String line_str;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -90,6 +99,46 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     private Date pubts;
     /* 租户id */
     private String ytenantId;
+
+    public String getLine_str() {
+        return line_str;
+    }
+
+    public void setLine_str(String line_str) {
+        this.line_str = line_str;
+    }
+
+    public String getRun_car_location() {
+        return run_car_location;
+    }
+
+    public void setRun_car_location(String run_car_location) {
+        this.run_car_location = run_car_location;
+    }
+
+    public String getBack_car_location() {
+        return back_car_location;
+    }
+
+    public void setBack_car_location(String back_car_location) {
+        this.back_car_location = back_car_location;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+
+    public String getShift() {
+        return shift;
+    }
+
+    public void setShift(String shift) {
+        this.shift = shift;
+    }
 
     public String getCar() {
         return car;
@@ -118,8 +167,6 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     public String getDate() { return date; }
     public void setDate(String date) { this.date = date; }
 
-    public Integer getData_count() { return data_count; }
-    public void setData_count(Integer data_count) { this.data_count = data_count; }
 
     public String getTask_code() { return task_code; }
     public void setTask_code(String task_code) { this.task_code = task_code; }
@@ -150,9 +197,6 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
 
     public Integer getMeal_time() { return meal_time; }
     public void setMeal_time(Integer meal_time) { this.meal_time = meal_time; }
-
-    public String getMacau_car_park() { return macau_car_park; }
-    public void setMacau_car_park(String macau_car_park) { this.macau_car_park = macau_car_park; }
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }

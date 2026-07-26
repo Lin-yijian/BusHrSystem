@@ -1,25 +1,25 @@
 package com.yonyou.ucf.mdf.sample.service.impl;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
-import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
+import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
-import com.yonyou.ucf.mdf.sample.bill.entity.dto.WaybillExcelRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.dto.WaybillExcelRecordDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
-import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmCarService;
+import com.yonyou.ucf.mdf.sample.service.TcmRouteService;
 import com.yonyou.ucf.mdf.sample.service.TcmWaybillImportService;
-import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.apache.poi.ss.usermodel.*;
-import org.imeta.orm.schema.QueryCondition;
-import org.imeta.orm.schema.QuerySchema;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,300 +27,529 @@ import java.util.stream.Collectors;
 @Service
 public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
-    private static final Set<String> EXCLUDE_SHEETS = new HashSet<>(Arrays.asList(
-            "Data", "車號", "首頁", "中途插入", "包車", "Sheet1"
-    ));
+    @Autowired
+    private TcmRouteService routeService;
 
-    private static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    @Autowired
+    private TcmCarService carService;
+
+    @Autowired
+    private CommonUtil commonUtil;
 
     @Autowired
     private IBillRepository billRepository;
 
-    @Autowired
-    private IBillQueryRepository queryService;
-
-    @Autowired
-    private YmsOidGenerator ymsOidGenerator;
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> importWaybillExcel(MultipartFile file) throws Exception {
-        List<WaybillExcelRecord> records = parseExcel(file);
-        if (records.isEmpty()) {
-            throw new RuntimeException("未解析到有效排班数据");
+
+        Map<String, TCMRoute> routeMap = routeService.getMap();
+        if (routeMap == null || routeMap.isEmpty()) {
+            throw new RuntimeException("路綫數據缺失，請先維護路綫信息！");
         }
-        return batchInsert(records);
+        Set<String> sheetNameList = routeMap.keySet();
+
+        List<WaybillExcelRecordDTO> records = parseWaybillExcel(file, sheetNameList);
+
+        return saveData(records,routeMap);
+
     }
 
-    private List<WaybillExcelRecord> parseExcel(MultipartFile file) throws Exception {
-        List<WaybillExcelRecord> allRecords = new ArrayList<>();
-        DataFormatter formatter = new DataFormatter();
+
+    private Map<String, Object> saveData(List<WaybillExcelRecordDTO> records, Map<String, TCMRoute> routeMap){
+
+        String tenantId = InvocationInfoProxy.getTenantid();
+
+        Set<String> carNumberSet = new HashSet<>();
+        Set<String> waybillEmployeeSet = new HashSet<>();
+
+        for (WaybillExcelRecordDTO record : records) {
+            carNumberSet.add(record.getCarNumber());
+            waybillEmployeeSet.add(record.getEmployeeId());
+
+        }
+        Map<String, TCMCar> carMap = carService.groupCarMapByInternalNo(carNumberSet);
+        Map<String, String> staffMap = commonUtil.getStaffByCardIds(waybillEmployeeSet, tenantId);
+
+        String acDate = "1949-10-01";
+
+        List<TcmWaybillSheduleShiftsData> dataList = new ArrayList<>();
+        List<TcmWaybillSheduleShiftsData> insertList = new ArrayList<>();
+        List<TcmWaybillSheduleShiftsData> updateList = new ArrayList<>();
+        for (WaybillExcelRecordDTO record : records) {
+            String str = record.getRoute();
+            String routeCode = str.endsWith("(標準)")
+                    ? str.substring(0, str.length() - "(標準)".length())
+                    : str;
+
+            // todo 添加去重校验
+            TcmWaybillSheduleShiftsData data = changeData(record);
+            TCMRoute tcmRoute = routeMap.get(routeCode);
+            if (tcmRoute != null) {
+                data.setLine(tcmRoute.getId());
+            }
+            TCMCar tcmCar = carMap.get(record.getCarNumber());
+            if (tcmCar != null) {
+                data.setCar(tcmCar.getId());
+            }
+            data.setEmployee_id(staffMap.get(record.getEmployeeId()));
+            dataList.add(data);
+            acDate = record.getDate();
+
+        }
+
+        LambdaQueryCondition<TcmWaybillSheduleShiftsData> carCondition = new LambdaQueryCondition<>(new TcmWaybillSheduleShiftsData());
+        carCondition.eq(TcmWaybillSheduleShiftsData::getYtenantId, tenantId)
+                .eq(TcmWaybillSheduleShiftsData::getDate,acDate)
+                .eq(TcmWaybillSheduleShiftsData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmWaybillSheduleShiftsData> exitDataList = billRepository.queryByClause(carCondition);
+
+        // 按照 date+employee_id+car 组合字段分组
+        Map<String, TcmWaybillSheduleShiftsData> exitDataMap = exitDataList.stream()
+                .collect(Collectors.toMap(
+                        this::buildDataKey,
+                        data -> data,
+                        (existing, replacement) -> existing
+                ));
+
+        // 遍历 dataList，区分新增和更新
+        for (TcmWaybillSheduleShiftsData data : dataList) {
+            // 跳过员工或车辆未匹配到的数据
+            if (data.getEmployee_id() == null || data.getCar() == null) {
+                continue;
+            }
+
+            String key = buildDataKey(data);
+            TcmWaybillSheduleShiftsData existingData = exitDataMap.get(key);
+
+            if (existingData != null) {
+                // 数据存在，更新：将新数据的值赋值到旧数据中，保留旧数据的 id
+                copyDataValues(data, existingData);
+                updateList.add(existingData);
+            } else {
+                // 数据不存在，新增
+                insertList.add(data);
+            }
+        }
+
+        if (!insertList.isEmpty()){
+            billRepository.insert(insertList);
+        }
+        if (!updateList.isEmpty()){
+            billRepository.update(updateList);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", "200");
+        result.put("message", "解析成功");
+        result.put("saveCount", insertList.size());
+        result.put("updateCount", updateList.size());
+        result.put("total", records.size());
+        result.put("data", records);
+        return result;
+    }
+
+
+    private TcmWaybillSheduleShiftsData changeData(WaybillExcelRecordDTO record){
+        TcmWaybillSheduleShiftsData data = new TcmWaybillSheduleShiftsData();
+        data.setDate(record.getDate());
+        data.setTask_code(record.getTask());
+        data.setWaybill_employee_id(record.getEmployeeId());
+        data.setDriver_name(record.getEmployeeName());
+        data.setDeparture_time(com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate("yyyy-MM-dd HH:mm:ss",record.getRunTime()));
+        data.setFinish_time(com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate("yyyy-MM-dd HH:mm:ss",record.getBackTime()));
+        data.setLine_str(record.getRoute());
+        try {
+            data.setMeal_time(record.getDiningNum() != null && !record.getDiningNum().isEmpty() 
+                    ? Integer.valueOf(record.getDiningNum()) : 0);
+        } catch (NumberFormatException e) {
+            data.setMeal_time(0);
+        }
+        data.setGet_car(record.getTakeCarLocation());
+        data.setOut_car(record.getGiveCarLocation());
+        data.setRun_car_location(record.getRunCarLocation());
+        data.setBack_car_location(record.getBackCarLocation());
+        data.setRemark(record.getRemark());
+        data.setShift(record.getShift());
+        return data;
+    }
+
+    /**
+     * 构建数据主键：date+employee_id+car+shift
+     */
+    private String buildDataKey(TcmWaybillSheduleShiftsData data) {
+        return (data.getDate() != null ? data.getDate() : "") + "|" +
+               (data.getEmployee_id() != null ? data.getEmployee_id() : "") + "|" +
+               (data.getCar() != null ? data.getCar() : "") + "|" +
+               (data.getShift() != null ? data.getShift() : "");
+    }
+
+    /**
+     * 将新数据的值复制到旧数据中，保留旧数据的 id
+     */
+    private void copyDataValues(TcmWaybillSheduleShiftsData source, TcmWaybillSheduleShiftsData target) {
+        target.setDate(source.getDate());
+        target.setTask_code(source.getTask_code());
+        target.setWaybill_employee_id(source.getWaybill_employee_id());
+        target.setDriver_name(source.getDriver_name());
+        target.setCar(source.getCar());
+        target.setCar_num(source.getCar_num());
+        target.setDeparture_time(source.getDeparture_time());
+        target.setFinish_time(source.getFinish_time());
+        target.setLine(source.getLine());
+        target.setParking_space(source.getParking_space());
+        target.setMeal_time(source.getMeal_time());
+        target.setGet_car(source.getGet_car());
+        target.setOut_car(source.getOut_car());
+        target.setRun_car_location(source.getRun_car_location());
+        target.setBack_car_location(source.getBack_car_location());
+        target.setRemark(source.getRemark());
+        target.setShift(source.getShift());
+        target.setLine_str(source.getLine_str());
+        target.setCode(source.getCode());
+    }
+    /**
+     * 解析派车单Excel文件
+     * @param file Excel文件
+     * @param sheetNameSet 需要处理的sheet名称集合
+     * @return 解析后的派车单记录列表
+     */
+    private List<WaybillExcelRecordDTO> parseWaybillExcel(MultipartFile file, Set<String> sheetNameSet) throws Exception {
+        List<WaybillExcelRecordDTO> records = new ArrayList<>();
+        String baseDate = null;
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
-
+            // 从Data sheet获取日期数据（B1单元格）
             Sheet dataSheet = workbook.getSheet("Data");
-            String baseDate = getCellString(dataSheet, colToIndex("B"), 0, formatter, evaluator);
-            if (baseDate == null || baseDate.isEmpty()) {
-                baseDate = "2026-04-13";
-            }
-
-            Map<String, String> hisunMap = new LinkedHashMap<>();
             if (dataSheet != null) {
-                for (int r = 2; r <= dataSheet.getLastRowNum(); r++) {
-                    String t = getCellString(dataSheet, colToIndex("A"), r, formatter, evaluator);
-                    String h = getCellString(dataSheet, colToIndex("B"), r, formatter, evaluator);
-                    if (t != null && !t.isEmpty() && h != null && !h.isEmpty()) {
-                        hisunMap.put(t, h);
-                    }
+                Row firstRow = dataSheet.getRow(0);
+                if (firstRow != null) {
+                    Cell dateCell = firstRow.getCell(1);
+                    baseDate = getCellDateValue(dateCell);
                 }
             }
-
-            int globalSeq = 0;
 
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-                String name = workbook.getSheetName(i).trim();
-                if (EXCLUDE_SHEETS.contains(name)) {
+                String sheetName = workbook.getSheetName(i).trim();
+                if (!sheetNameSet.contains(sheetName)) {
                     continue;
                 }
+
                 Sheet sheet = workbook.getSheetAt(i);
-                if (sheet == null) continue;
+                if (sheet == null) {
+                    continue;
+                }
 
-                boolean isN = name.startsWith("N");
-                int emptyCount = 0;
+                List<CellRangeAddress> mergedRegions = sheet.getMergedRegions();
 
-                for (int r = 4; r <= sheet.getLastRowNum(); r++) {
-                    String amTask = getCellString(sheet, colToIndex("F"), r, formatter, evaluator);
-                    if (amTask != null && !amTask.isEmpty()) {
-                        emptyCount = 0;
-                        globalSeq++;
-                        allRecords.add(makeRecord(baseDate, globalSeq, name, amTask, hisunMap,
-                                sheet, r, "AM", formatter, evaluator));
-                    } else {
-                        emptyCount++;
+                for (int rowIdx = 4; rowIdx <= sheet.getLastRowNum(); rowIdx++) {
+                    Row row = sheet.getRow(rowIdx);
+                    if (row == null) {
+                        continue;
                     }
 
-                    if (!isN) {
-                        String pmTask = getCellString(sheet, colToIndex("Z"), r, formatter, evaluator);
-                        if (pmTask != null && !pmTask.isEmpty()) {
-                            emptyCount = 0;
-                            globalSeq++;
-                            allRecords.add(makeRecord(baseDate, globalSeq, name, pmTask, hisunMap,
-                                    sheet, r, "PM", formatter, evaluator));
-                        }
+                    // 解析早更数据（C列到U列）
+                    WaybillExcelRecordDTO amRecord = parseAMRecord(sheet, rowIdx, sheetName, mergedRegions);
+                    if (amRecord != null) {
+                        records.add(amRecord);
                     }
 
-                    if (emptyCount >= 3) break;
+                    // 解析晚更数据（V列到AN列）
+                    WaybillExcelRecordDTO pmRecord = parsePMRecord(sheet, rowIdx, sheetName, mergedRegions);
+                    if (pmRecord != null) {
+                        records.add(pmRecord);
+                    }
                 }
             }
         }
 
-        return allRecords;
+        // 设置日期字段并处理时间格式
+        processDateTime(records, baseDate);
+
+        return records;
     }
 
-    private WaybillExcelRecord makeRecord(String baseDate, int globalSeq, String routeSheet,
-                                           String taskId, Map<String, String> hisunMap,
-                                           Sheet sheet, int row, String shiftType,
-                                           DataFormatter formatter, FormulaEvaluator evaluator) {
-        String carCol = "AM".equals(shiftType) ? "E" : "Y";
-        String depCol = "AM".equals(shiftType) ? "G" : "AA";
-        String retCol = "AM".equals(shiftType) ? "O" : "AI";
-        String locCol = "AM".equals(shiftType) ? "C" : "W";
-        String getCarCol = "AM".equals(shiftType) ? "C" : "W";
-        String outCarCol = "AM".equals(shiftType) ? "R" : "AL";
-        String mealCol = "AM".equals(shiftType) ? "T" : "AM";
-
-        WaybillExcelRecord record = new WaybillExcelRecord();
-        record.setDate(baseDate);
-        record.setDataCount(globalSeq);
-        record.setTaskId(taskId);
-        record.setHisunId(lookupHisun(taskId, hisunMap));
-        record.setPlate(getCellString(sheet, colToIndex(carCol), row, formatter, evaluator));
-        record.setRouteSheet(routeSheet);
-        record.setDepartTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(depCol), row, formatter, evaluator)));
-        record.setReturnTime(buildDateTime(baseDate, getCellString(sheet, colToIndex(retCol), row, formatter, evaluator)));
-
-        String mealStr = getCellString(sheet, colToIndex(mealCol), row, formatter, evaluator);
-        try {
-            record.setMealCount(mealStr != null && !mealStr.isEmpty() ? Integer.parseInt(mealStr) : 0);
-        } catch (NumberFormatException e) {
-            record.setMealCount(0);
+    /**
+     * 设置日期字段并处理时间格式
+     * runTime = date + " " + runTime
+     * 如果 backTime >= runTime，则 backTime = date + " " + backTime
+     * 否则 backTime = (date+1天) + " " + backTime
+     * 最终格式为 yyyy-MM-dd HH:mm:ss
+     */
+    private void processDateTime(List<WaybillExcelRecordDTO> records, String baseDate) {
+        if (baseDate == null || baseDate.isEmpty()) {
+            baseDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
         }
 
-        String loc = getCellString(sheet, colToIndex(locCol), row, formatter, evaluator);
-        record.setLocation(loc != null ? loc.replaceAll("[\\r\\n]+", "") : "");
+        for (WaybillExcelRecordDTO record : records) {
+            record.setDate(baseDate);
 
-        String getCar = getCellString(sheet, colToIndex(getCarCol), row, formatter, evaluator);
-        String outCar = getCellString(sheet, colToIndex(outCarCol), row, formatter, evaluator);
+            String runTime = record.getRunTime();
+            String backTime = record.getBackTime();
 
-        record.setGetCar(getCar != null ? getCar.replaceAll("[\\r\\n]+", "") : "");
-        record.setOutCar(outCar != null ? outCar.replaceAll("[\\r\\n]+", "") : "");
+            if (runTime != null && !runTime.isEmpty()) {
+                record.setRunTime(baseDate + " " + runTime + ":00");
+            }
 
+            if (backTime != null && !backTime.isEmpty()) {
+                if (runTime != null && !runTime.isEmpty()) {
+                    if (isTimeGreaterOrEqual(backTime, runTime)) {
+                        record.setBackTime(baseDate + " " + backTime + ":00");
+                    } else {
+                        record.setBackTime(addOneDay(baseDate) + " " + backTime + ":00");
+                    }
+                } else {
+                    record.setBackTime(baseDate + " " + backTime + ":00");
+                }
+            }
+        }
+    }
 
-        record.setParkingSpace("");
+    /**
+     * 比较两个时间的大小（格式 HH:mm）
+     * @return true 如果 time1 >= time2
+     */
+    private boolean isTimeGreaterOrEqual(String time1, String time2) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+            Date t1 = sdf.parse(time1);
+            Date t2 = sdf.parse(time2);
+            return t1.compareTo(t2) >= 0;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
+     * 日期加一天
+     * @param dateStr 格式 yyyy-MM-dd
+     * @return 加一天后的日期字符串
+     */
+    private String addOneDay(String dateStr) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            Date date = sdf.parse(dateStr);
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(date);
+            calendar.add(Calendar.DAY_OF_MONTH, 1);
+            return sdf.format(calendar.getTime());
+        } catch (Exception e) {
+            return dateStr;
+        }
+    }
+
+    /**
+     * 解析早更数据（C列到U列）
+     */
+    private WaybillExcelRecordDTO parseAMRecord(Sheet sheet, int rowIdx, String route, List<CellRangeAddress> mergedRegions) {
+        String task = getCellValueWithMerged(sheet, rowIdx, 5, mergedRegions);
+        if (task == null || task.isEmpty()) {
+            return null;
+        }
+
+        WaybillExcelRecordDTO record = new WaybillExcelRecordDTO();
+        record.setRoute(route);
+        record.setShift("AM");
+        record.setTakeCarLocation(getCellValueWithMerged(sheet, rowIdx, 2, mergedRegions));
+        record.setTakeOil(getCellValueWithMerged(sheet, rowIdx, 3, mergedRegions));
+        record.setCarNumber(getCellValueWithMerged(sheet, rowIdx, 4, mergedRegions));
+        record.setTask(task);
+        record.setRunTime(normalizeTime(getCellValueWithMerged(sheet, rowIdx, 6, mergedRegions)));
+        record.setRunCarLocation(getCellValueWithMerged(sheet, rowIdx, 7, mergedRegions));
+        record.setEmployeeId(getCellValueWithMerged(sheet, rowIdx, 12, mergedRegions));
+        record.setEmployeeName(getCellValueWithMerged(sheet, rowIdx, 13, mergedRegions));
+        record.setBackTime(normalizeTime(getCellValueWithMerged(sheet, rowIdx, 14, mergedRegions)));
+        record.setBackCarLocation(getCellValueWithMerged(sheet, rowIdx, 15, mergedRegions));
+        record.setBackOil(getCellValueWithMerged(sheet, rowIdx, 16, mergedRegions));
+        record.setGiveCarLocation(getCellValueWithMerged(sheet, rowIdx, 17, mergedRegions));
+        record.setToPM(getCellValueWithMerged(sheet, rowIdx, 18, mergedRegions));
+        record.setDiningNum(getCellValueWithMerged(sheet, rowIdx, 19, mergedRegions));
+        record.setRemark(getCellValueWithMerged(sheet, rowIdx, 20, mergedRegions));
 
         return record;
     }
 
-    private String lookupHisun(String taskId, Map<String, String> hisunMap) {
-        String val = hisunMap.get(taskId);
-        if (val != null) return val;
-        if (taskId != null && taskId.length() >= 3) {
-            String altKey = taskId.substring(0, 2) + "更" + taskId.substring(2);
-            val = hisunMap.get(altKey);
-            if (val != null) return val;
-        }
-        return "";
-    }
-
-    private Date buildDateTime(String dateStr, String timeStr) {
-        if (timeStr == null || timeStr.isEmpty() || "undefined".equals(timeStr) || "null".equals(timeStr)) {
+    /**
+     * 解析晚更数据（V列到AN列）
+     */
+    private WaybillExcelRecordDTO parsePMRecord(Sheet sheet, int rowIdx, String route, List<CellRangeAddress> mergedRegions) {
+        String task = getCellValueWithMerged(sheet, rowIdx, 25, mergedRegions);
+        if (task == null || task.isEmpty()) {
             return null;
         }
-        try {
-            String[] parts = timeStr.split(":");
-            String h = parts[0].length() == 1 ? "0" + parts[0] : parts[0];
-            String m = parts.length > 1 ? parts[1] : "00";
-            String s = parts.length > 2 ? parts[2] : "00";
-//            return new SimpleDateFormat(DATE_TIME_PATTERN).parse(dateStr + " " + h + ":" + m + ":" + s);
-            return new SimpleDateFormat(DATE_TIME_PATTERN).parse(dateStr + " " + h + ":" + m + ":" + s);
-        } catch (Exception e) {
-            return null;
-        }
+
+        WaybillExcelRecordDTO record = new WaybillExcelRecordDTO();
+        record.setRoute(route);
+        record.setShift("PM");
+        record.setToAM(getCellValueWithMerged(sheet, rowIdx, 21, mergedRegions));
+        record.setTakeCarLocation(getCellValueWithMerged(sheet, rowIdx, 22, mergedRegions));
+        record.setTakeOil(getCellValueWithMerged(sheet, rowIdx, 23, mergedRegions));
+        record.setCarNumber(getCellValueWithMerged(sheet, rowIdx, 24, mergedRegions));
+        record.setTask(task);
+        record.setRunTime(normalizeTime(getCellValueWithMerged(sheet, rowIdx, 26, mergedRegions)));
+        record.setRunCarLocation(getCellValueWithMerged(sheet, rowIdx, 27, mergedRegions));
+        record.setEmployeeId(getCellValueWithMerged(sheet, rowIdx, 32, mergedRegions));
+        record.setEmployeeName(getCellValueWithMerged(sheet, rowIdx, 33, mergedRegions));
+        record.setBackTime(normalizeTime(getCellValueWithMerged(sheet, rowIdx, 34, mergedRegions)));
+        record.setBackCarLocation(getCellValueWithMerged(sheet, rowIdx, 35, mergedRegions));
+        record.setBackOil(getCellValueWithMerged(sheet, rowIdx, 36, mergedRegions));
+        record.setGiveCarLocation(getCellValueWithMerged(sheet, rowIdx, 37, mergedRegions));
+        record.setDiningNum(getCellValueWithMerged(sheet, rowIdx, 38, mergedRegions));
+        record.setRemark(getCellValueWithMerged(sheet, rowIdx, 39, mergedRegions));
+
+        return record;
     }
 
-    private Map<String, Object> batchInsert(List<WaybillExcelRecord> records) {
-        String tenantId = InvocationInfoProxy.getTenantid();
-        int successCount = 0;
-        int failCount = 0;
-        List<String> errors = new ArrayList<>();
-
-        List<String> hisunIds = records.stream()
-                .map(WaybillExcelRecord::getHisunId)
-                .filter(id -> id != null && !id.isEmpty())
-                .distinct()
-                .collect(Collectors.toList());
-        Map<String, Map<String, Object>> staffMap = batchQueryStaffByHisunIds(hisunIds, tenantId);
-
-        List<String> routeCodes = records.stream()
-                .map(WaybillExcelRecord::getRouteSheet)
-                .filter(code -> code != null && !code.isEmpty())
-                .distinct()
-                .collect(Collectors.toList());
-        Map<String, String> routeMap = batchQueryRoutesByCodes(routeCodes, tenantId);
-
-        List<TcmWaybillSheduleShiftsData> dataList = new ArrayList<>();
-
-        for (WaybillExcelRecord record : records) {
-            String hisunId = record.getHisunId() != null ? record.getHisunId() : "";
-            Map<String, Object> staff = staffMap.get(hisunId);
-            if (hisunId.isEmpty() || staff == null) {
-                failCount++;
-                if (errors.size() < 5) errors.add("Staff未找到: hisunId=" + hisunId);
-                continue;
-            }
-
-            String routeId = routeMap.get(record.getRouteSheet());
-
-            String id = ymsOidGenerator.nextStrId();
-            TcmWaybillSheduleShiftsData entity = new TcmWaybillSheduleShiftsData();
-            entity.setId(id);
-            entity.setYtenantId(tenantId);
-            entity.setDate(record.getDate());
-            entity.setTask_code(record.getTaskId());
-            entity.setWaybill_employee_id(hisunId);
-            entity.setDriver_name(staff != null ? (String) staff.get("name") : null);
-            entity.setEmployee_id(staff != null ? (String) staff.get("id") : null);
-            entity.setCar_num(record.getPlate());
-            entity.setDeparture_time(record.getDepartTime());
-            entity.setFinish_time(record.getReturnTime());
-            entity.setLine(routeId);
-            entity.setParking_space(record.getParkingSpace());
-            entity.setMeal_time(record.getMealCount());
-            entity.setMacau_car_park(record.getLocation());
-            entity.setGet_car(record.getGetCar());
-            entity.setOut_car(record.getOutCar());
-
-            dataList.add(entity);
-        }
-
-        if (!dataList.isEmpty()) {
-            billRepository.insert(dataList);
-            successCount = dataList.size();
-        }
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("successCount", successCount);
-        result.put("failCount", failCount);
-        result.put("total", records.size());
-        result.put("errors", errors);
-        return result;
-    }
-
-    private Map<String, Map<String, Object>> batchQueryStaffByHisunIds(List<String> hisunIds, String tenantId) {
-        if (hisunIds.isEmpty()) return Collections.emptyMap();
-
-        QuerySchema querySchema = QuerySchema.create()
-                .addSelect("id, code, name, staffDefines.ab_01 as cardId");
-        querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(hisunIds));
-        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
-        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
-
-        List<Map<String, Object>> mapList = queryService.queryMapBySchema(
-                UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
-
-        if (mapList == null || mapList.isEmpty()) return Collections.emptyMap();
-
-        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
-        for (Map<String, Object> row : mapList) {
-            String cardId = (String) row.get("cardId");
-            if (cardId != null) {
-                result.put(cardId, row);
-            }
-        }
-        return result;
-    }
-
-    private Map<String, String> batchQueryRoutesByCodes(List<String> routeCodes, String tenantId) {
-        if (routeCodes.isEmpty()) return Collections.emptyMap();
-
-        LambdaQueryCondition<TCMRoute> condition = new LambdaQueryCondition<>(new TCMRoute());
-        condition.in(TCMRoute::getRoute_code, routeCodes)
-                .eq(TCMRoute::getYtenantId, tenantId)
-                .eq(TCMRoute::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
-        List<TCMRoute> list = billRepository.queryByClause(condition);
-
-        Map<String, String> result = new LinkedHashMap<>();
-        for (TCMRoute route : list) {
-            if (route.getRoute_code() != null) {
-                result.put(route.getRoute_code(), route.getId());
-            }
-        }
-        return result;
-    }
-
-    private static String getCellString(Sheet sheet, int colIdx, int rowIdx, DataFormatter formatter, FormulaEvaluator evaluator) {
-        if (sheet == null) return null;
+    /**
+     * 获取单元格值，处理合并单元格情况
+     * 如果当前单元格为空且在合并区域内，返回合并区域左上角单元格的值
+     */
+    private String getCellValueWithMerged(Sheet sheet, int rowIdx, int colIdx, List<CellRangeAddress> mergedRegions) {
         Row row = sheet.getRow(rowIdx);
-        if (row == null) return null;
+        if (row == null) {
+            return null;
+        }
+
         Cell cell = row.getCell(colIdx);
-        if (cell == null) return null;
-        try {
-            String val = formatter.formatCellValue(cell, evaluator).trim();
-            return val.isEmpty() ? null : val;
-        } catch (Exception e) {
-            String val = formatter.formatCellValue(cell).trim();
-            return val.isEmpty() ? null : val;
+        String value = getCellValue(cell);
+
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
+
+        for (CellRangeAddress region : mergedRegions) {
+            if (rowIdx >= region.getFirstRow() && rowIdx <= region.getLastRow()
+                    && colIdx >= region.getFirstColumn() && colIdx <= region.getLastColumn()) {
+                Row firstRow = sheet.getRow(region.getFirstRow());
+                if (firstRow != null) {
+                    Cell firstCell = firstRow.getCell(region.getFirstColumn());
+                    return getCellValue(firstCell);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取单元格值（时间字段使用 HH:mm 格式）
+     */
+    private String getCellValue(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+                    return sdf.format(cell.getDateCellValue());
+                } else {
+                    double value = cell.getNumericCellValue();
+                    if (value == Math.floor(value)) {
+                        return String.valueOf((long) value);
+                    } else {
+                        return String.valueOf(value);
+                    }
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                try {
+                    return cell.getStringCellValue().trim();
+                } catch (Exception e) {
+                    try {
+                        double value = cell.getNumericCellValue();
+                        if (value == Math.floor(value)) {
+                            return String.valueOf((long) value);
+                        } else {
+                            return String.valueOf(value);
+                        }
+                    } catch (Exception e2) {
+                        return null;
+                    }
+                }
+            default:
+                return null;
         }
     }
 
-    private static int colToIndex(String col) {
-        int result = 0;
-        for (int i = 0; i < col.length(); i++) {
-            result = result * 26 + (col.charAt(i) - 'A' + 1);
+    /**
+     * 获取单元格日期值（使用 yyyy-MM-dd 格式）
+     */
+    private String getCellDateValue(Cell cell) {
+        if (cell == null) {
+            return null;
         }
-        return result - 1;
+
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                    return sdf.format(cell.getDateCellValue());
+                } else {
+                    double value = cell.getNumericCellValue();
+                    if (value == Math.floor(value)) {
+                        return String.valueOf((long) value);
+                    } else {
+                        return String.valueOf(value);
+                    }
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                try {
+                    return cell.getStringCellValue().trim();
+                } catch (Exception e) {
+                    try {
+                        if (DateUtil.isCellDateFormatted(cell)) {
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                            return sdf.format(cell.getDateCellValue());
+                        }
+                        double value = cell.getNumericCellValue();
+                        if (value == Math.floor(value)) {
+                            return String.valueOf((long) value);
+                        } else {
+                            return String.valueOf(value);
+                        }
+                    } catch (Exception e2) {
+                        return null;
+                    }
+                }
+            default:
+                return null;
+        }
     }
 
+    /**
+     * 标准化时间格式
+     * 将 m:s 格式转换为 HH:mm（如 7:19 → 07:19，7:9 → 07:09）
+     */
+    private String normalizeTime(String time) {
+        if (time == null || time.isEmpty()) {
+            return null;
+        }
 
+        String[] parts = time.split(":");
+        if (parts.length != 2) {
+            return time;
+        }
+
+        String hour = parts[0];
+        String minute = parts[1];
+
+        if (hour.length() == 1) {
+            hour = "0" + hour;
+        }
+
+        if (minute.length() == 1) {
+            minute = "0" + minute;
+        }
+
+        return hour + ":" + minute;
+    }
 }
