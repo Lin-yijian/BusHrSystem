@@ -1,13 +1,18 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
 import com.yonyou.ypd.bill.context.YpdBillContext;
+import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -24,6 +29,15 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
 
     @Autowired
     private CommonUtil util;
+
+    @Autowired
+    private IBillRepository billRepository;
+
+    @Autowired
+    private YmsOidGenerator ymsOidGenerator;
+
+    @Autowired
+    private TcmAttendanceCorrectionService attendanceCorrectionService;
 
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
@@ -50,6 +64,8 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
 
+        List<String> dateList = new ArrayList<>();
+        List<String> employeeIdList = new ArrayList<>();
         for (ImportSingleData data : dataList) {
 
             String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
@@ -58,6 +74,37 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
                 throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
             }
             data.getData().put("employee_id",employee_id);
+            employeeIdList.add(employee_id);
+            String overtime_date = (String) data.getData().get("date");
+            dateList.add(overtime_date);
+        }
+
+
+        try {
+            // 插入考勤修正
+            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
+            List<TcmAttendanceAbsenceDataRecord> insertList = new ArrayList<>();
+            if (!map.isEmpty()) {
+                for (ImportSingleData data : dataList) {
+                    String id = ymsOidGenerator.nextStrId();
+                    data.getData().put("id", id);
+                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
+                    String s = map.get(key);
+                    if (!StringUtils.isEmpty(s)) {
+                        TcmAttendanceAbsenceDataRecord centerLog = new TcmAttendanceAbsenceDataRecord();
+                        centerLog.setEntity(id);
+                        centerLog.setForeignerKey(s);
+                        centerLog.setYtenantId(tenantId);
+                        insertList.add(centerLog);
+                    }
+
+                }
+                if (!insertList.isEmpty()) {
+                    billRepository.insert(insertList);
+                }
+            }
+        } catch (Exception e) {
+            log.error("缺勤记录导入生成修正环节报错------->{}",e.getMessage());
         }
 
     }

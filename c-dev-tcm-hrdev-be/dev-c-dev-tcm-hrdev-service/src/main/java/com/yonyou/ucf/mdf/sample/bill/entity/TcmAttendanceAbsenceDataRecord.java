@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 考勤修正-缺勤記錄(tcmAttendanceAbsenceDataRecord)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -134,4 +135,3 @@ public class TcmAttendanceAbsenceDataRecord extends SuperDO implements ILogicDel
         }
     }
 }
-
