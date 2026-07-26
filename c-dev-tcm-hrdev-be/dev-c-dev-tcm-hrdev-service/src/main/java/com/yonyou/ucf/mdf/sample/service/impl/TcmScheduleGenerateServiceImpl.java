@@ -270,19 +270,55 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setPg_one_return_time(earlyRow.getFinish_time());
         entity.setJl_one_departure_time(earlyRow.getDeparture_time());
         entity.setJl_one_return_time(earlyRow.getFinish_time());
+        entity.setShift_change_count(0);
+        int mealCount = earlyRow.getMeal_time() == null ? 0 : earlyRow.getMeal_time();
+        int vehicle_handover_count = 0;
+        if (earlyRow.getOut_car().contains("車場")){
+            vehicle_handover_count = vehicle_handover_count +1;
+        }
+        if (earlyRow.getGet_car().contains("車場")){
+            vehicle_handover_count = vehicle_handover_count +1;
+        }
 
         if (lateRow != null) {
             entity.setPg_two_departure_time(lateRow.getDeparture_time());
             entity.setPg_two_return_time(lateRow.getFinish_time());
             entity.setJl_two_departure_time(lateRow.getDeparture_time());
             entity.setJl_two_return_time(lateRow.getFinish_time());
+            int lateMealCount = lateRow.getMeal_time() == null ? 0 : lateRow.getMeal_time();
+            mealCount = mealCount + lateMealCount;
+
+            if (lateRow.getOut_car().contains("車場")){
+                vehicle_handover_count = vehicle_handover_count +1;
+            }
+            if (lateRow.getGet_car().contains("車場")){
+                vehicle_handover_count = vehicle_handover_count +1;
+            }
+
+            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次
+            double hours = DateUtil.getHoursDiff(earlyRow.getFinish_time(), lateRow.getDeparture_time());
+            if (hours >= 3.0) {
+                entity.setShift_change_count(1);
+            }
+
         } else {
             entity.setPg_two_departure_time(null);
             entity.setPg_two_return_time(null);
             entity.setJl_two_departure_time(null);
             entity.setJl_two_return_time(null);
         }
+        entity.setVehicle_handover_count(vehicle_handover_count);
+        // 一次用膳 30分钟
+        entity.setMeal_count(mealCount);
+        entity.setMeal_duration("00:00");
+        if (mealCount == 1){
+            entity.setMeal_duration("00:30");
+        }else if (mealCount == 2){
+            entity.setMeal_duration("01:00");
+        }
     }
+
+
 
     private TcmAttendanceCorrection queryExistingCorrection(String date, String employeeId, String taskCode, String tenantId) {
         LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());

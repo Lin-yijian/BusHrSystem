@@ -673,4 +673,19 @@ public class DateUtil {
     }
 
 
+    /**
+     * 计算两个时间的差
+     * @param startDate .
+     * @param endDate .
+     * @return 单位（小时）
+     */
+    public static double getHoursDiff(Date startDate, Date endDate) {
+        if (startDate == null || endDate == null) {
+            return 0.0;
+        }
+        long diffInMillis = endDate.getTime() - startDate.getTime();
+        double hours = diffInMillis / (1000.0 * 60 * 60);
+        return Double.parseDouble(String.format("%.2f", hours));
+    }
+
 }
