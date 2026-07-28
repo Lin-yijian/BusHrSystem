@@ -189,7 +189,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 车长假期工作
             TcmDriverHolidayWorkRecord driverHolidayWorkRecord = new TcmDriverHolidayWorkRecord();
             driverHolidayWorkRecord.setEmployee_id(data.getEmployee_id());
-            driverHolidayWorkRecord.setWaybillEmployeeId(data.getWaybill_employee_id());
+            driverHolidayWorkRecord.setWaybill_employee_id(data.getWaybill_employee_id());
             driverHolidayWorkRecord.setDriver_name(data.getDriver_name());
             driverHolidayWorkRecord.setDate(runDate);
             driverHolidayWorkRecord.setYtenantId(tenantId);
