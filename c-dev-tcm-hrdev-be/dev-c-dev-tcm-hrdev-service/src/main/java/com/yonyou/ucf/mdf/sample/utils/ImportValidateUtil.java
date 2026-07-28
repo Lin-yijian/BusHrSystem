@@ -129,22 +129,26 @@ public class ImportValidateUtil {
         } else {
             throw new RuntimeException("數據中澳巴工號為空，請檢查");
         }
-        // 车辆
-        String carPlateNum = (String) data.getValueByKey(carPlateKey);
-        if (carPlateNum != null && !carPlateNum.isEmpty()) {
-            if (!ctx.carMap.containsKey(carPlateNum)) {
-                throw new RuntimeException("車牌號【" + carPlateNum + "】在車輛檔案中不存在");
-            }
-            data.getData().put(carIdKey, ctx.carMap.get(carPlateNum).getId());
-        }
-        // 路线
-        String routeCode = (String) data.getValueByKey(routeCodeKey);
-        if (routeCode != null && !routeCode.isEmpty()) {
-            if (!ctx.routeMap.containsKey(routeCode)) {
-                throw new RuntimeException("路線編號【" + routeCode + "】在路線檔案中不存在");
-            }
-            data.getData().put(routeIdKey, ctx.routeMap.get(routeCode).getId());
-        }
+//        // 车辆
+//        String carPlateNum = (String) data.getValueByKey(carPlateKey);
+//        if (carPlateNum != null && !carPlateNum.isEmpty()) {
+//            if (!ctx.carMap.containsKey(carPlateNum)) {
+//                throw new RuntimeException("車牌號【" + carPlateNum + "】在車輛檔案中不存在");
+//            }
+//            data.getData().put(carIdKey, ctx.carMap.get(carPlateNum).getId());
+//        }
+
+
+//        // 路线
+//        String routeCode = (String) data.getValueByKey(routeCodeKey);
+//        if (routeCode != null && !routeCode.isEmpty()) {
+//            if (!ctx.routeMap.containsKey(routeCode)) {
+//                throw new RuntimeException("路線編號【" + routeCode + "】在路線檔案中不存在");
+//            }
+//            data.getData().put(routeIdKey, ctx.routeMap.get(routeCode).getId());
+//        }
+
+
     }
 
     private void collectValue(ImportSingleData data, String key, Set<String> target) {

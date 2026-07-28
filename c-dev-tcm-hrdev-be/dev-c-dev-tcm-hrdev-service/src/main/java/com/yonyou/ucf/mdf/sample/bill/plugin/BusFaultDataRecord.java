@@ -2,6 +2,7 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -23,6 +24,9 @@ public class BusFaultDataRecord extends AbstractBillPlugin {
 
     @Autowired
     private ImportValidateUtil importValidateUtil;
+
+    @Autowired
+    private ImportDateUtil importDateUtil;
 
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
@@ -47,5 +51,23 @@ public class BusFaultDataRecord extends AbstractBillPlugin {
                     TcmBusFaultDataRecord.ROUTE_ROUTE_CODE, TcmBusFaultDataRecord.ROUTE
             );
         }
+//
+//        ImportValidateUtil.ValidateContext ctx = importDateUtil.collectAndQuerybd(
+//                dataList,
+//                "bus_code",
+//                TcmBusFaultDataRecord.ROUTE_ROUTE_CODE,
+//                TcmBusFaultDataRecord.WAYBILL_EMPLOYEE_ID
+//        );
+//
+//        for (ImportSingleData data : dataList) {
+//            importDateUtil.validateRowbd(data, ctx,
+//                    TcmBusFaultDataRecord.CAPTAIN_NAME,
+//                    TcmBusFaultDataRecord.WAYBILL_EMPLOYEE_ID, TcmBusFaultDataRecord.EMPLOYEE_ID,
+//                    "bus_code", TcmBusFaultDataRecord.CAR,
+//                    TcmBusFaultDataRecord.ROUTE_ROUTE_CODE, TcmBusFaultDataRecord.ROUTE
+//            );
+//        }
+
+
     }
 }
