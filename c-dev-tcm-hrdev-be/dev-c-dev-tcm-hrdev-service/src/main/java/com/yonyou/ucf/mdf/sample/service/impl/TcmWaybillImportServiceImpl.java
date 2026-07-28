@@ -189,6 +189,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
      */
     private String buildDataKey(TcmWaybillSheduleShiftsData data) {
         return (data.getDate() != null ? data.getDate() : "") + "|" +
+               (data.getTask_code() != null ? data.getTask_code() : "") + "|" +
                (data.getWaybill_employee_id() != null ? data.getWaybill_employee_id() : "") + "|" +
                (data.getCar_num() != null ? data.getCar_num() : "") + "|" +
                (data.getShift() != null ? data.getShift() : "");
@@ -216,7 +217,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         target.setRemark(source.getRemark());
         target.setShift(source.getShift());
         target.setLine_str(source.getLine_str());
-        target.setCode(source.getCode());
+        target.setError_remark(source.getError_remark());
+//        target.setCode(source.getCode());
     }
     /**
      * 解析派车单Excel文件
