@@ -146,26 +146,30 @@ public class DateUtil {
 
 
     /**
-     * 将日期字符串转换为 Date 对象
-     * <p>转换后的 Date 对象时间部分为当天 00:00:00（系统默认时区）</p>
-     * <p>示例：stringToDate("yyyy-MM-dd", "2026-05-21") → Date 对象（2026-05-21 00:00:00）</p>
      *
-     * @param targetFormat 日期字符串的格式，如 "yyyy-MM-dd"
-     * @param dateStr      需要转换的日期字符串，如 "2026-05-21"
-     * @return 转换后的 Date 对象（时间为当天 00:00:00）
-     * @throws IllegalArgumentException 如果日期字符串为null、空字符串或格式不匹配
-     * @throws DateTimeParseException   如果日期字符串无法按指定格式解析
-     * @see ZoneId#systemDefault() 使用系统默认时区
+     * @param targetFormat
+     * @param dateStr
+     * @return
      */
     public static Date stringToDate(@NotBlank(message = "目标格式不能为空") String targetFormat,
-                             @NotBlank(message = "日期字符串不能为空") String dateStr) {
+                                    @NotBlank(message = "日期字符串不能为空") String dateStr) {
         if (dateStr == null || dateStr.trim().isEmpty()) {
             throw new IllegalArgumentException("日期字符串不能为空");
         }
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern(targetFormat);
-            LocalDate localDate = LocalDate.parse(dateStr, formatter);
-            return Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+            // 判断格式是否包含时间
+            if (targetFormat.contains("HH") || targetFormat.contains("hh") ||
+                    targetFormat.contains("mm") || targetFormat.contains("ss")) {
+                // 包含时间，使用 LocalDateTime
+                LocalDateTime localDateTime = LocalDateTime.parse(dateStr, formatter);
+                return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+            } else {
+                // 只有日期，使用 LocalDate
+                LocalDate localDate = LocalDate.parse(dateStr, formatter);
+                return Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            }
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException(
                     String.format("无效的日期格式，期望格式: %s，实际输入: %s", targetFormat, dateStr), e);

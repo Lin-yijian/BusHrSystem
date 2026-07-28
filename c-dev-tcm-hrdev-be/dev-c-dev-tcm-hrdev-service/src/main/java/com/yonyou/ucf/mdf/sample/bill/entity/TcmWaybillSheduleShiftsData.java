@@ -33,6 +33,7 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     public static final String REMARK = "remark";
     public static final String SHIFT = "shift";
     public static final String LINE_STR = "line_str";
+    public static final String ERROR_REMARK = "error_remark";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -81,6 +82,8 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     private String shift;
     /* 路綫名稱(原表) */
     private String line_str;
+    /* 異常備注 */
+    private String error_remark;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -99,6 +102,14 @@ public class TcmWaybillSheduleShiftsData extends SuperDO implements ICode, ILogi
     private Date pubts;
     /* 租户id */
     private String ytenantId;
+
+    public String getError_remark() {
+        return error_remark;
+    }
+
+    public void setError_remark(String error_remark) {
+        this.error_remark = error_remark;
+    }
 
     public String getLine_str() {
         return line_str;

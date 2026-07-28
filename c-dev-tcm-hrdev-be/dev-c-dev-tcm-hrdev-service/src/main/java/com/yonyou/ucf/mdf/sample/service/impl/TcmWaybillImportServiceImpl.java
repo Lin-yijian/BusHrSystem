@@ -115,13 +115,18 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
         // 遍历 dataList，区分新增和更新
         for (TcmWaybillSheduleShiftsData data : dataList) {
-            // 跳过员工或车辆未匹配到的数据
-            if (data.getEmployee_id() == null || data.getCar() == null) {
-                continue;
+            String errorRemark = "";
+            // 記錄员工或车辆未匹配到的数据
+            if (data.getEmployee_id() == null) {
+                errorRemark = "海信工號匹配失敗 ";
+            }
+            if (data.getCar() == null){
+                errorRemark = errorRemark + " 車輛編號匹配失敗";
             }
 
             String key = buildDataKey(data);
             TcmWaybillSheduleShiftsData existingData = exitDataMap.get(key);
+            data.setError_remark(errorRemark);
 
             if (existingData != null) {
                 // 数据存在，更新：将新数据的值赋值到旧数据中，保留旧数据的 id
@@ -166,6 +171,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         } catch (NumberFormatException e) {
             data.setMeal_time(0);
         }
+        data.setCar_num(record.getCarNumber());
         data.setGet_car(record.getTakeCarLocation());
         data.setOut_car(record.getGiveCarLocation());
         data.setRun_car_location(record.getRunCarLocation());
@@ -180,8 +186,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
      */
     private String buildDataKey(TcmWaybillSheduleShiftsData data) {
         return (data.getDate() != null ? data.getDate() : "") + "|" +
-               (data.getEmployee_id() != null ? data.getEmployee_id() : "") + "|" +
-               (data.getCar() != null ? data.getCar() : "") + "|" +
+               (data.getWaybill_employee_id() != null ? data.getWaybill_employee_id() : "") + "|" +
+               (data.getCar_num() != null ? data.getCar_num() : "") + "|" +
                (data.getShift() != null ? data.getShift() : "");
     }
 
