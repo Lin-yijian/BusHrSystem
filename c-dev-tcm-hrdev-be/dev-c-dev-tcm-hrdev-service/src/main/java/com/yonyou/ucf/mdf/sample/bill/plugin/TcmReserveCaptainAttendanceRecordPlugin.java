@@ -57,26 +57,26 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
             if (StringUtils.isEmpty(employee_id)){
                 throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
             }
-            data.getData().put("driver_no.code",employee_id);
+            data.getData().put("driver_no_code",employee_id);
         }
 
 
 
-//        // 收集 + 批量查询员工
-//        // 注意：这里需要同时传入澳巴工号字段和员工编号字段
-//        ImportDateUtil.ValidateContext ctx = importDateUtil.collectAndQuery(
-//                dataList,TcmReserveCaptainAttendanceRecord.WAYBILL_EMPLOYEE_ID,TcmReserveCaptainAttendanceRecord.DRIVER_NO
-//        );
-//
-//        // 逐行校验
-//        for (ImportSingleData data : dataList) {
-//            importDateUtil.validateRow(data, ctx,
-//                    TcmReserveCaptainAttendanceRecord.NAME,
-//                    TcmReserveCaptainAttendanceRecord.WAYBILL_EMPLOYEE_ID,
-//                    TcmReserveCaptainAttendanceRecord.DRIVER_NO
-//            );
-//
-//        }
+        // 收集 + 批量查询员工
+        // 注意：这里需要同时传入澳巴工号字段和员工编号字段
+        ImportDateUtil.ValidateContext ctx = importDateUtil.collectAndQuery(
+                dataList,TcmReserveCaptainAttendanceRecord.WAYBILL_EMPLOYEE_ID,"driver_no_code"
+        );
+
+        // 逐行校验
+        for (ImportSingleData data : dataList) {
+            importDateUtil.validateRow(data, ctx,
+                    TcmReserveCaptainAttendanceRecord.NAME,
+                    TcmReserveCaptainAttendanceRecord.WAYBILL_EMPLOYEE_ID,
+                    "driver_no_code"
+            );
+
+        }
 
 
 
