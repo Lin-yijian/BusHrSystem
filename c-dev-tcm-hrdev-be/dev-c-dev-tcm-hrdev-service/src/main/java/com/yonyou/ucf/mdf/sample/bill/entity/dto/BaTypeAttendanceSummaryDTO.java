@@ -21,6 +21,9 @@ public class BaTypeAttendanceSummaryDTO {
     /** 车型 */
     private String carType;
 
-    /** 巴型转数累加值 */
+    /** 顺序 */
+    private int order;
+
+    /** 巴型转数 */
     private BigDecimal busTransferTimes;
 }

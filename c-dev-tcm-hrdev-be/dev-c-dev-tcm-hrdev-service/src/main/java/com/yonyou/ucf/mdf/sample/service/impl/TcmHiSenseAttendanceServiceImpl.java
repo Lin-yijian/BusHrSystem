@@ -216,9 +216,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
             String staffId = staffMap.get(employeeId);
 
-            // 用于暂存当前员工各车型的汇总值（同一车型累加）
-            Map<String, BaTypeAttendanceSummaryDTO> carTypeSummaryMap = new HashMap<>();
-
             // 循环处理每条数据，设置序号
             int orderNo = 1;
             for (HiSenseAttendanceDataDTO dto : dtoList) {
@@ -236,25 +233,24 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 }
                 data.setBus_transfer_times(busTransferTimes);
                 data.setDate(runDate);
-                data.setOrder_no(String.valueOf(orderNo++));
+                data.setOrder_no(String.valueOf(orderNo));
                 baTypeAttendanceDataList.add(data);
 
-                // 按车型归类汇总巴型转数
+                // 按人员分组 将排序好的巴型转数放入集合中
                 String carType = tcmCar.getCar_type();
-                BaTypeAttendanceSummaryDTO summary = carTypeSummaryMap.get(carType);
-                if (summary == null) {
-                    // 车型不存在，新建记录
-                    summary = new BaTypeAttendanceSummaryDTO(staffId, carType, busTransferTimes);
-                    carTypeSummaryMap.put(carType, summary);
+                BaTypeAttendanceSummaryDTO summaryDTO = new BaTypeAttendanceSummaryDTO(staffId, carType, orderNo, busTransferTimes);
+                orderNo++;
+                List<BaTypeAttendanceSummaryDTO> summary = baTypeMap.get(staffId);
+                if (summary == null || summary.isEmpty()) {
+                    // 数据不存在，新建记录
+                    summary = new ArrayList<>();
+                    summary.add(summaryDTO);
                 } else {
                     // 车型已存在，累加巴型转数
-                    summary.setBusTransferTimes(summary.getBusTransferTimes().add(busTransferTimes));
+                    summary.add(summaryDTO);
                 }
+                baTypeMap.put(staffId, summary);
             }
-
-            // 将当前员工的汇总数据存入缓存
-            List<BaTypeAttendanceSummaryDTO> staffSummary = new ArrayList<>(carTypeSummaryMap.values());
-            baTypeMap.put(staffId, staffSummary);
         }
 
         // 更新考勤修正数据
@@ -392,66 +388,161 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 巴型工时计算赋值
+     * 根据巴型转数数据计算各车型的行车工时、基本工时和加班工时，并设置到修正对象中
+     * 加班工时逻辑：按orderNo顺序累加行车工时，当累计超过8小时后，后续工时全部计入加班
      *
-     * @param entity     修正对象
-     * @param baTypeList 巴型转数数据
-     * @param carTypeMap 车型信息
+     * @param entity     考勤修正对象
+     * @param baTypeList 巴型转数数据列表（按orderNo升序排列）
+     * @param carTypeMap 车型信息映射（未使用，保留参数兼容性）
      */
     private void calculateTypeWorkHour(TcmAttendanceCorrection entity, List<BaTypeAttendanceSummaryDTO> baTypeList, Map<String, TCMCarType> carTypeMap) {
+        // 无数据时直接返回
         if (baTypeList == null || baTypeList.isEmpty()) {
             return;
         }
 
+        // 获取计粮有效工时（扣除用膳时间）
+        String jl_valid_time = entity.getJl_valid_time();
+
+        // 巴型类型顺序字符串（格式：carType,carType,carType）
+        String bus_type_rpm_order = null;
+        // 巴型转数字符串（格式：busTransferTimes,busTransferTimes）
+        String bus_type_rpm = null;
+
+        // 初始化各车型工时变量，初始值为00:00
+        String minibus_base_hours = "00:00";         // 小巴基本工时
+        String medium_bus_base_hours = "00:00";       // 中巴基本工时
+        String large_bus_base_hours = "00:00";        // 大巴基本工时
+        String extra_large_bus_base_hours = "00:00";  // 特大巴基本工时
+        String minibus_driving_hours = "00:00";       // 小巴行车工时
+        String medium_bus_driving_hours = "00:00";    // 中巴行车工时
+        String large_bus_driving_hours = "00:00";     // 大巴行车工时
+        String extra_large_bus_driving_hours = "00:00";// 特大巴行车工时
+        String minibus_overtime_hours = "00:00";      // 小巴加班工时
+        String medium_bus_overtime_hours = "00:00";   // 中巴加班工时
+        String large_bus_overtime_hours = "00:00";    // 大巴加班工时
+        String extra_large_bus_overtime_hours = "00:00";// 特大巴加班工时
+
+        // 计算总巴型转数（用于计算单条记录的工时占比）
         BigDecimal totalTimes = baTypeList.stream()
                 .map(BaTypeAttendanceSummaryDTO::getBusTransferTimes)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 处理除零情况
-        if (totalTimes.compareTo(BigDecimal.ZERO) == 0) {
-            return;
-        }
+        // 用于拼接巴型类型顺序和巴型转数字符串
+        StringBuilder busTypeOrderBuilder = new StringBuilder();
+        StringBuilder busTypeRpmBuilder = new StringBuilder();
 
-        String jlValidTime = entity.getJl_valid_time();
+        // 累计已计算的行车工时（用于判断是否超过8小时）
+        String countTime = "00:00";
+        // 是否已开始进入加班状态
+        boolean isOvertimeStarted = false;
+
+        // 遍历巴型转数数据，按车型累加工时
         for (BaTypeAttendanceSummaryDTO dto : baTypeList) {
-            TCMCarType carType = carTypeMap.get(dto.getCarType());
-            if (carType == null) {
-                continue;
+            String typeCode = dto.getCarType();           // 车型编号（1=小巴，2=中巴，3=大巴，4=特大巴）
+            BigDecimal busTransferTimes = dto.getBusTransferTimes(); // 巴型转数
+            String runCarTime = calculate(jl_valid_time, busTransferTimes, totalTimes); // 行车工时 = 有效工时 * (目标转数/总转数)
+            String baseTime = calculate("08:00", busTransferTimes, totalTimes); // 基本工时 = 8小时 * (目标转数/总转数)
+
+
+            // 按orderNo顺序拼接车型编号和巴型转数
+            busTypeOrderBuilder.append(typeCode).append(",");
+            busTypeRpmBuilder.append(busTransferTimes).append(",");
+
+            // 归一化车型编号（去除前导零，支持"01"、"1"等多种格式）
+            String normalizedTypeCode = typeCode != null ? typeCode.replaceFirst("^0+", "") : "";
+
+            // 将正常工时部分累加到行车工时和基本工时
+            switch (normalizedTypeCode) {
+                case "1":
+                    minibus_driving_hours = DateUtil.addTimeDifferences(minibus_driving_hours, runCarTime);
+                    minibus_base_hours = DateUtil.addTimeDifferences(minibus_base_hours, baseTime);
+                    break;
+                case "2":
+                    medium_bus_driving_hours = DateUtil.addTimeDifferences(medium_bus_driving_hours, runCarTime);
+                    medium_bus_base_hours = DateUtil.addTimeDifferences(medium_bus_base_hours, baseTime);
+                    break;
+                case "3":
+                    large_bus_driving_hours = DateUtil.addTimeDifferences(large_bus_driving_hours, runCarTime);
+                    large_bus_base_hours = DateUtil.addTimeDifferences(large_bus_base_hours, baseTime);
+                    break;
+                case "4":
+                    extra_large_bus_driving_hours = DateUtil.addTimeDifferences(extra_large_bus_driving_hours, runCarTime);
+                    extra_large_bus_base_hours = DateUtil.addTimeDifferences(extra_large_bus_base_hours, baseTime);
+                    break;
             }
 
-            String typeCode = carType.getType_code();
-            BigDecimal busTransferTimes = dto.getBusTransferTimes();
-            String runCarTime = calculate(jlValidTime, busTransferTimes, totalTimes);
-            String baseTime = calculate("08:00", busTransferTimes, totalTimes);
-            String overTime = DateUtil.subtractTimeDifferences(runCarTime, baseTime);
+            // 判断是否已进入加班状态
+            if (!isOvertimeStarted) {
+                // 计算加上当前行车工时后的累计工时
+                String nextCountTime = DateUtil.addTimeDifferences(countTime, runCarTime);
 
-            // 暂时以编号区分巴型
-            switch (typeCode) {
-                case "01":
-                    entity.setMinibus_bus_type_rpm(busTransferTimes);
-                    entity.setMinibus_driving_hours(runCarTime);
-                    entity.setMinibus_base_hours(baseTime);
-                    entity.setMinibus_overtime_hours(overTime);
-                    break;
-                case "02":
-                    entity.setMedium_bus_type_rpm(busTransferTimes);
-                    entity.setMedium_bus_driving_hours(runCarTime);
-                    entity.setMedium_bus_base_hours(baseTime);
-                    entity.setMedium_bus_overtime_hours(overTime);
-                    break;
-                case "03":
-                    entity.setLarge_bus_type_rpm(busTransferTimes);
-                    entity.setLarge_bus_driving_hours(runCarTime);
-                    entity.setLarge_bus_base_hours(baseTime);
-                    entity.setLarge_bus_overtime_hours(overTime);
-                    break;
-                case "04":
-                    entity.setExtra_large_bus_type_rpm(busTransferTimes);
-                    entity.setExtra_large_bus_driving_hours(runCarTime);
-                    entity.setExtra_large_bus_base_hours(baseTime);
-                    entity.setExtra_large_bus_overtime_hours(overTime);
-                    break;
+                // 如果累计工时超过8小时
+                if (DateUtil.isTimeGreater(nextCountTime, "08:00")) {
+                    // 计算当前循环中属于正常工时的部分（到8小时为止）
+                    String remainingTime = DateUtil.subtractTimeDifferences("08:00", countTime);
+                    // 计算当前循环中溢出的加班工时部分
+                    String overflowTime = DateUtil.subtractTimeDifferences(runCarTime, remainingTime);
+
+                    // 将溢出部分累加到加班工时
+                    switch (normalizedTypeCode) {
+                        case "1":
+                            minibus_overtime_hours = DateUtil.addTimeDifferences(minibus_overtime_hours, overflowTime);
+                            break;
+                        case "2":
+                            medium_bus_overtime_hours = DateUtil.addTimeDifferences(medium_bus_overtime_hours, overflowTime);
+                            break;
+                        case "3":
+                            large_bus_overtime_hours = DateUtil.addTimeDifferences(large_bus_overtime_hours, overflowTime);
+                            break;
+                        case "4":
+                            extra_large_bus_overtime_hours = DateUtil.addTimeDifferences(extra_large_bus_overtime_hours, overflowTime);
+                            break;
+                    }
+                    isOvertimeStarted = true;
+                }
+                countTime = nextCountTime;
+            } else {
+                // 已超过8小时，全部算加班工时
+                switch (normalizedTypeCode) {
+                    case "1":
+                        minibus_overtime_hours = DateUtil.addTimeDifferences(minibus_overtime_hours, runCarTime);
+                        break;
+                    case "2":
+                        medium_bus_overtime_hours = DateUtil.addTimeDifferences(medium_bus_overtime_hours, runCarTime);
+                        break;
+                    case "3":
+                        large_bus_overtime_hours = DateUtil.addTimeDifferences(large_bus_overtime_hours, runCarTime);
+                        break;
+                    case "4":
+                        extra_large_bus_overtime_hours = DateUtil.addTimeDifferences(extra_large_bus_overtime_hours, runCarTime);
+                        break;
+                }
             }
         }
+
+        // 移除末尾的逗号，生成最终的字符串值
+        if (busTypeOrderBuilder.length() > 0) {
+            bus_type_rpm_order = busTypeOrderBuilder.substring(0, busTypeOrderBuilder.length() - 1);
+        }
+        if (busTypeRpmBuilder.length() > 0) {
+            bus_type_rpm = busTypeRpmBuilder.substring(0, busTypeRpmBuilder.length() - 1);
+        }
+
+        entity.setBus_type_rpm_order(bus_type_rpm_order);
+        entity.setBus_type_rpm(bus_type_rpm);
+        entity.setMinibus_driving_hours(minibus_driving_hours);
+        entity.setMedium_bus_driving_hours(medium_bus_driving_hours);
+        entity.setLarge_bus_driving_hours(large_bus_driving_hours);
+        entity.setExtra_large_bus_driving_hours(extra_large_bus_driving_hours);
+        entity.setMinibus_base_hours(minibus_base_hours);
+        entity.setMedium_bus_base_hours(medium_bus_base_hours);
+        entity.setLarge_bus_base_hours(large_bus_base_hours);
+        entity.setExtra_large_bus_base_hours(extra_large_bus_base_hours);
+        entity.setMinibus_overtime_hours(minibus_overtime_hours);
+        entity.setMedium_bus_overtime_hours(medium_bus_overtime_hours);
+        entity.setLarge_bus_overtime_hours(large_bus_overtime_hours);
+        entity.setExtra_large_bus_overtime_hours(extra_large_bus_overtime_hours);
     }
 
     /**

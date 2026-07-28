@@ -85,6 +85,8 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String MEDIUM_BUS_BASE_HOURS = "medium_bus_base_hours";
     public static final String LARGE_BUS_BASE_HOURS = "large_bus_base_hours";
     public static final String EXTRA_LARGE_BUS_BASE_HOURS = "extra_large_bus_base_hours";
+    public static final String BUS_TYPE_RPM_ORDER = "bus_type_rpm_order";
+    public static final String BUS_TYPE_RPM = "bus_type_rpm";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -236,6 +238,10 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private String large_bus_base_hours;
     /* 特大巴基本工時 */
     private String extra_large_bus_base_hours;
+    /* 巴型類型 */
+    private String bus_type_rpm_order;
+    /* 巴型轉數 */
+    private String bus_type_rpm;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -261,6 +267,21 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     /* 租户id */
     private String ytenantId;
 
+    public String getBus_type_rpm_order() {
+        return bus_type_rpm_order;
+    }
+
+    public void setBus_type_rpm_order(String bus_type_rpm_order) {
+        this.bus_type_rpm_order = bus_type_rpm_order;
+    }
+
+    public String getBus_type_rpm() {
+        return bus_type_rpm;
+    }
+
+    public void setBus_type_rpm(String bus_type_rpm) {
+        this.bus_type_rpm = bus_type_rpm;
+    }
 
     public String getMinibus_base_hours() {
         return minibus_base_hours;
