@@ -81,12 +81,15 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             String routeCode = str.endsWith("(標準)")
                     ? str.substring(0, str.length() - "(標準)".length())
                     : str;
-
             // todo 添加去重校验
             TcmWaybillSheduleShiftsData data = changeData(record);
             TCMRoute tcmRoute = routeMap.get(routeCode);
             if (tcmRoute != null) {
                 data.setLine(tcmRoute.getId());
+            }
+            char firstChar = str.charAt(0);
+            if (firstChar == 'N' || firstChar == 'n') {
+                data.setShift("NM");
             }
             TCMCar tcmCar = carMap.get(record.getCarNumber());
             if (tcmCar != null) {
@@ -238,7 +241,10 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
                 String sheetName = workbook.getSheetName(i).trim();
-                if (!sheetNameSet.contains(sheetName)) {
+                String routeCode = sheetName.endsWith("(標準)")
+                        ? sheetName.substring(0, sheetName.length() - "(標準)".length())
+                        : sheetName;
+                if (!sheetNameSet.contains(routeCode)) {
                     continue;
                 }
 
