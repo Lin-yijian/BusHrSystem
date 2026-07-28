@@ -93,6 +93,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                 data.setCar(tcmCar.getId());
             }
             data.setEmployee_id(staffMap.get(record.getEmployeeId()));
+            data.setYtenantId(tenantId);
             dataList.add(data);
             acDate = record.getDate();
 
