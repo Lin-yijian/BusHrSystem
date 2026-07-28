@@ -87,8 +87,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             if (tcmRoute != null) {
                 data.setLine(tcmRoute.getId());
             }
-            char firstChar = str.charAt(0);
-            if (firstChar == 'N' || firstChar == 'n') {
+            boolean flag = str.matches("(?i)^N.*");
+            if (flag) {
                 data.setShift("NM");
             }
             TCMCar tcmCar = carMap.get(record.getCarNumber());
