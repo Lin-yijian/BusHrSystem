@@ -93,38 +93,12 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
     private String car;
     /* 澳巴工號 */
     private String waybill_employee_id;
-    /* 审批日期 */
-    private Date audit_time;
-    /* 当前审批人 */
-    private String auditnote;
-    /* 终审审批人 */
-    private String auditor;
-    /* 单据状态 */
-    private Integer verifystate;
-    /* 流程实例ID */
-    private String procinst_id;
-    /* 业务流实例id */
-    private String bizFlowInstanceId;
-    /* 单据转换规则编码 */
-    private String bizFlowMakeBillCode;
-    /* 业务流id */
-    private String bizflowId;
-    /* 流程名称 */
-    private String bizflowName;
     /* 创建时间 */
     private Date createTime;
     /* 创建人 */
     private String creator;
     /* 逻辑删除 */
     private Short dr;
-    /* 来源业务对象 */
-    private String firstBusiObj;
-    /* 来源单据子表id */
-    private String firstChildId;
-    /* 来源单据号 */
-    private String firstCode;
-    /* 来源单据主表id */
-    private String firstId;
     /* id */
     private String id;
     /* 修改人 */
@@ -133,16 +107,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
     private Date modifyTime;
     /* pubts */
     private Date pubts;
-    /* 上游业务对象 */
-    private String sourceBusiObj;
-    /* 上游单据子表id */
-    private String sourceChildId;
-    /* 上游单据号 */
-    private String sourceCode;
-    /* 来源孙表id */
-    private String sourceGrandId;
-    /* 上游单据主表id */
-    private String sourceId;
     /* 租户id */
     private String ytenantId;
 
@@ -214,41 +178,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
         this.waybill_employee_id = waybill_employee_id;
     }
 
-    public void setAudit_time(Date audit_time) {
-        this.audit_time = audit_time;
-    }
-
-    public void setAuditnote(String auditnote) {
-        this.auditnote = auditnote;
-    }
-
-    public void setAuditor(String auditor) {
-        this.auditor = auditor;
-    }
-
-    public void setVerifystate(Integer verifystate) {
-        this.verifystate = verifystate;
-    }
-
-    public void setProcinst_id(String procinst_id) {
-        this.procinst_id = procinst_id;
-    }
-
-    public void setBizFlowInstanceId(String bizFlowInstanceId) {
-        this.bizFlowInstanceId = bizFlowInstanceId;
-    }
-
-    public void setBizFlowMakeBillCode(String bizFlowMakeBillCode) {
-        this.bizFlowMakeBillCode = bizFlowMakeBillCode;
-    }
-
-    public void setBizflowId(String bizflowId) {
-        this.bizflowId = bizflowId;
-    }
-
-    public void setBizflowName(String bizflowName) {
-        this.bizflowName = bizflowName;
-    }
 
     public void setCreateTime(Date createTime) {
         this.createTime = createTime;
@@ -262,21 +191,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
         this.dr = dr;
     }
 
-    public void setFirstBusiObj(String firstBusiObj) {
-        this.firstBusiObj = firstBusiObj;
-    }
-
-    public void setFirstChildId(String firstChildId) {
-        this.firstChildId = firstChildId;
-    }
-
-    public void setFirstCode(String firstCode) {
-        this.firstCode = firstCode;
-    }
-
-    public void setFirstId(String firstId) {
-        this.firstId = firstId;
-    }
 
     public void setId(String id) {
         this.id = id;
@@ -294,25 +208,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
         this.pubts = pubts;
     }
 
-    public void setSourceBusiObj(String sourceBusiObj) {
-        this.sourceBusiObj = sourceBusiObj;
-    }
-
-    public void setSourceChildId(String sourceChildId) {
-        this.sourceChildId = sourceChildId;
-    }
-
-    public void setSourceCode(String sourceCode) {
-        this.sourceCode = sourceCode;
-    }
-
-    public void setSourceGrandId(String sourceGrandId) {
-        this.sourceGrandId = sourceGrandId;
-    }
-
-    public void setSourceId(String sourceId) {
-        this.sourceId = sourceId;
-    }
 
     public void setYtenantId(String ytenantId) {
         this.ytenantId = ytenantId;
@@ -386,41 +281,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
         return waybill_employee_id;
     }
 
-    public Date getAudit_time() {
-        return audit_time;
-    }
-
-    public String getAuditnote() {
-        return auditnote;
-    }
-
-    public String getAuditor() {
-        return auditor;
-    }
-
-    public Integer getVerifystate() {
-        return verifystate;
-    }
-
-    public String getProcinst_id() {
-        return procinst_id;
-    }
-
-    public String getBizFlowInstanceId() {
-        return bizFlowInstanceId;
-    }
-
-    public String getBizFlowMakeBillCode() {
-        return bizFlowMakeBillCode;
-    }
-
-    public String getBizflowId() {
-        return bizflowId;
-    }
-
-    public String getBizflowName() {
-        return bizflowName;
-    }
 
     public Date getCreateTime() {
         return createTime;
@@ -434,21 +294,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
         return dr;
     }
 
-    public String getFirstBusiObj() {
-        return firstBusiObj;
-    }
-
-    public String getFirstChildId() {
-        return firstChildId;
-    }
-
-    public String getFirstCode() {
-        return firstCode;
-    }
-
-    public String getFirstId() {
-        return firstId;
-    }
 
     public String getId() {
         return id;
@@ -466,25 +311,6 @@ public class TcmReserveCaptainAttendanceRecord extends SuperDO implements ILogic
         return pubts;
     }
 
-    public String getSourceBusiObj() {
-        return sourceBusiObj;
-    }
-
-    public String getSourceChildId() {
-        return sourceChildId;
-    }
-
-    public String getSourceCode() {
-        return sourceCode;
-    }
-
-    public String getSourceGrandId() {
-        return sourceGrandId;
-    }
-
-    public String getSourceId() {
-        return sourceId;
-    }
 
     public String getYtenantId() {
         return ytenantId;
