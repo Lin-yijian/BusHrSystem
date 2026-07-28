@@ -155,12 +155,13 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
         this.ytenantId = ytenantId;
     }
 
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
+    }
 
-
-    //新增澳巴工號set get 方法
-    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
-    public String getWaybillEmployeeId(){return waybill_employee_id;}
-
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
+    }
 
     public String getDate() {
         return date;
