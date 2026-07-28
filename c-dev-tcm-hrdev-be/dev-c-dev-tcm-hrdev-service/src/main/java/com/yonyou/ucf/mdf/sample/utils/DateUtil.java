@@ -245,14 +245,17 @@ public class DateUtil {
      * @param date1 第一个日期
      * @param date2 第二个日期
      * @param scale 小数位数
-     * @return 时间差（小时）
+     * @return 时间差（小时），返回 BigDecimal 确保精度
      */
-    public static double getTimeDifferenceInHours(Date date1, Date date2, int scale) {
-        double hours = getTimeDifferenceInHours(date1, date2);
+    public static BigDecimal getTimeDifferenceInHours(Date date1, Date date2, int scale) {
+        if (date1 == null || date2 == null) {
+            return BigDecimal.ZERO;
+        }
 
-        // 四舍五入到指定小数位
-        double factor = Math.pow(10, scale);
-        return Math.round(hours * factor) / factor;
+        long diffInMillis = date1.getTime() - date2.getTime();
+        // 使用 BigDecimal 进行精确计算
+        return BigDecimal.valueOf(diffInMillis)
+                .divide(BigDecimal.valueOf(3600000), scale, RoundingMode.HALF_UP);
     }
 
     /**

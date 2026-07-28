@@ -228,8 +228,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 // 空值检查：如果发车时间或到达时间为空，巴型转数设为0
                 BigDecimal busTransferTimes = BigDecimal.ZERO;
                 if (dto.getRealleavetime() != null && dto.getRealarrivetime() != null) {
-                    double hours = DateUtil.getTimeDifferenceInHours(dto.getRealarrivetime(), dto.getRealleavetime(), 8);
-                    busTransferTimes = new BigDecimal(hours);
+                    busTransferTimes = DateUtil.getTimeDifferenceInHours(dto.getRealarrivetime(), dto.getRealleavetime(), 8);
                 }
                 data.setBus_transfer_times(busTransferTimes);
                 data.setDate(runDate);
@@ -439,7 +438,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 遍历巴型转数数据，按车型累加工时
         for (BaTypeAttendanceSummaryDTO dto : baTypeList) {
-            String typeCode = dto.getCarType();           // 车型编号（1=小巴，2=中巴，3=大巴，4=特大巴）
+            TCMCarType type = carTypeMap.get(dto.getCarType());
+            if (type == null){
+                continue;
+            }
+            String typeCode = type.getType_code();
             BigDecimal busTransferTimes = dto.getBusTransferTimes(); // 巴型转数
             String runCarTime = calculate(jl_valid_time, busTransferTimes, totalTimes); // 行车工时 = 有效工时 * (目标转数/总转数)
             String baseTime = calculate("08:00", busTransferTimes, totalTimes); // 基本工时 = 8小时 * (目标转数/总转数)
@@ -452,6 +455,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 归一化车型编号（去除前导零，支持"01"、"1"等多种格式）
             String normalizedTypeCode = typeCode != null ? typeCode.replaceFirst("^0+", "") : "";
 
+            // 车型编号（1=小巴，2=中巴，3=大巴，4=特大巴）
             // 将正常工时部分累加到行车工时和基本工时
             switch (normalizedTypeCode) {
                 case "1":
