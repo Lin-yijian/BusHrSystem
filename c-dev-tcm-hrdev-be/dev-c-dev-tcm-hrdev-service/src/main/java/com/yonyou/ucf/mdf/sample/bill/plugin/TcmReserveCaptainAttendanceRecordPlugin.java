@@ -1,7 +1,12 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmFuelGasDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
+import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
@@ -22,6 +27,11 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
 
     @Autowired
     private CommonUtil util;
+
+    @Autowired
+    private ImportDateUtil importDateUtil;
+
+
 
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
@@ -49,6 +59,26 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
             }
             data.getData().put("driver_no",employee_id);
         }
+
+
+
+        // 收集 + 批量查询员工
+        // 注意：这里需要同时传入澳巴工号字段和员工编号字段
+        ImportDateUtil.ValidateContext ctx = importDateUtil.collectAndQuery(
+                dataList,TcmReserveCaptainAttendanceRecord.WAYBILL_EMPLOYEE_ID,TcmReserveCaptainAttendanceRecord.DRIVER_NO
+        );
+
+        // 逐行校验
+        for (ImportSingleData data : dataList) {
+            importDateUtil.validateRow(data, ctx,
+                    TcmReserveCaptainAttendanceRecord.NAME,
+                    TcmReserveCaptainAttendanceRecord.WAYBILL_EMPLOYEE_ID,
+                    TcmReserveCaptainAttendanceRecord.DRIVER_NO
+            );
+
+        }
+
+
 
     }
 
