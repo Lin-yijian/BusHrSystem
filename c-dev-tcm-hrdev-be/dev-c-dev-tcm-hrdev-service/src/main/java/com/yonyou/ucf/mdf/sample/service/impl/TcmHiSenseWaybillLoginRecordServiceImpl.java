@@ -148,7 +148,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
 
         try {
             RestTemplate restTemplate = new RestTemplate();
-            String body = "{\"actdate\":\"" + actDate + "\"}";
+            String body = "{\"actdate\":\"" + actDate + "\", \"pageNum\":1, \"pageSize\":9999}";
             String result = restTemplate.postForObject(HI_SENSE_LOGIN_RECORD_URL, body, String.class);
 
             HiSenseResponseDTO<HiSenseLoginRecordDataDTO> response = objectMapper.readValue(result,
