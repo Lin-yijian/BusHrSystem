@@ -85,6 +85,9 @@ public class ImportDateUtil {
         // 姓名
         String name = (String) data.getValueByKey(nameKey);
         if (name == null || name.isEmpty()) {
+
+            data.addImportError("數據中姓名為空，請檢查");
+            return;
 //            throw new RuntimeException("數據中姓名為空，請檢查");
         }
 
@@ -97,20 +100,26 @@ public class ImportDateUtil {
 
         if (cardId != null && !cardId.isEmpty()) {
             if (!ctx.cardMap.containsKey(cardId)) {
-                throw new RuntimeException("工號【" + cardId + "】在員工檔案中不存在");
+//                throw new RuntimeException("工號【" + cardId + "】在員工檔案中不存在");
+                data.addImportError("工號【" + cardId + "】在員工檔案中不存在");
+                return;
             }
             employeeId = ctx.cardMap.get(cardId);
         }
         // 如果没有澳巴工号，尝试使用员工编号查询
         else if (employeeCode != null && !employeeCode.isEmpty()) {
             if (!ctx.employeeCodeMap.containsKey(employeeCode)) {
-                throw new RuntimeException("員工編號【" + employeeCode + "】在員工檔案中不存在");
+//                throw new RuntimeException("員工編號【" + employeeCode + "】在員工檔案中不存在");
+                data.addImportError("員工編號【" + employeeCode + "】在員工檔案中不存在");
+                return;
             }
             employeeId = ctx.employeeCodeMap.get(employeeCode);
         }
         // 两者都为空，抛出异常
         else {
-            throw new RuntimeException("數據中澳巴工號和員工編號都為空，請至少填寫一項");
+//            throw new RuntimeException("數據中澳巴工號和員工編號都為空，請至少填寫一項");
+            data.addImportError("數據中澳巴工號和員工編號都為空，請至少填寫一項");
+            return;
         }
 
         // 如果查询到了员工ID，将其设置到数据中（这里的employeeIdKey是员工编码字段）
