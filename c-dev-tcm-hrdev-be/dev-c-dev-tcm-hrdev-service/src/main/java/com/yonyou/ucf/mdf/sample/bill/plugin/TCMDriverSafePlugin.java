@@ -76,7 +76,8 @@ public class TCMDriverSafePlugin extends AbstractBillPlugin {
             String indexCode = (String) data.getValueByKey(TCMDriverSafe.INDEX_NO_INDEX_CODE);
             if (indexCode != null && !indexCode.isEmpty()) {
                 if (!indexMap.containsKey(indexCode)) {
-                    throw new RuntimeException("指標編號【" + indexCode + "】在指標檔案中不存在");
+                    data.addImportError("指標編號【" + indexCode + "】在指標檔案中不存在");
+//                    throw new RuntimeException("指標編號【" + indexCode + "】在指標檔案中不存在");
                 }
                 data.getData().put(TCMDriverSafe.INDEX_NO, indexMap.get(indexCode).getId());
                 data.getData().put(TCMDriverSafe.INDEX_DESC, indexMap.get(indexCode).getContent());

@@ -117,17 +117,23 @@ public class ImportValidateUtil {
         // 姓名
         String name = (String) data.getValueByKey(nameKey);
         if (name == null || name.isEmpty()) {
-            throw new RuntimeException("數據中姓名為空，請檢查");
+            data.addImportError("數據中姓名為空，請檢查");
+            return;
+//            throw new RuntimeException("數據中姓名為空，請檢查");
         }
         // 工号 → 员工ID
         String cardId = (String) data.getValueByKey(cardIdKey);
         if (cardId != null && !cardId.isEmpty()) {
             if (!ctx.cardMap.containsKey(cardId)) {
-                throw new RuntimeException("工號【" + cardId + "】在員工檔案中不存在");
+                data.addImportError("工號【" + cardId + "】在員工檔案中不存在");
+                return;
+//                throw new RuntimeException("工號【" + cardId + "】在員工檔案中不存在");
             }
             data.getData().put(employeeIdKey, ctx.cardMap.get(cardId));
         } else {
-            throw new RuntimeException("數據中澳巴工號為空，請檢查");
+            data.addImportError("數據中澳巴工號為空，請檢查");
+            return;
+//            throw new RuntimeException("數據中澳巴工號為空，請檢查");
         }
 //        // 车辆
 //        String carPlateNum = (String) data.getValueByKey(carPlateKey);

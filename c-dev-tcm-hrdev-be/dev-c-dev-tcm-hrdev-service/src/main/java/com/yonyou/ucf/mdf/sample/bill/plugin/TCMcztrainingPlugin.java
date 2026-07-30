@@ -64,7 +64,8 @@ public class TCMcztrainingPlugin extends AbstractBillPlugin {
                 employeeId = staffByCodes.get(cz01Code);
             }
             if (StringUtils.isEmpty(employeeId)){
-              throw new RuntimeException("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
+                data.addImportError("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
+//              throw new RuntimeException("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
 
             }
 

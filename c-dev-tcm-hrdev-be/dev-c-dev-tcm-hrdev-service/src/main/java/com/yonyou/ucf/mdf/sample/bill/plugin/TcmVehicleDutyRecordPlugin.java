@@ -45,7 +45,8 @@ public class TcmVehicleDutyRecordPlugin extends AbstractBillPlugin {
             String waybill_employee_id = (String) data.getData().get("driver_no");
             String employee_id = staffByCardIds.get(waybill_employee_id);
             if (StringUtils.isEmpty(employee_id)){
-                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+                data.addImportError("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+//                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
             }
             data.getData().put("employee_id",employee_id);
         }
