@@ -124,7 +124,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
         }
 
-
         List<HiSenseAttendanceMergedDTO> hiSenseDataList = mergeAttendanceData(hiSenseDTOList);
         removeByRunDate(runDate);
 
@@ -139,7 +138,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             routeNameList.add(hiSenseData.getRoutename());
             busCardIdList.add(hiSenseData.getBuscardid());
             employeeIdList.add(hiSenseData.getEmployeeId());
-
         }
 
         // 基礎信息
@@ -148,7 +146,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
         Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
 
-        // 收集條件
+        // 收集缺失数据
+        List<String> missingCarNumbers = new ArrayList<>();
+        List<String> missingRouteNames = new ArrayList<>();
         Set<String> staffSet = new HashSet<>();
 
         for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
@@ -169,20 +169,26 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             data.setRun_date(runDate);
             data.setCount(hiSenseData.getCount());
 
+            // 检查车辆信息
             TCMCar tcmCar = stringTCMCarMap.get(hiSenseData.getBuscardid());
             if (tcmCar == null) {
-                throw new RuntimeException("车辆信息档案缺失，请先完善档案内容，车牌号：" + hiSenseData.getBuscardid());
+                missingCarNumbers.add(hiSenseData.getBuscardid());
             }
 
+            // 检查路线信息
             TCMRoute tcmRoute = stringTCMRouteMap.get(hiSenseData.getRoutename());
             if (tcmRoute == null) {
-                throw new RuntimeException("路线信息档案缺失，请先完善档案内容，路线：" + hiSenseData.getRoutename());
+                missingRouteNames.add(hiSenseData.getRoutename());
+            }
+
+            // 如果车辆或路线缺失，跳过当前数据处理，继续收集
+            if (tcmCar == null || tcmRoute == null) {
+                continue;
             }
 
             String staffId = staffMap.get(hiSenseData.getEmployeeId());
             staffSet.add(staffId);
             data.setEmployee_id(staffId);
-
             data.setCar(tcmCar.getId());
             data.setRoute(tcmRoute.getId());
 
@@ -196,9 +202,21 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             driverHolidayWorkRecordList.add(driverHolidayWorkRecord);
 
             dataList.add(data);
-
         }
 
+        // 统一校验缺失数据，如果有缺失则抛出包含所有缺失信息的异常
+        if (!missingCarNumbers.isEmpty() || !missingRouteNames.isEmpty()) {
+            StringBuilder errorMsg = new StringBuilder("数据校验失败：");
+            if (!missingCarNumbers.isEmpty()) {
+                errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
+                        .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
+            }
+            if (!missingRouteNames.isEmpty()) {
+                errorMsg.append("\n路线信息档案缺失，请先完善档案内容，缺失路线：")
+                        .append(String.join("、", missingRouteNames.stream().distinct().collect(Collectors.toList())));
+            }
+            throw new RuntimeException(errorMsg.toString());
+        }
 
         // 巴型转数：按员工工号分组处理
         Map<String, List<HiSenseAttendanceDataDTO>> groupedByEmployee = hiSenseDTOList.stream()
@@ -255,16 +273,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 更新考勤修正数据
         assemblyCorrection(dataList, baTypeMap, runDate, staffSet);
 
-
         billRepository.insert(dataList);
         // 車長假期工作記錄
         driverHolidayWorkRecordService.coverInsert(runDate, driverHolidayWorkRecordList);
-//        billRepository.insert(driverHolidayWorkRecordList);
         // 巴型转数
         baTypeAttendanceDataService.coverInsert(runDate, baTypeAttendanceDataList);
-//        billRepository.insert(baTypeAttendanceDataList);
-
-
     }
 
     /**
