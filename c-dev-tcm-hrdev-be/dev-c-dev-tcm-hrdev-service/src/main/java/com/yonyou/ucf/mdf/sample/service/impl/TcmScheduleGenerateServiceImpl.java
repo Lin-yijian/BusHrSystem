@@ -210,7 +210,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
             // 是否迟到早退
             String lateDuration = entity.getLate_duration();
-            if (!StringUtil.isEmpty(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
+            if (!DateUtil.checkIsZeroTime(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
                 entity.setIs_late_or_early_leave(true);
             }
 
