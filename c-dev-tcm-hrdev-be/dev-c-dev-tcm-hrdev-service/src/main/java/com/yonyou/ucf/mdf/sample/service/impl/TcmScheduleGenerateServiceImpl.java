@@ -8,13 +8,16 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import io.edap.util.StringUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateService {
@@ -24,6 +27,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
     @Autowired
     private YmsOidGenerator ymsOidGenerator;
+
+    @Autowired
+    private CommonUtil commonUtil;
 
     public static final String WORK_TIME = "08:00";
 
@@ -40,6 +46,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         if (sourceList.isEmpty()) {
             throw new RuntimeException("该日期无排更数据");
         }
+
+        Set<String> employeeIds = sourceList.stream().map(TcmWaybillSheduleShiftsData::getEmployee_id).collect(Collectors.toSet());
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(employeeIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
 
         Map<String, List<TcmWaybillSheduleShiftsData>> groups = groupByDateAndEmployee(sourceList);
 
@@ -147,11 +156,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             billRepository.update(scheduleUpdateList);
         }
         if (!correctionInsertList.isEmpty()) {
-            processDate(correctionInsertList);
+            processDate(correctionInsertList,staffMap);
             billRepository.insert(correctionInsertList);
         }
         if (!correctionUpdateList.isEmpty()) {
-            processDate(correctionUpdateList);
+            processDate(correctionUpdateList,staffMap);
             billRepository.update(correctionUpdateList);
         }
 
@@ -174,8 +183,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     /**
      * 计算考勤结果数据
      * @param list 修正数据集合
+     * @param staffMap
      */
-    private void processDate(List<TcmAttendanceCorrection> list){
+    private void processDate(List<TcmAttendanceCorrection> list, Map<String, Map<String, Object>> staffMap){
         for (TcmAttendanceCorrection entity : list) {
             // 一更时长 = 一更计量排更收车 - 一更计量排更发车
             String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_departure_time(), entity.getJl_one_return_time());
@@ -197,6 +207,22 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 continue;
             }
             entity.setOvertime_time(DateUtil.subtractTimeDifferences(entity.getJl_valid_time(), WORK_TIME));
+
+            // 是否迟到早退
+            String lateDuration = entity.getLate_duration();
+            if (!StringUtil.isEmpty(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
+                entity.setIs_late_or_early_leave(true);
+            }
+
+            // 是否不足标准工时
+            String employeeId = entity.getEmployee_id();
+            Map<String, Object> staff = staffMap.get(employeeId);
+            if (staff != null) {
+                if (commonUtil.PART_TIME_JOB_CODE.equals(staff.get(commonUtil.FIELD_CODE_POST_CODE))) {
+                    entity.setIs_less_than_8_hours(false);
+                }
+            }
+
         }
     }
 

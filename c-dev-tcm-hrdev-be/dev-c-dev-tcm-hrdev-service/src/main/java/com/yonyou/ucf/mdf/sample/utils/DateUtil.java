@@ -1,5 +1,6 @@
 package com.yonyou.ucf.mdf.sample.utils;
 
+import io.edap.util.StringUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
@@ -296,6 +297,10 @@ public class DateUtil {
         long minutes = (diffInMillis % (60 * 60 * 1000)) / (60 * 1000);
 
         return String.format("%02d:%02d", hours, minutes);
+    }
+
+    public static boolean checkIsZeroTime(String timeStr){
+        return StringUtil.isEmpty(timeStr) || "00:00".equals(timeStr) || "0:00".equals(timeStr) || "00:00:00".equals(timeStr);
     }
 
 

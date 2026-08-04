@@ -13,6 +13,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -78,6 +79,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Autowired
     private TcmDriverHolidayWorkRecordService driverHolidayWorkRecordService;
 
+    @Autowired
+    private CommonUtil commonUtil;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -142,9 +146,18 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 基礎信息
         String tenantId = InvocationInfoProxy.getTenantid();
-        Map<String, String> staffMap = getStaffByCardIds(employeeIdList, tenantId);
+        Map<String, String> staffIdMap = new HashMap<>();
+        Map<String, String> staffPostMap = new HashMap<>();
         Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
         Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
+        List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
+        if (staffInfoList != null && !staffInfoList.isEmpty()) {
+            for (Map<String, Object> map : staffInfoList) {
+                staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_EMPLOYEE_ID));
+                staffPostMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_POST_CODE));
+
+            }
+        }
 
         // 收集缺失数据
         List<String> missingCarNumbers = new ArrayList<>();
@@ -186,7 +199,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 continue;
             }
 
-            String staffId = staffMap.get(hiSenseData.getEmployeeId());
+            String staffId = staffIdMap.get(hiSenseData.getEmployeeId());
             staffSet.add(staffId);
             data.setEmployee_id(staffId);
             data.setCar(tcmCar.getId());
@@ -232,7 +245,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 按实际发车时间升序排序
             dtoList.sort(Comparator.comparing(HiSenseAttendanceDataDTO::getRealleavetime, Comparator.nullsLast(Date::compareTo)));
 
-            String staffId = staffMap.get(employeeId);
+            String staffId = staffIdMap.get(employeeId);
 
             // 循环处理每条数据，设置序号
             int orderNo = 1;
@@ -271,7 +284,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         }
 
         // 更新考勤修正数据
-        assemblyCorrection(dataList, baTypeMap, runDate, staffSet);
+        assemblyCorrection(dataList, baTypeMap, runDate, staffSet, staffPostMap);
 
         billRepository.insert(dataList);
         // 車長假期工作記錄
@@ -288,7 +301,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @param runDate     日期
      * @param staffIdList 员工ID集合
      */
-    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList) {
+    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList, Map<String,String> staffPostMap) {
         List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateListAndStaffIds(runDate, staffIdList);
         if (correctionList.isEmpty()) {
             return;
@@ -323,6 +336,20 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
             // 巴型工时计算
             calculateTypeWorkHour(entity, baTypeMap.get(employeeId), carTypeMap);
+
+            // 是否迟到早退
+            String lateDuration = entity.getLate_duration();
+            String oneEarlyLeaveDuration = entity.getOne_early_leave_duration();
+            String twoEarlyLeaveDuration = entity.getTwo_early_leave_duration();
+            if (!StringUtil.isEmpty(lateDuration) || !DateUtil.checkIsZeroTime(oneEarlyLeaveDuration) || !DateUtil.checkIsZeroTime(twoEarlyLeaveDuration)) {
+                entity.setIs_late_or_early_leave(true);
+            }
+
+            // 是否兼职司机
+            String postCode = staffPostMap.get(employeeId);
+            if (commonUtil.PART_TIME_JOB_CODE.equals(postCode)) {
+                entity.setIs_less_than_8_hours(false);
+            }
         }
 
         // 批量更新修正数据
@@ -616,33 +643,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         return closestData;
     }
 
-
-    /**
-     * 查询BIP员工信息
-     *
-     * @param ids
-     * @param tenantId
-     * @return
-     */
-    private Map<String, String> getStaffByCardIds(List<String> ids, String tenantId) {
-        QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as cardId,code");
-        querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
-        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
-        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
-        List<Map<String, Object>> mapList = queryService.queryMapBySchema(UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
-
-        if (mapList == null || mapList.isEmpty()) {
-            return new HashMap<>();
-        }
-
-        Map<String, String> finalMap = new HashMap<>();
-        for (Map<String, Object> map : mapList) {
-            finalMap.put((String) map.get("cardId"), (String) map.get("id"));
-        }
-
-        return finalMap;
-
-    }
 
     /**
      * 分组

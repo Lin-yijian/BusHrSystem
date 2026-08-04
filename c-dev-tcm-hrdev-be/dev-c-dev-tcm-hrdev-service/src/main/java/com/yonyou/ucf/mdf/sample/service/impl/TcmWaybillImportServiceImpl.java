@@ -81,7 +81,6 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             String routeCode = str.endsWith("(標準)")
                     ? str.substring(0, str.length() - "(標準)".length())
                     : str;
-            // todo 添加去重校验
             TcmWaybillSheduleShiftsData data = changeData(record);
             TCMRoute tcmRoute = routeMap.get(routeCode);
             if (tcmRoute != null) {
