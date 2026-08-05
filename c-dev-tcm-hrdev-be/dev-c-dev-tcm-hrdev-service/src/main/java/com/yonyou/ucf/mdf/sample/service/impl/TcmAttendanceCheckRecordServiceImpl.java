@@ -38,14 +38,13 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
 
 
     @Override
-    public void updateOrSaveRecords(Set<String> checkDateList, String module, boolean isGood) {
+    public void updateOrSaveRecords(Set<String> checkDateList, ModuleEnum moduleEnum, boolean isGood) {
 
         if (CollectionUtils.isEmpty(checkDateList)) {
             throw new BusinessException("99", "日期参数不能为空");
         }
 
         String tenantId = InvocationInfoProxy.getTenantid();
-        ModuleEnum moduleEnum = ModuleEnum.getByCode(module);
 
         List<TcmAttendanceCheckRecord> existingRecords = findRecordsByDates(checkDateList, tenantId);
 
@@ -74,12 +73,12 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
     }
 
     @Override
-    public void updateOrSaveRecord(String checkDate, String module, boolean isGood) {
+    public void updateOrSaveRecord(String checkDate, ModuleEnum moduleEnum, boolean isGood) {
         if (StringUtil.isEmpty(checkDate)) {
             throw new BusinessException("99", "日期参数不能为空");
         }
         String tenantId = InvocationInfoProxy.getTenantid();
-        ModuleEnum moduleEnum = ModuleEnum.getByCode(module);
+//        ModuleEnum moduleEnum = ModuleEnum.getByCode(module);
 
 
         LambdaQueryCondition<TcmAttendanceCheckRecord> condition = new LambdaQueryCondition<>(new TcmAttendanceCheckRecord());
@@ -155,6 +154,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
         TcmAttendanceCheckRecord record = new TcmAttendanceCheckRecord();
         // 设置默认值
         record.setCheck_date(checkDate);
+        record.setCheck_status(BaseEnum.CHECK_STATUS_0.getCode());
         record.setYtenantId(tenantId);
         record.setDr(BaseEnum.IS_NOT_DELETED.getIntCode());
         record.setAbsenteeism_record(false);

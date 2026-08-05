@@ -7,6 +7,8 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
@@ -31,7 +33,18 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     @Autowired
     private CommonUtil commonUtil;
 
+    @Autowired
+    private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
     public static final String WORK_TIME = "08:00";
+
+
+    @Override
+    public boolean checkDataByDate(String date) throws Exception {
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmSheduleShiftsData> list = querySheduleShiftsData(date, tenantId);
+        return !list.isEmpty();
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -164,6 +177,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             billRepository.update(correctionUpdateList);
         }
 
+        // 更新核对记录
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS,true);
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalInput", totalInput);
         result.put("totalGroups", totalGroups);
@@ -233,6 +249,14 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         condition.eq(TcmWaybillSheduleShiftsData::getDate, date)
                 .eq(TcmWaybillSheduleShiftsData::getYtenantId, tenantId)
                 .eq(TcmWaybillSheduleShiftsData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(condition);
+    }
+
+    private List<TcmSheduleShiftsData> querySheduleShiftsData(String date, String tenantId) {
+        LambdaQueryCondition<TcmSheduleShiftsData> condition = new LambdaQueryCondition<>(new TcmSheduleShiftsData());
+        condition.eq(TcmSheduleShiftsData::getDate, date)
+                .eq(TcmSheduleShiftsData::getYtenantId, tenantId)
+                .eq(TcmSheduleShiftsData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(condition);
     }
 
