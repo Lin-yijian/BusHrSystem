@@ -12,6 +12,7 @@ import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import io.edap.util.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -37,7 +38,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
 
 
     @Override
-    public void updateOrSaveRecord(Set<String> checkDateList, String module, boolean isGood) {
+    public void updateOrSaveRecords(Set<String> checkDateList, String module, boolean isGood) {
 
         if (CollectionUtils.isEmpty(checkDateList)) {
             throw new BusinessException("99", "日期参数不能为空");
@@ -70,6 +71,35 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
         if (!newRecords.isEmpty()) {
             billRepository.insert(newRecords);
         }
+    }
+
+    @Override
+    public void updateOrSaveRecord(String checkDate, String module, boolean isGood) {
+        if (StringUtil.isEmpty(checkDate)) {
+            throw new BusinessException("99", "日期参数不能为空");
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        ModuleEnum moduleEnum = ModuleEnum.getByCode(module);
+
+
+        LambdaQueryCondition<TcmAttendanceCheckRecord> condition = new LambdaQueryCondition<>(new TcmAttendanceCheckRecord());
+        condition.eq(TcmAttendanceCheckRecord::getCheck_date, checkDate)
+                .eq(TcmAttendanceCheckRecord::getYtenantId, tenantId)
+                .eq(TcmAttendanceCheckRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmAttendanceCheckRecord> records = billRepository.queryByClause(condition);
+
+        if (records.isEmpty()) {
+            TcmAttendanceCheckRecord newRecord = createNewRecord(checkDate, tenantId, moduleEnum, isGood);
+            records.add(newRecord);
+            billRepository.insert(records);
+            return;
+        }
+
+        for (TcmAttendanceCheckRecord record : records) {
+            updateRecordByModule(record,moduleEnum,isGood);
+        }
+        billRepository.update(records);
+
     }
 
     /**
