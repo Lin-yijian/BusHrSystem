@@ -11,6 +11,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -80,6 +81,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     private TcmDriverHolidayWorkRecordService driverHolidayWorkRecordService;
 
     @Autowired
+    private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
+    @Autowired
     private CommonUtil commonUtil;
 
     /**
@@ -118,6 +122,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         List<SimpleCondition> conditionList = new ArrayList<>();
         conditionList.add(new SimpleCondition("run_date", ConditionOperator.in, runDate));
         billRepository.batchRemove(UrlEnum.HISENSE_ATTENDANCE.getUrl(), conditionList);
+    }
+
+    @Override
+    public boolean checkDataByDate(String date) throws Exception {
+        List<TcmHisenseAttendanceData> list = getByRunDate(date);
+        return !list.isEmpty();
     }
 
     @Transactional(rollbackFor = RuntimeException.class)
@@ -291,6 +301,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         driverHolidayWorkRecordService.coverInsert(runDate, driverHolidayWorkRecordList);
         // 巴型转数
         baTypeAttendanceDataService.coverInsert(runDate, baTypeAttendanceDataList);
+
+        // 更新核对记录
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE,true);
+
     }
 
     /**

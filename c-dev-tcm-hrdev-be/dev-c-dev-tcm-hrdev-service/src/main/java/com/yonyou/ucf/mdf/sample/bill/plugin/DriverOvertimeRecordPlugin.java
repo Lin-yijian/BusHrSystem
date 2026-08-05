@@ -5,7 +5,10 @@ import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.service.TcmDriverOvertimeRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.ImportEventExtendProcessor;
@@ -41,6 +44,26 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
 
     @Autowired
     private TcmAttendanceCorrectionService attendanceCorrectionService;
+
+    @Autowired
+    private TcmDriverOvertimeRecordService service;
+
+    @Autowired
+    private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
+
+
+    @Override
+    public void afterDelete(YpdBillContext billContext) throws Exception {
+        super.afterDelete(billContext);
+        TcmDriverOvertimeRecord data = (TcmDriverOvertimeRecord) billContext.getBillDO();
+        String date = data.getOvertime_date();
+        boolean existFlag = service.checkDataByDate(date);
+        if (!existFlag) {
+            // 更新核对记录
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
+        }
+    }
 
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {

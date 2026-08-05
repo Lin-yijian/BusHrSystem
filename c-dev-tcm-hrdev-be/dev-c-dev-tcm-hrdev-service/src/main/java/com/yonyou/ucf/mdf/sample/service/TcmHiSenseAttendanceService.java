@@ -24,4 +24,14 @@ public interface TcmHiSenseAttendanceService {
      */
     void removeByRunDate(String runDate);
 
+
+
+    /**
+     * 根据日期查询数据是否存在
+     * @param date 日期 yyyy-MM-dd
+     * @return true 存在
+     * @throws Exception .
+     */
+    boolean checkDataByDate(String date) throws Exception;
+
 }
