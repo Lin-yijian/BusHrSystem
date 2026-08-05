@@ -20,18 +20,9 @@ public enum BaseEnum {
      */
     SOURCE_TYPE_MANUAL("2", "人工"),
 
-    /**
-     * 數據核銷狀態
-     */
-    WRITE_OFF("1", "已核銷"),
-    WRITE_OFF_HALF("2", "部分核銷"),
-    WRITE_OFF_TODO("3", "未核銷"),
+    ERROR_CODE("1","异常"),
 
-    /**
-     * 反核销状态
-     */
-    BACK_WRITE_OFF_ZERO("0", "正常"),
-    BACK_WRITE_OFF_ONE("1", "已回滚核銷"),
+    NORMAL_CODE("2","正常"),
 
     /**
      * 逻辑删除 - 未删除

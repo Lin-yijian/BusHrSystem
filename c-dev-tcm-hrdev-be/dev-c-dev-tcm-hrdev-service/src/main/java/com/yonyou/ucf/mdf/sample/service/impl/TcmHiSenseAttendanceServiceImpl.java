@@ -573,6 +573,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             bus_type_rpm = busTypeRpmBuilder.substring(0, busTypeRpmBuilder.length() - 1);
         }
 
+        String status = StringUtil.isEmpty(bus_type_rpm_order) ? BaseEnum.NORMAL_CODE.getCode() : BaseEnum.ERROR_CODE.getCode();
+
+        entity.setTcmBarTypeHourStatus(status);
         entity.setBus_type_rpm_order(bus_type_rpm_order);
         entity.setBus_type_rpm(bus_type_rpm);
         entity.setMinibus_driving_hours(minibus_driving_hours);
