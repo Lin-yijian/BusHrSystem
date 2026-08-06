@@ -10,22 +10,24 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 安全獎指標
- * @Date 2026-07-15 15:35:05
+ * @Date 2026-08-06 13:21:07
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMBaseInfo.TCMBaseInfo.TCMSafety", domain = "c-dev-tcm-hrdev")
-public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
+public class TCMSafety extends SuperDO implements ICode,IEnable,ILogicDelete {
     public static final String ENTITY_NAME = "TCMBaseInfo.TCMBaseInfo.TCMSafety";
     public static final String INDEX_CODE = "index_code";
     public static final String TYPE = "type";
     public static final String CONTENT = "content";
     public static final String COMPUTER = "computer";
     public static final String PROPORTION = "proportion";
-    public static final String ENABLE = "enable";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
+    public static final String DISABLETS = "disablets";
     public static final String DR = "dr";
+    public static final String ENABLE = "enable";
+    public static final String ENABLETS = "enablets";
     public static final String ID = "id";
     public static final String MODIFIER = "modifier";
     public static final String MODIFYTIME = "modifyTime";
@@ -33,7 +35,7 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
     public static final String YTENANTID = "ytenantId";
 
     /* 指標編號 */
-    private String index_code;
+    private Integer index_code;
     /* 指標類型 */
     private String type;
     /* 指標内容 */
@@ -42,16 +44,20 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
     private String computer;
     /* 每次獎懲比例 */
     private BigDecimal proportion;
-    /* 啓停狀態 */
-    private String enable;
     /* 编码 */
     private String code;
     /* 创建时间 */
     private Date createTime;
     /* 创建人 */
     private String creator;
+    /* 停用时间 */
+    private Date disablets;
     /* 逻辑删除 */
     private Short dr;
+    /* 档案状态 */
+    private String enable;
+    /* 启用时间 */
+    private Date enablets;
     /* id */
     private String id;
     /* 修改人 */
@@ -63,7 +69,7 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
     /* 租户id */
     private String ytenantId;
 
-    public void setIndex_code(String index_code) {
+    public void setIndex_code(Integer index_code) {
         this.index_code = index_code;
     }
 
@@ -83,10 +89,6 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
         this.proportion = proportion;
     }
 
-    public void setEnable(String enable) {
-        this.enable = enable;
-    }
-
     public void setCode(String code) {
         this.code = code;
     }
@@ -99,8 +101,20 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
         this.creator = creator;
     }
 
+    public void setDisablets(Date disablets) {
+        this.disablets = disablets;
+    }
+
     public void setDr(Short dr) {
         this.dr = dr;
+    }
+
+    public void setEnable(String enable) {
+        this.enable = enable;
+    }
+
+    public void setEnablets(Date enablets) {
+        this.enablets = enablets;
     }
 
     public void setId(String id) {
@@ -123,7 +137,7 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
         this.ytenantId = ytenantId;
     }
 
-    public String getIndex_code() {
+    public Integer getIndex_code() {
         return index_code;
     }
 
@@ -143,10 +157,6 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
         return proportion;
     }
 
-    public String getEnable() {
-        return enable;
-    }
-
     public String getCode() {
         return code;
     }
@@ -159,8 +169,20 @@ public class TCMSafety extends SuperDO implements ICode,ILogicDelete {
         return creator;
     }
 
+    public Date getDisablets() {
+        return disablets;
+    }
+
     public Short getDr() {
         return dr;
+    }
+
+    public String getEnable() {
+        return enable;
+    }
+
+    public Date getEnablets() {
+        return enablets;
     }
 
     public String getId() {

@@ -9,7 +9,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 服务奖指标
- * @Date 2026-07-16 16:30:38
+ * @Date 2026-08-06 13:31:36
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMBaseInfo.TCMBaseInfo.TCMSerivceIndex", domain = "c-dev-tcm-hrdev")
@@ -35,7 +35,7 @@ public class TCMSerivceIndex extends SuperDO implements ICode,IEnable,ILogicDele
     public static final String YTENANTID = "ytenantId";
 
     /* 指標編號 */
-    private String index_code;
+    private Integer index_code;
     /* 指標内容 */
     private String content;
     /* 計算方式 */
@@ -71,7 +71,7 @@ public class TCMSerivceIndex extends SuperDO implements ICode,IEnable,ILogicDele
     /* 租户id */
     private String ytenantId;
 
-    public void setIndex_code(String index_code) {
+    public void setIndex_code(Integer index_code) {
         this.index_code = index_code;
     }
 
@@ -143,7 +143,7 @@ public class TCMSerivceIndex extends SuperDO implements ICode,IEnable,ILogicDele
         this.ytenantId = ytenantId;
     }
 
-    public String getIndex_code() {
+    public Integer getIndex_code() {
         return index_code;
     }
 
@@ -223,3 +223,4 @@ public class TCMSerivceIndex extends SuperDO implements ICode,IEnable,ILogicDele
         }
     }
 }
+
