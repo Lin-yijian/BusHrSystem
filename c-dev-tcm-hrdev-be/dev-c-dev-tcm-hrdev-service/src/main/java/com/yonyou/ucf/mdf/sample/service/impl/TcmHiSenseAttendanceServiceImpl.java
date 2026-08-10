@@ -163,7 +163,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
         if (staffInfoList != null && !staffInfoList.isEmpty()) {
             for (Map<String, Object> map : staffInfoList) {
-                staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_EMPLOYEE_ID));
+                staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_STAFF_ID));
                 staffPostMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_POST_CODE));
 
             }
