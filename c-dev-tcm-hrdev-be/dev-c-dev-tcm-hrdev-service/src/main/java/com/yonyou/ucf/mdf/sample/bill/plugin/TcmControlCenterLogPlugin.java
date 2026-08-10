@@ -2,9 +2,13 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.service.TcmControlCenterLogService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
@@ -40,6 +44,26 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCorrectionService attendanceCorrectionService;
 
+    @Autowired
+    private TcmControlCenterLogService service;
+
+    @Autowired
+    private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
+
+
+    @Override
+    public void afterDelete(YpdBillContext billContext) throws Exception {
+        super.afterDelete(billContext);
+        TcmControlCenterLog data = (TcmControlCenterLog) billContext.getBillDO();
+        String date = data.getDate();
+        boolean existFlag = service.checkDataByDate(date);
+        if (!existFlag) {
+            // 更新核对记录
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
+        }
+    }
+
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
@@ -51,6 +75,8 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
+        String date = entity.getDate();
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
     }
 

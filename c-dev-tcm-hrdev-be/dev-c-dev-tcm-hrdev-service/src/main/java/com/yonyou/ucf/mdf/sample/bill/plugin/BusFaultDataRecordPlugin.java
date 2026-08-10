@@ -1,6 +1,10 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
+import com.yonyou.ucf.mdf.sample.service.TcmBusFaultDataRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
@@ -17,7 +21,7 @@ import java.util.*;
 
 @BillPlugin(busiObj = "tcmBusFaultDataRecord")
 @Slf4j
-public class BusFaultDataRecord extends AbstractBillPlugin {
+public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
 
     @Autowired
     private CommonUtil util;
@@ -28,9 +32,35 @@ public class BusFaultDataRecord extends AbstractBillPlugin {
     @Autowired
     private ImportDateUtil importDateUtil;
 
+    @Autowired
+    private TcmBusFaultDataRecordService service;
+
+
+
+    @Autowired
+    private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
+
+    @Override
+    public void afterDelete(YpdBillContext billContext) throws Exception {
+        super.afterDelete(billContext);
+        TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billContext.getBillDO();
+        String date = data.getReport_date();
+        boolean existFlag = service.checkDataByDate(date);
+        if (!existFlag) {
+            // 更新核对记录
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
+        }
+    }
+
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
+
+        TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billContext.getBillDO();
+        String date = data.getReport_date();
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,true);
+
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

@@ -22,7 +22,7 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
     private final Map<String, BiConsumer<ImportBatchData, ImportEventBO>> strategyMap = new HashMap<>();
 
     @Autowired
-    public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecord p2, DriverOvertimeRecordPlugin p3,
+    public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecordPlugin p2, DriverOvertimeRecordPlugin p3,
                                TcmAbsenceDataRecordPlugin p4, TcmControlCenterLogPlugin p5, TCMDriverSafePlugin p6,
                                TCMTrafficAccidentPlugin p7,
                                TCMgsPlugin p8,

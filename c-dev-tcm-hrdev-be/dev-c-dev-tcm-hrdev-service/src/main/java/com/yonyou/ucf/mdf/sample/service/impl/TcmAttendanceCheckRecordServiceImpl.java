@@ -94,10 +94,13 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
             return;
         }
 
+        boolean flag = false;
         for (TcmAttendanceCheckRecord record : records) {
-            updateRecordByModule(record,moduleEnum,isGood);
+            flag = updateRecordByModule(record, moduleEnum, isGood);
         }
-        billRepository.update(records);
+        if (!flag){
+            billRepository.update(records);
+        }
 
     }
 
@@ -115,35 +118,47 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
     /**
      * 根据模块更新对应的字段
      */
-    private void updateRecordByModule(TcmAttendanceCheckRecord record, ModuleEnum moduleEnum, boolean isGood){
+    private boolean updateRecordByModule(TcmAttendanceCheckRecord record, ModuleEnum moduleEnum, boolean isGood){
+        Boolean flag = null;
         switch (moduleEnum) {
             case TCM_ABSENCE_DATA_RECORD:
+                flag = record.getAbsenteeism_record();
                 record.setAbsenteeism_record(isGood);
                 break;
             case TCM_SHEDULE_SHIFTS:
+                flag = record.getSchedule_data();
                 record.setSchedule_data(isGood);
                 break;
             case TCM_HI_SENSE_ATTENDANCE:
+                flag = record.getHisense_attendance();
                 record.setHisense_attendance(isGood);
                 break;
             case TCM_BUS_FAULT_DATA_RECORD:
+                flag = record.getBus_fault();
                 record.setBus_fault(isGood);
                 break;
             case TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD:
+                flag = record.getReserve_driver_absenteeism();
                 record.setReserve_driver_absenteeism(isGood);
                 break;
             case TCM_DRIVER_OVERTIME:
+                flag = record.getDriver_overtime();
                 record.setDriver_overtime(isGood);
                 break;
             case TCM_CONTROL_CENTER_LOG:
+                flag = record.getControl_center_log();
                 record.setControl_center_log(isGood);
                 break;
             case TCM_FUEL_GAS_DATA_RECORD:
+                flag = record.getRefueling_times();
                 record.setRefueling_times(isGood);
                 break;
             default:
                 throw new BusinessException("100", "不支持的模块类型：" + moduleEnum.getCode());
         }
+
+        return flag == isGood;
+
     }
 
     /**

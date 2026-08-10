@@ -1,6 +1,11 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
+import com.yonyou.ucf.mdf.sample.service.TcmReserveCaptainAttendanceRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -23,9 +28,30 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
     @Autowired
     private CommonUtil util;
 
+    @Autowired
+    private TcmReserveCaptainAttendanceRecordService service;
+
+    @Autowired
+    private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
+
+    @Override
+    public void afterDelete(YpdBillContext billContext) throws Exception {
+        super.afterDelete(billContext);
+        TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
+        String date = data.getDate();
+        boolean existFlag = service.checkDataByDate(date);
+        if (!existFlag) {
+            // 更新核对记录
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
+        }
+    }
+
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
+        TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
     }
 

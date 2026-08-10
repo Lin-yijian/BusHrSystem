@@ -74,6 +74,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
     }
 

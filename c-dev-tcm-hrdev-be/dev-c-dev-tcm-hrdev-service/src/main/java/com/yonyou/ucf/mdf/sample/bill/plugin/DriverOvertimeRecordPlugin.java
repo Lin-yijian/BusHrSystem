@@ -76,6 +76,7 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getOvertime_date(), ModuleEnum.TCM_DRIVER_OVERTIME,true);
 
     }
 
