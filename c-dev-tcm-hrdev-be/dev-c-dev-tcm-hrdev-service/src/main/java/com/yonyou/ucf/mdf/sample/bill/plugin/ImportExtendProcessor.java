@@ -33,7 +33,8 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
                                TcmVehicleDutyRecordPlugin p13,
                                TCMcztrainingPlugin p14,
                                TcmFuelGasDataRecordPlugin p15,
-                               TcmReserveCaptainAttendanceRecordPlugin p16) {
+                               TcmReserveCaptainAttendanceRecordPlugin p16,
+                               TcmLeaveRecordPlugin p17) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
         strategyMap.put("tcmDriverOvertimeRecord", p3::beforeTranslate);
@@ -53,6 +54,7 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
         strategyMap.put("tcmFuelGasDataRecord",p15::beforeTranslate);
 
         strategyMap.put("tcmReserveCaptainAttendanceRecord",p16::beforeTranslate);
+        strategyMap.put("tcmLeaveRecord",p17::beforeTranslate);
     }
 
     @Override
