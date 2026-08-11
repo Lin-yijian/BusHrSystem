@@ -87,6 +87,8 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String EXTRA_LARGE_BUS_BASE_HOURS = "extra_large_bus_base_hours";
     public static final String BUS_TYPE_RPM_ORDER = "bus_type_rpm_order";
     public static final String BUS_TYPE_RPM = "bus_type_rpm";
+    public static final String ONE_LATE_DURATION = "one_late_duration";
+    public static final String TWO_LATE_DURATION = "two_late_duration";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -242,6 +244,10 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private String bus_type_rpm_order;
     /* 巴型轉數 */
     private String bus_type_rpm;
+    /* 一更遲到時長 */
+    private String one_late_duration;
+    /* 二更遲到時長 */
+    private String two_late_duration;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -266,6 +272,23 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private List<TcmAttendanceDriverOvertimeRecord> tcmAttendanceDriverOvertimeRecordList;
     /* 租户id */
     private String ytenantId;
+
+
+    public String getOne_late_duration() {
+        return one_late_duration;
+    }
+
+    public void setOne_late_duration(String one_late_duration) {
+        this.one_late_duration = one_late_duration;
+    }
+
+    public String getTwo_late_duration() {
+        return two_late_duration;
+    }
+
+    public void setTwo_late_duration(String two_late_duration) {
+        this.two_late_duration = two_late_duration;
+    }
 
     public String getBus_type_rpm_order() {
         return bus_type_rpm_order;

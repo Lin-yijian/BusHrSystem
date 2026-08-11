@@ -342,22 +342,17 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 创建可变列表用于跟踪已匹配的数据
             List<TcmHisenseAttendanceData> availableDataList = new ArrayList<>(attendanceDataList);
 
-            // 步骤1和步骤2：处理一更数据（两条可共享同一条记录）
+            // 处理一更数据（两条可共享同一条记录）
             processFirstShift(entity, availableDataList);
 
-            // 步骤3和步骤4：处理二更数据（与一更数据隔离）
+            // 处理二更数据（与一更数据隔离）
             processSecondShift(entity, availableDataList);
+
+            //
+            commonUtil.processDate(entity);
 
             // 巴型工时计算
             calculateTypeWorkHour(entity, baTypeMap.get(employeeId), carTypeMap);
-
-            // 是否迟到早退
-            String lateDuration = entity.getLate_duration();
-            String oneEarlyLeaveDuration = entity.getOne_early_leave_duration();
-            String twoEarlyLeaveDuration = entity.getTwo_early_leave_duration();
-            if (!StringUtil.isEmpty(lateDuration) || !DateUtil.checkIsZeroTime(oneEarlyLeaveDuration) || !DateUtil.checkIsZeroTime(twoEarlyLeaveDuration)) {
-                entity.setIs_late_or_early_leave(true);
-            }
 
             // 是否兼职司机
             String postCode = staffPostMap.get(employeeId);

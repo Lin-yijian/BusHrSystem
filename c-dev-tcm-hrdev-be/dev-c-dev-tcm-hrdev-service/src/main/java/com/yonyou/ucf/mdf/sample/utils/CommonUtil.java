@@ -1,5 +1,6 @@
 package com.yonyou.ucf.mdf.sample.utils;
 
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -27,6 +28,8 @@ public class CommonUtil {
 
     /** 兼职司机岗位编码 */
     public final String PART_TIME_JOB_CODE = "P0020103_NC07";
+
+    public static final String WORK_TIME = "08:00";
 
 
     /**
@@ -175,6 +178,53 @@ public class CommonUtil {
         }
 
         return finalMap;
+    }
+
+
+
+    public void processDate(TcmAttendanceCorrection entity){
+        // 一更时长 = 一更计量排更收车 - 一更计量排更发车
+        String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getJl_one_departure_time());
+        entity.setOne_time(oneTimeDifference);
+        // 二更时长 = 二更计量排更收车 - 二更计量排更发车
+        String twoTimeDifference = DateUtil.getTimeDifference(entity.getJl_two_return_time(), entity.getJl_two_departure_time());
+        entity.setTwo_time(twoTimeDifference);
+        // 一更早退时长 = 一更计量排更收车 - 考勤一更收车
+        String one_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getKq_one_return_time(), false);
+        entity.setOne_early_leave_duration(one_early_leave_duration);
+        // 二更早退时长 = 二更计量排更收车 - 考勤二更收车
+        String two_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_two_return_time(), entity.getKq_two_return_time(), false);
+        entity.setTwo_early_leave_duration(two_early_leave_duration);
+        // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）
+        entity.setJl_valid_time(DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference));
+        // 加班工时 = 计量有效工时 - 08:00
+        if (DateUtil.isTimeLessOrEqual(entity.getJl_valid_time(), WORK_TIME)) {
+            entity.setOvertime_time("00:00");
+        }else {
+            entity.setOvertime_time(DateUtil.subtractTimeDifferences(entity.getJl_valid_time(), WORK_TIME));
+        }
+        // 一更遲到時長 =  考勤一更發車 - 計糧一更發車
+        String oneLateDuration = DateUtil.getTimeDifference(entity.getKq_one_departure_time(), entity.getJl_one_departure_time(), false);
+        entity.setOne_late_duration(oneLateDuration);
+        // 二更遲到時長 =  考勤二更發車 - 計糧二更發車
+        String twoLateDuration = DateUtil.getTimeDifference(entity.getKq_two_departure_time(), entity.getJl_two_departure_time(), false);
+        entity.setTwo_late_duration(twoLateDuration);
+
+        // 迟到状态 1、一更遲到時長或二更遲到時長>10分鐘，則待核對  2、遲到時長計算的參數不完整（比如排更有兩更、考勤只有一更時；或排更有一更、考勤有兩更就是參數不完整）
+        String lateTime = "00:10"; // todo 待转参数
+        boolean oneD = (entity.getKq_one_departure_time() != null) == (entity.getPg_one_departure_time() != null);
+        boolean oneR = (entity.getKq_one_return_time() != null) == (entity.getPg_one_return_time() != null);
+        boolean twoD = (entity.getKq_two_departure_time() != null) == (entity.getPg_two_departure_time() != null);
+        boolean twoR = (entity.getKq_two_return_time() != null) == (entity.getPg_two_return_time() != null);
+        if (DateUtil.isTimeGreater(oneLateDuration, lateTime) || DateUtil.isTimeGreater(twoLateDuration, lateTime) || !oneD || !oneR || !twoD || !twoR) {
+            entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+        }
+
+        // 是否迟到早退
+        String lateDuration = entity.getLate_duration();
+        if (!DateUtil.checkIsZeroTime(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
+            entity.setIs_late_or_early_leave(true);
+        }
     }
 
 

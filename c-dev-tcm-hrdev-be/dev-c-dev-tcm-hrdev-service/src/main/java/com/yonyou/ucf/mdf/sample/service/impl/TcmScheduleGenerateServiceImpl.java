@@ -169,16 +169,16 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             billRepository.update(scheduleUpdateList);
         }
         if (!correctionInsertList.isEmpty()) {
-            processDate(correctionInsertList,staffMap);
+            processDate(correctionInsertList, staffMap);
             billRepository.insert(correctionInsertList);
         }
         if (!correctionUpdateList.isEmpty()) {
-            processDate(correctionUpdateList,staffMap);
+            processDate(correctionUpdateList, staffMap);
             billRepository.update(correctionUpdateList);
         }
 
         // 更新核对记录
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS,true);
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS, true);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalInput", totalInput);
@@ -198,37 +198,13 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
     /**
      * 计算考勤结果数据
-     * @param list 修正数据集合
+     *
+     * @param list     修正数据集合
      * @param staffMap
      */
-    private void processDate(List<TcmAttendanceCorrection> list, Map<String, Map<String, Object>> staffMap){
+    private void processDate(List<TcmAttendanceCorrection> list, Map<String, Map<String, Object>> staffMap) {
         for (TcmAttendanceCorrection entity : list) {
-            // 一更时长 = 一更计量排更收车 - 一更计量排更发车
-            String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_departure_time(), entity.getJl_one_return_time());
-            entity.setOne_time(oneTimeDifference);
-            // 二更时长 = 二更计量排更收车 - 二更计量排更发车
-            String twoTimeDifference = DateUtil.getTimeDifference(entity.getJl_two_departure_time(), entity.getJl_two_return_time());
-            entity.setTwo_time(twoTimeDifference);
-            // 一更早退时长 = 一更计量排更收车 - 考勤一更收车
-            String one_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_one_departure_time(), entity.getKq_one_departure_time());
-            entity.setOne_early_leave_duration(one_early_leave_duration);
-            // 二更早退时长 = 二更计量排更收车 - 考勤二更收车
-            String two_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_two_departure_time(), entity.getKq_two_departure_time());
-            entity.setTwo_early_leave_duration(two_early_leave_duration);
-            // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）
-            entity.setJl_valid_time(DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference));
-            // 加班工时 = 计量有效工时 - 08:00
-            if (DateUtil.isTimeLessOrEqual(entity.getJl_valid_time(),WORK_TIME)){
-                entity.setOvertime_time("00:00");
-                continue;
-            }
-            entity.setOvertime_time(DateUtil.subtractTimeDifferences(entity.getJl_valid_time(), WORK_TIME));
-
-            // 是否迟到早退
-            String lateDuration = entity.getLate_duration();
-            if (!DateUtil.checkIsZeroTime(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
-                entity.setIs_late_or_early_leave(true);
-            }
+            commonUtil.processDate(entity);
 
             // 是否不足标准工时
             String employeeId = entity.getEmployee_id();
@@ -241,7 +217,6 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
         }
     }
-
 
 
     private List<TcmWaybillSheduleShiftsData> queryWaybillData(String date, String tenantId) {
@@ -323,11 +298,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setShift_change_count(0);
         int mealCount = earlyRow.getMeal_time() == null ? 0 : earlyRow.getMeal_time();
         int vehicle_handover_count = 0;
-        if (earlyRow.getOut_car().contains("車場")){
-            vehicle_handover_count = vehicle_handover_count +1;
+        if (earlyRow.getOut_car().contains("車場")) {
+            vehicle_handover_count = vehicle_handover_count + 1;
         }
-        if (earlyRow.getGet_car().contains("車場")){
-            vehicle_handover_count = vehicle_handover_count +1;
+        if (earlyRow.getGet_car().contains("車場")) {
+            vehicle_handover_count = vehicle_handover_count + 1;
         }
 
         if (lateRow != null) {
@@ -338,11 +313,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             int lateMealCount = lateRow.getMeal_time() == null ? 0 : lateRow.getMeal_time();
             mealCount = mealCount + lateMealCount;
 
-            if (lateRow.getOut_car().contains("車場")){
-                vehicle_handover_count = vehicle_handover_count +1;
+            if (lateRow.getOut_car().contains("車場")) {
+                vehicle_handover_count = vehicle_handover_count + 1;
             }
-            if (lateRow.getGet_car().contains("車場")){
-                vehicle_handover_count = vehicle_handover_count +1;
+            if (lateRow.getGet_car().contains("車場")) {
+                vehicle_handover_count = vehicle_handover_count + 1;
             }
 
             // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次
@@ -361,13 +336,12 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         // 一次用膳 30分钟
         entity.setMeal_count(mealCount);
         entity.setMeal_duration("00:00");
-        if (mealCount == 1){
+        if (mealCount == 1) {
             entity.setMeal_duration("00:30");
-        }else if (mealCount == 2){
+        } else if (mealCount == 2) {
             entity.setMeal_duration("01:00");
         }
     }
-
 
 
     private TcmAttendanceCorrection queryExistingCorrection(String date, String employeeId, String taskCode, String tenantId) {
