@@ -133,6 +133,59 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         return !list.isEmpty();
     }
 
+    @Override
+    public void refreshCorrectionFromLocalData(String runDate) {
+        refreshCorrectionFromLocalData(runDate, null);
+    }
+
+    @Override
+    public void refreshCorrectionFromLocalData(String runDate, String staffId) {
+        if (StringUtil.isEmpty(runDate)) {
+            return;
+        }
+        List<TcmHisenseAttendanceData> dataList = getByRunDate(runDate);
+        if (dataList == null || dataList.isEmpty()) {
+            return;
+        }
+        if (!StringUtil.isEmpty(staffId)) {
+            dataList = dataList.stream()
+                    .filter(d -> staffId.equals(d.getEmployee_id()))
+                    .collect(Collectors.toList());
+            if (dataList.isEmpty()) {
+                return;
+            }
+        }
+        Set<String> staffSet = dataList.stream()
+                .map(TcmHisenseAttendanceData::getEmployee_id)
+                .filter(id -> !StringUtil.isEmpty(id))
+                .collect(Collectors.toSet());
+        if (staffSet.isEmpty()) {
+            return;
+        }
+        Map<String, String> staffPostMap = new HashMap<>();
+        try {
+            String tenantId = InvocationInfoProxy.getTenantid();
+            List<String> waybillIds = dataList.stream()
+                    .map(TcmHisenseAttendanceData::getWaybill_employee_id)
+                    .filter(id -> !StringUtil.isEmpty(id))
+                    .distinct()
+                    .collect(Collectors.toList());
+            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
+            if (staffInfoList != null) {
+                for (Map<String, Object> map : staffInfoList) {
+                    String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
+                    String postCode = (String) map.get(commonUtil.FIELD_CODE_POST_CODE);
+                    if (sid != null) {
+                        staffPostMap.put(sid, postCode);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("刷新修正时加载岗位信息失败, date={}", runDate, e);
+        }
+        assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
+    }
+
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public void syncData(String runDate) {

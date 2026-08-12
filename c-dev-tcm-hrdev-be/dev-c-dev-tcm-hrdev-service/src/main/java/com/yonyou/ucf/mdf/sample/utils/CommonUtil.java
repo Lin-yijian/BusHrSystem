@@ -152,6 +152,53 @@ public class CommonUtil {
 
 
     /**
+     * 根据员工主键ID获取员工编号 code
+     */
+    public String getStaffCodeById(String staffId, String tenantId) {
+        if (staffId == null || staffId.isEmpty()) {
+            return null;
+        }
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, code");
+        querySchema.appendQueryCondition(QueryCondition.name("id").eq(staffId));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        List<Map<String, Object>> mapList = queryService.queryMapBySchema(
+                UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+        if (mapList == null || mapList.isEmpty()) {
+            return null;
+        }
+        return (String) mapList.get(0).get(FIELD_CODE_EMPLOYEE_ID);
+    }
+
+    /**
+     * 根据员工主键ID批量获取员工编号
+     * @return k->staffId  v->code
+     */
+    public Map<String, String> getStaffCodesByIds(Collection<String> staffIds, String tenantId) {
+        Map<String, String> result = new HashMap<>();
+        if (staffIds == null || staffIds.isEmpty()) {
+            return result;
+        }
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, code");
+        querySchema.appendQueryCondition(QueryCondition.name("id").in(staffIds));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        List<Map<String, Object>> mapList = queryService.queryMapBySchema(
+                UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+        if (mapList == null || mapList.isEmpty()) {
+            return result;
+        }
+        for (Map<String, Object> map : mapList) {
+            String id = (String) map.get(FIELD_CODE_STAFF_ID);
+            String code = (String) map.get(FIELD_CODE_EMPLOYEE_ID);
+            if (id != null && code != null) {
+                result.put(id, code);
+            }
+        }
+        return result;
+    }
+
+    /**
      * 根据员工编号获取员工信息（批量）
      * @param codes 员工编号集合
      * @param tenantId 租户ID

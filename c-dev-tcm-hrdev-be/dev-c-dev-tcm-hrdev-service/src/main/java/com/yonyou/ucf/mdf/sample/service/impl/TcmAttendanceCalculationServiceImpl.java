@@ -37,25 +37,33 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public Map<String, Object> getAndUpdateAssessReviseByDate(String dateStr) {
-        Date date = DateUtil.stringToDate(DateUtil.YYYY_MM_DD, dateStr);
-        return getAndUpdateAssessReviseByDate(date,null);
+        // 单日全量（生成排更/海信拉取/导入收尾）
+        return getAndUpdateAssessReviseByDateInternal(dateStr, null, true);
     }
 
     /**
      * 根据日期和员工代码获取并更新考勤计算结果
-     * 从修正表(tcmAttendanceCorrection)读取修正数据，映射到计算表(tcmAttendanceCalculation)进行新增或更新
+     * employeeCode 为空时按「日期所在月」范围同步（兼容原手工接口）
      */
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public Map<String, Object> getAndUpdateAssessReviseByDate(Date date, String employeeCode) {
         String dateStr = formatDate(date);
+        boolean singleDate = employeeCode != null && !employeeCode.isEmpty();
+        return getAndUpdateAssessReviseByDateInternal(dateStr, employeeCode, singleDate);
+    }
+
+    /**
+     * @param singleDate true=仅该日；false=该日所在整月（employeeCode 必须为空）
+     */
+    private Map<String, Object> getAndUpdateAssessReviseByDateInternal(String dateStr, String employeeCode, boolean singleDate) {
         String tenantId = InvocationInfoProxy.getTenantid();
 
         // 查询修正数据
-        List<Map<String, Object>> correctionData = queryCorrectionData(dateStr, employeeCode, tenantId);
+        List<Map<String, Object>> correctionData = queryCorrectionData(dateStr, employeeCode, tenantId, singleDate);
 
         // 查询计算数据
-        List<TcmAttendanceCalculation> calData = queryCalculationData(dateStr, employeeCode, tenantId);
+        List<TcmAttendanceCalculation> calData = queryCalculationData(dateStr, employeeCode, tenantId, singleDate);
 
         // 构建计算数据Map，key为employee_id
         Map<String, TcmAttendanceCalculation> calMap = new HashMap<>();
@@ -150,8 +158,9 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
     /**
      * 查询修正数据
+     * @param singleDate true 仅该日；false 且无 employeeCode 时按月
      */
-    private List<Map<String, Object>> queryCorrectionData(String dateStr, String employeeCode, String tenantId) {
+    private List<Map<String, Object>> queryCorrectionData(String dateStr, String employeeCode, String tenantId, boolean singleDate) {
         String selectFields = "date,employee_id,employee_id.code as employee_code,driver_name,task_code," +
                 "jl_valid_time,overtime_time,late_and_early_leave_duration,meal_count,meal_duration," +
                 "vehicle_handover_count,refuel_count,gas_refill_count,shift_change_allowance," +
@@ -165,6 +174,8 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         if (employeeCode != null && !employeeCode.isEmpty()) {
             querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
             querySchema.appendQueryCondition(QueryCondition.name("employee_id.code").eq(employeeCode));
+        } else if (singleDate) {
+            querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
         } else {
             String[] monthRange = getMonthRange(dateStr);
             querySchema.appendQueryCondition(QueryCondition.name("date").egt(monthRange[0]));
@@ -181,7 +192,7 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
     /**
      * 查询计算数据
      */
-    private List<TcmAttendanceCalculation> queryCalculationData(String dateStr, String employeeCode, String tenantId) {
+    private List<TcmAttendanceCalculation> queryCalculationData(String dateStr, String employeeCode, String tenantId, boolean singleDate) {
         LambdaQueryCondition<TcmAttendanceCalculation> condition =
                 new LambdaQueryCondition<>(new TcmAttendanceCalculation());
         condition.eq(TcmAttendanceCalculation::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
@@ -189,6 +200,8 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         if (employeeCode != null && !employeeCode.isEmpty()) {
             condition.eq(TcmAttendanceCalculation::getDate, dateStr)
                     .eq(TcmAttendanceCalculation::getEmployee_id, employeeCode);
+        } else if (singleDate) {
+            condition.eq(TcmAttendanceCalculation::getDate, dateStr);
         } else {
             String[] monthRange = getMonthRange(dateStr);
             condition.ge(TcmAttendanceCalculation::getDate, monthRange[0])

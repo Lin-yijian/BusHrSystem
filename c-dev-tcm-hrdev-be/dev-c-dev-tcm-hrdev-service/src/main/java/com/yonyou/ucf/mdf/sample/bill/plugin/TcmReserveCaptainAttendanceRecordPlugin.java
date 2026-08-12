@@ -1,11 +1,13 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmReserveCaptainAttendanceRecordService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -34,6 +36,11 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
+
+    @Autowired
+    private AttendanceCalcTrigger calcTrigger;
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -42,41 +49,54 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         String date = data.getDate();
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
-            // 更新核对记录
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, false);
         }
+        calcTrigger.afterDataChanged(date, data.getDriver_no());
     }
 
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
+    }
 
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+        TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
+        if (data == null) {
+            return;
+        }
+        if (AttendanceCalcImportContext.isImporting()) {
+            AttendanceCalcImportContext.collectReserve(data);
+            calcTrigger.registerImportFlushAfterCommit();
+            return;
+        }
+        correctionSyncService.syncFromReserve(data);
+        calcTrigger.afterDataChanged(data.getDate(), data.getDriver_no());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 
-        List<String> wayBillIds  = new ArrayList<>();
+        List<String> wayBillIds = new ArrayList<>();
         for (ImportSingleData data : dataList) {
             wayBillIds.add((String) data.getData().get("waybill_employee_id"));
+            AttendanceCalcImportContext.collectDate((String) data.getData().get("date"));
         }
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
 
         for (ImportSingleData data : dataList) {
-
             String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
             String employee_id = staffByCardIds.get(waybill_employee_id);
-            if (StringUtils.isEmpty(employee_id)){
-                data.addImportError("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
-//                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
+            if (StringUtils.isEmpty(employee_id)) {
+                data.addImportError("員工不存在，澳巴工號：【" + waybill_employee_id + "】");
             }
-            data.getData().put("driver_no",employee_id);
+            data.getData().put("driver_no", employee_id);
         }
-
     }
-
 }
