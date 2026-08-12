@@ -408,7 +408,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 处理二更数据（与一更数据隔离）
             processSecondShift(entity, availableDataList);
 
-            //
+            // 计算结果
             commonUtil.processDate(entity);
 
             // 巴型工时计算
@@ -642,7 +642,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             bus_type_rpm = busTypeRpmBuilder.substring(0, busTypeRpmBuilder.length() - 1);
         }
 
-        String status = StringUtil.isEmpty(bus_type_rpm_order) ? BaseEnum.NORMAL_CODE.getCode() : BaseEnum.ERROR_CODE.getCode();
+        String status = StringUtil.isEmpty(bus_type_rpm_order) ? BaseEnum.AC_CHECK_STATUS_0.getCode() : BaseEnum.AC_CHECK_STATUS_2.getCode();
 
         entity.setTcmBarTypeHourStatus(status);
         entity.setBus_type_rpm_order(bus_type_rpm_order);

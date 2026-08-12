@@ -230,6 +230,13 @@ public class CommonUtil {
 
 
     public void processDate(TcmAttendanceCorrection entity){
+
+        // 初始化状态
+        entity.setTcmBarTypeHourStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+        entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
+        entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
+        entity.setAnomaly_verification(BaseEnum.NORMAL_CODE.getCode());
+
         // 一更时长 = 一更计量排更收车 - 一更计量排更发车
         String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getJl_one_departure_time());
         entity.setOne_time(oneTimeDifference);
@@ -256,6 +263,9 @@ public class CommonUtil {
         // 二更遲到時長 =  考勤二更發車 - 計糧二更發車
         String twoLateDuration = DateUtil.getTimeDifference(entity.getKq_two_departure_time(), entity.getJl_two_departure_time(), false);
         entity.setTwo_late_duration(twoLateDuration);
+        // 迟到总时长
+        String lateDuration = DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference);
+        entity.setLate_duration(lateDuration);
 
         // 迟到状态 1、一更遲到時長或二更遲到時長>10分鐘，則待核對  2、遲到時長計算的參數不完整（比如排更有兩更、考勤只有一更時；或排更有一更、考勤有兩更就是參數不完整）
         String lateTime = "00:10"; // todo 待转参数
@@ -263,12 +273,20 @@ public class CommonUtil {
         boolean oneR = (entity.getKq_one_return_time() != null) == (entity.getPg_one_return_time() != null);
         boolean twoD = (entity.getKq_two_departure_time() != null) == (entity.getPg_two_departure_time() != null);
         boolean twoR = (entity.getKq_two_return_time() != null) == (entity.getPg_two_return_time() != null);
-        if (DateUtil.isTimeGreater(oneLateDuration, lateTime) || DateUtil.isTimeGreater(twoLateDuration, lateTime) || !oneD || !oneR || !twoD || !twoR) {
+        if (DateUtil.isTimeGreater(oneLateDuration, lateTime) || DateUtil.isTimeGreater(twoLateDuration, lateTime)) {
             entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
         }
 
+        if (!oneD || !oneR || !twoD || !twoR){
+            entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+            entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+        }
+        // 异常核对状态变更
+        if (BaseEnum.AC_CHECK_STATUS_0.getCode().equals(entity.getOvertimeStatus()) || BaseEnum.AC_CHECK_STATUS_0.getCode().equals(entity.getLateStatus())) {
+            entity.setAnomaly_verification(BaseEnum.ERROR_CODE.getCode());
+        }
+
         // 是否迟到早退
-        String lateDuration = entity.getLate_duration();
         if (!DateUtil.checkIsZeroTime(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
             entity.setIs_late_or_early_leave(true);
         }
