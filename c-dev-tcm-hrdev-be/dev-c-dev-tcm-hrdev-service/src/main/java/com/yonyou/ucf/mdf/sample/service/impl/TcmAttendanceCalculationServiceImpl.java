@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCalculation;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.imeta.orm.schema.QueryCondition;
@@ -32,6 +33,13 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
     protected IBillQueryRepository queryService;
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+
+    @Transactional(rollbackFor = RuntimeException.class)
+    @Override
+    public Map<String, Object> getAndUpdateAssessReviseByDate(String dateStr) {
+        Date date = DateUtil.stringToDate(DateUtil.YYYY_MM_DD, dateStr);
+        return getAndUpdateAssessReviseByDate(date,null);
+    }
 
     /**
      * 根据日期和员工代码获取并更新考勤计算结果

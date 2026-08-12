@@ -8,6 +8,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -35,6 +36,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
+
+    @Autowired
+    private TcmAttendanceCalculationService calculationService;
 
     public static final String WORK_TIME = "08:00";
 
@@ -179,6 +183,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
         // 更新核对记录
         tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS, true);
+
+        // 計算
+        calculationService.getAndUpdateAssessReviseByDate(date);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalInput", totalInput);

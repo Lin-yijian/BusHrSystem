@@ -86,6 +86,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Autowired
     private CommonUtil commonUtil;
 
+    @Autowired
+    private TcmAttendanceCalculationService calculationService;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -304,6 +307,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 更新核对记录
         tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE,true);
+
+
+        // 計算
+        calculationService.getAndUpdateAssessReviseByDate(runDate);
 
     }
 
