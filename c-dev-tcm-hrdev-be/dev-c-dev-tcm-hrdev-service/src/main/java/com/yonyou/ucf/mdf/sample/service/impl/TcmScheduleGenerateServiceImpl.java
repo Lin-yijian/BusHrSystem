@@ -404,12 +404,19 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setVehicle_handover_count(vehicle_handover_count);
         // 一次用膳 30分钟
         entity.setMeal_count(mealCount);
-        entity.setMeal_duration("00:00");
+        String mealDuration;
         if (mealCount == 1) {
-            entity.setMeal_duration("00:30");
+            mealDuration = "00:30";
         } else if (mealCount == 2) {
-            entity.setMeal_duration("01:00");
+            mealDuration = "01:00";
+        } else if (mealCount == 3) {
+            mealDuration = "01:30";
+        } else if (mealCount == 4) {
+            mealDuration = "02:00";
+        } else {
+            mealDuration = "00:00";
         }
+        entity.setMeal_duration(mealDuration);
     }
 
 

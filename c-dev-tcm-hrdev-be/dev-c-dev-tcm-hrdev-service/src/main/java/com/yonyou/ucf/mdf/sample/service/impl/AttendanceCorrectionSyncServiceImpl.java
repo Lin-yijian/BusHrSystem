@@ -87,17 +87,17 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 correction.setDate(schedule.getDate());
                 correction.setEmployee_id(schedule.getEmployee_id());
                 correction.setTask_code(schedule.getTask_code());
-                correction.setPg_one_departure_time(schedule.getDeparture_time());
-                correction.setPg_one_return_time(schedule.getOne_finish_time());
-                correction.setPg_two_departure_time(schedule.getTwo_departure_time());
-                correction.setPg_two_return_time(schedule.getFinish_time());
-                correction.setMeal_count(schedule.getMeal());
-                correction.setVehicle_handover_count(schedule.getGet_out_car());
-                correction.setShift_change_count(schedule.getShift_change());
                 isNew = true;
                 existingMap.put(key, correction);
                 existingMap.putIfAbsent(fallbackKey, correction);
             }
+            correction.setPg_one_departure_time(schedule.getDeparture_time());
+            correction.setPg_one_return_time(schedule.getOne_finish_time());
+            correction.setPg_two_departure_time(schedule.getTwo_departure_time());
+            correction.setPg_two_return_time(schedule.getFinish_time());
+            correction.setMeal_count(schedule.getMeal());
+            correction.setVehicle_handover_count(schedule.getGet_out_car());
+            correction.setShift_change_count(schedule.getShift_change());
             applyScheduleToCorrection(correction, schedule);
             commonUtil.processDate(correction);
             if (isNew) {
@@ -176,7 +176,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             if (reserve == null || StringUtils.isBlank(reserve.getDate()) || StringUtils.isBlank(reserve.getDriver_no())) {
                 continue;
             }
-            String key = buildKey(reserve.getDate(), reserve.getDriver_no(), null);
+            String key = buildKey(reserve.getDate(), reserve.getDriver_no(), reserve.getTask());
             TcmAttendanceCorrection correction = existingMap.get(key);
             boolean isNew = false;
             if (correction == null) {
@@ -185,9 +185,11 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 correction.setYtenantId(tenantId);
                 correction.setDate(reserve.getDate());
                 correction.setEmployee_id(reserve.getDriver_no());
+                correction.setTask_code(reserve.getTask());
                 isNew = true;
                 existingMap.put(key, correction);
             }
+
             applyReserveToCorrection(correction, reserve);
             commonUtil.processDate(correction);
             if (isNew) {
@@ -313,8 +315,12 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             correction.setMeal_count(mealCount);
             if (mealCount == 1) {
                 correction.setMeal_duration("00:30");
-            } else if (mealCount >= 2) {
+            } else if (mealCount == 2) {
                 correction.setMeal_duration("01:00");
+            } else if (mealCount == 3) {
+                correction.setMeal_duration("01:30");
+            } else if (mealCount == 4) {
+                correction.setMeal_duration("02:00");
             } else {
                 correction.setMeal_duration("00:00");
             }
