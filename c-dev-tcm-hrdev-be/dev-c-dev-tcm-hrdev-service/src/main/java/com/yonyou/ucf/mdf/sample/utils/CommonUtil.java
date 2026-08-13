@@ -4,6 +4,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
+import org.apache.commons.lang3.StringUtils;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -232,11 +233,24 @@ public class CommonUtil {
     public void processDate(TcmAttendanceCorrection entity){
 
         // 初始化状态
-        entity.setTcmBarTypeHourStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
-        entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
-        entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
-        entity.setAnomaly_verification(BaseEnum.NORMAL_CODE.getCode());
+        if (StringUtils.isEmpty(entity.getTcmBarTypeHourStatus())){
+            entity.setTcmBarTypeHourStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+        }
+        if (StringUtils.isEmpty(entity.getLateStatus())){
+            entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
+        }
+        if (StringUtils.isEmpty(entity.getOvertimeStatus())){
+            entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
+        }
+        if (StringUtils.isEmpty(entity.getAnomaly_verification())){
+            entity.setAnomaly_verification(BaseEnum.NORMAL_CODE.getCode());
+        }
 
+        calculateCorrection(entity);
+    }
+
+
+    private void calculateCorrection(TcmAttendanceCorrection entity){
         // 一更时长 = 一更计量排更收车 - 一更计量排更发车
         String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getJl_one_departure_time());
         entity.setOne_time(oneTimeDifference);

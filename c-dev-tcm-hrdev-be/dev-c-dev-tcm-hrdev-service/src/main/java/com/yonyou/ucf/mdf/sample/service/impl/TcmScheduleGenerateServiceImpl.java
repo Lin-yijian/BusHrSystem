@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateService {
@@ -40,7 +41,6 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     @Autowired
     private TcmAttendanceCalculationService calculationService;
 
-    public static final String WORK_TIME = "08:00";
 
 
     @Override
@@ -98,11 +98,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmSheduleShiftsData scheduleExisting = queryExistingSchedule(
                         row.getDate(), row.getEmployee_id(), row.getTask_code(), tenantId);
                 if (scheduleExisting != null) {
-                    fillScheduleFields(scheduleExisting, row, row.getDeparture_time(), row.getFinish_time());
+                    fillScheduleFields(scheduleExisting, row, true);
                     scheduleUpdateList.add(scheduleExisting);
                     scheduleUpdated++;
                 } else {
-                    scheduleInsertList.add(buildSchedule(row, row.getDeparture_time(), row.getFinish_time(), tenantId));
+                    scheduleInsertList.add(buildSchedule(row, true, tenantId));
                     scheduleInserted++;
                 }
 
@@ -141,11 +141,14 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmSheduleShiftsData scheduleExisting = queryExistingSchedule(
                         earlyRow.getDate(), earlyRow.getEmployee_id(), earlyRow.getTask_code(), tenantId);
                 if (scheduleExisting != null) {
-                    fillScheduleFields(scheduleExisting, earlyRow, earlyRow.getDeparture_time(), lateRow.getFinish_time());
+                    fillScheduleFields(scheduleExisting, earlyRow, true);
+                    fillScheduleFields(scheduleExisting, lateRow, false);
                     scheduleUpdateList.add(scheduleExisting);
                     scheduleUpdated++;
                 } else {
-                    scheduleInsertList.add(buildSchedule(earlyRow, earlyRow.getDeparture_time(), lateRow.getFinish_time(), tenantId));
+                    TcmSheduleShiftsData data = buildSchedule(earlyRow, true, tenantId);
+                    fillScheduleFields(data, lateRow, false);
+                    scheduleInsertList.add(data);
                     scheduleInserted++;
                 }
 
@@ -252,7 +255,14 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         return groups;
     }
 
-    private TcmSheduleShiftsData buildSchedule(TcmWaybillSheduleShiftsData row, Date departureTime, Date finishTime, String tenantId) {
+    /**
+     * 構建本地派更數據
+     * @param row 還行派更
+     * @param isFirst 是否第一更
+     * @param tenantId
+     * @return
+     */
+    private TcmSheduleShiftsData buildSchedule(TcmWaybillSheduleShiftsData row, boolean isFirst, String tenantId) {
         String id = ymsOidGenerator.nextStrId();
         TcmSheduleShiftsData entity = new TcmSheduleShiftsData();
         entity.setId(id);
@@ -260,16 +270,68 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setDate(row.getDate());
         entity.setEmployee_id(row.getEmployee_id());
         entity.setTask_code(row.getTask_code());
-        fillScheduleFields(entity, row, departureTime, finishTime);
+        entity.setCar(row.getCar());
+        fillScheduleFields(entity, row, isFirst);
         return entity;
     }
 
-    private void fillScheduleFields(TcmSheduleShiftsData entity, TcmWaybillSheduleShiftsData row, Date departureTime, Date finishTime) {
+    /**
+     *
+     * @param entity
+     * @param row
+     * @param isFirst
+     */
+    private void fillScheduleFields(TcmSheduleShiftsData entity, TcmWaybillSheduleShiftsData row, boolean isFirst) {
         entity.setWaybill_employee_id(row.getWaybill_employee_id());
         entity.setName(row.getDriver_name());
-        entity.setDeparture_time(departureTime);
-        entity.setFinish_time(finishTime);
-        entity.setMeal(row.getMeal_time());
+        if (isFirst){
+            entity.setDeparture_time(row.getDeparture_time());
+            entity.setOne_early_line(row.getLine());
+        }else {
+            entity.setOne_finish_time(entity.getFinish_time());
+            entity.setTwo_departure_time(row.getDeparture_time());
+            entity.setTwo_early_line(row.getLine());
+
+            String timeDifference = DateUtil.getTimeDifference(entity.getOne_finish_time(), entity.getTwo_departure_time());
+            String timeOut = "03:00"; // todo 待转参数
+            boolean isTimeOut = DateUtil.isTimeGreaterOrEqual(timeDifference, timeOut);
+            String times = isTimeOut ? "1" : "0";
+            entity.setGet_out_car(times);
+        }
+        entity.setFinish_time(row.getFinish_time());
+
+        if (entity.getMeal() == null){
+            entity.setMeal(row.getMeal_time());
+        }else {
+            int i = entity.getMeal() + Optional.ofNullable(row.getMeal_time()).orElse(0);
+            entity.setMeal(i);
+        }
+
+        if (entity.getGet_out_car() == null){
+            entity.setMeal(row.getMeal_time());
+        }else {
+            int i = entity.getMeal() + Optional.ofNullable(row.getMeal_time()).orElse(0);
+            entity.setMeal(i);
+        }
+        entity.setGet_out_car(String.valueOf(countCarParkLocations(row)));
+
+
+
+    }
+
+
+    /**
+     * 判断郊区车次数
+     * @param row
+     * @return
+     */
+    private Integer countCarParkLocations(TcmWaybillSheduleShiftsData row) {
+
+        List<String> parkKeyWords = Arrays.asList("車場", "车场"); // todo 待转参数
+        return (int) Stream.of(row.getGet_car(), row.getOut_car())
+                .filter(Objects::nonNull)
+                .filter(text -> parkKeyWords.stream().anyMatch(text::contains))
+                .count();
     }
 
     private TcmSheduleShiftsData queryExistingSchedule(String date, String employeeId, String taskCode, String tenantId) {
