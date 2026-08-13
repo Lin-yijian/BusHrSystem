@@ -9,7 +9,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 排更數據
- * @Date 2026-08-13 10:27:51
+ * @Date 2026-08-13 11:08:19
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmSheduleShiftsData", domain = "c-dev-tcm-hrdev")
@@ -72,7 +72,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     /* 用膳 */
     private Integer meal;
     /* 上下更 */
-    private String shift_change;
+    private Integer shift_change;
     /* 澳門車場 */
     private Boolean macau_car_park;
     /* 凼仔車場 */
@@ -94,7 +94,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     /* 一更收車時間 */
     private Date one_finish_time;
     /* 交取車次數 */
-    private String get_out_car;
+    private Integer get_out_car;
     /* 車牌號 */
     private String car;
     /* 编码 */
@@ -160,7 +160,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         this.meal = meal;
     }
 
-    public void setShift_change(String shift_change) {
+    public void setShift_change(Integer shift_change) {
         this.shift_change = shift_change;
     }
 
@@ -204,7 +204,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         this.one_finish_time = one_finish_time;
     }
 
-    public void setGet_out_car(String get_out_car) {
+    public void setGet_out_car(Integer get_out_car) {
         this.get_out_car = get_out_car;
     }
 
@@ -292,7 +292,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         return meal;
     }
 
-    public String getShift_change() {
+    public Integer getShift_change() {
         return shift_change;
     }
 
@@ -336,7 +336,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         return one_finish_time;
     }
 
-    public String getGet_out_car() {
+    public Integer getGet_out_car() {
         return get_out_car;
     }
 

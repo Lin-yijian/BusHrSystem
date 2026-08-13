@@ -87,6 +87,13 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 correction.setDate(schedule.getDate());
                 correction.setEmployee_id(schedule.getEmployee_id());
                 correction.setTask_code(schedule.getTask_code());
+                correction.setPg_one_departure_time(schedule.getDeparture_time());
+                correction.setPg_one_return_time(schedule.getOne_finish_time());
+                correction.setPg_two_departure_time(schedule.getTwo_departure_time());
+                correction.setPg_two_return_time(schedule.getFinish_time());
+                correction.setMeal_count(schedule.getMeal());
+                correction.setVehicle_handover_count(schedule.getGet_out_car());
+                correction.setShift_change_count(schedule.getShift_change());
                 isNew = true;
                 existingMap.put(key, correction);
                 existingMap.putIfAbsent(fallbackKey, correction);

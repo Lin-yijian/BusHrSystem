@@ -295,7 +295,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             String timeDifference = DateUtil.getTimeDifference(entity.getOne_finish_time(), entity.getTwo_departure_time());
             String timeOut = "03:00"; // todo 待转参数
             boolean isTimeOut = DateUtil.isTimeGreaterOrEqual(timeDifference, timeOut);
-            String times = isTimeOut ? "1" : "0";
+            int times = isTimeOut ? 1 : 0;
             entity.setGet_out_car(times);
         }
         entity.setFinish_time(row.getFinish_time());
@@ -313,7 +313,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             int i = entity.getMeal() + Optional.ofNullable(row.getMeal_time()).orElse(0);
             entity.setMeal(i);
         }
-        entity.setGet_out_car(String.valueOf(countCarParkLocations(row)));
+        entity.setGet_out_car(countCarParkLocations(row));
 
 
 
