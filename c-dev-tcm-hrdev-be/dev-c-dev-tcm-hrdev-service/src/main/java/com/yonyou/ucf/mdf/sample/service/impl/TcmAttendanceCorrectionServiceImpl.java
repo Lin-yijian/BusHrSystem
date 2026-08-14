@@ -107,22 +107,22 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
             throw new BusinessException("99", "未找到对应的数据");
         }
 
-        String approvedStatus = BaseEnum.AC_CHECK_STATUS_1.getCode();
+        String approvedStatus = BaseEnum.AC_CHECK_STATUS_0.getCode();
         String normalStatus = BaseEnum.NORMAL_CODE.getCode();
 
         list.forEach(correction -> {
 
             if ("LATE".equals(type)) {
-                correction.setLateStatus(approvedStatus);
+                correction.setLateStatus(status);
             } else if ("LEAVE".equals(type)) {
-                correction.setEarlyLeaveStatus(approvedStatus);
+                correction.setEarlyLeaveStatus(status);
             } else if ("ALL".equals(type)) {
-                correction.setLateStatus(approvedStatus);
-                correction.setEarlyLeaveStatus(approvedStatus);
+                correction.setLateStatus(status);
+                correction.setEarlyLeaveStatus(status);
             }
 
-            if (approvedStatus.equals(correction.getLateStatus())
-                    && approvedStatus.equals(correction.getEarlyLeaveStatus())) {
+            if (!approvedStatus.equals(correction.getLateStatus())
+                    && !approvedStatus.equals(correction.getEarlyLeaveStatus())) {
                 correction.setAnomaly_verification(normalStatus);
             }
         });
