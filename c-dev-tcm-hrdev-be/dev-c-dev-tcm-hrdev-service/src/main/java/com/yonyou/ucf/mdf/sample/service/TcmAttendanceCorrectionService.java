@@ -35,4 +35,12 @@ public interface TcmAttendanceCorrectionService {
      * @return
      */
     Map<String,String> getByDateListAndStaffIds(List<String> dateList, Collection<String> staffIdList);
+
+    /**
+     * 根据ID修改迟到早退状态
+     * @param ids
+     * @param status
+     * @param type LATE、LEAVE、ALL
+     */
+    void updateLateStatus(List<String> ids, String status, String type);
 }

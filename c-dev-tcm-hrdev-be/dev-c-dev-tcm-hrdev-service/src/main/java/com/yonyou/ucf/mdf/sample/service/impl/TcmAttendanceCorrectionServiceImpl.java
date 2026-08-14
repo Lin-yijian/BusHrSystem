@@ -1,11 +1,14 @@
 package com.yonyou.ucf.mdf.sample.service.impl;
 
+import com.yonyou.iuap.BusinessException;
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,15 +25,18 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Autowired
     private IBillRepository billRepository;
-    
+
+    @Autowired
+    private CommonUtil commonUtil;
+
     @Override
     public List<TcmAttendanceCorrection> getByDateAndStaffId(String date, String staffId) {
 
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
         routeCondition.eq(TcmAttendanceCorrection::getDate, date)
-                .eq(TcmAttendanceCorrection::getEmployee_id,staffId)
-                .eq(TcmAttendanceCorrection::getYtenantId,tenantId)
+                .eq(TcmAttendanceCorrection::getEmployee_id, staffId)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
                 .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(routeCondition);
     }
@@ -46,8 +52,8 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
         routeCondition.eq(TcmAttendanceCorrection::getDate, date)
-                .in(TcmAttendanceCorrection::getEmployee_id,staffIdList)
-                .eq(TcmAttendanceCorrection::getYtenantId,tenantId)
+                .in(TcmAttendanceCorrection::getEmployee_id, staffIdList)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
                 .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(routeCondition);
     }
@@ -78,6 +84,29 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
                         (existing, replacement) -> replacement
                 ));
     }
+
+
+    @Override
+    public void updateLateStatus(List<String> ids, String status, String type) {
+
+        if (null == ids || ids.isEmpty()){
+            throw new BusinessException("99","请先选择数据");
+        }
+
+        String tableName = "tcm_attendance_correction";
+
+        if ("LATE".equals(type)) {
+            commonUtil.updateBySql(tableName, "lateStatus", status, ids);
+        } else if ("LEAVE".equals(type)) {
+            commonUtil.updateBySql(tableName, "earlyLeaveStatus", status, ids);
+        } else if ("ALL".equals(type)) {
+            commonUtil.updateBySql(tableName, "lateStatus", status, ids);
+            commonUtil.updateBySql(tableName, "earlyLeaveStatus", status, ids);
+        }else {
+            throw new BusinessException("99","参数有误");
+        }
+    }
+
 
     // 辅助方法：构建key，处理null值
     private String buildKey(String date, String employeeId) {

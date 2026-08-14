@@ -1,25 +1,27 @@
 package com.yonyou.ucf.mdf.sample.utils;
 
+import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
+import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.apache.commons.lang3.StringUtils;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class CommonUtil {
 
     @Autowired
     protected IBillQueryRepository queryService;
+
+    @Autowired
+    protected IBillRepository billRepository;
 
     public final String FIELD_CODE_WAYBILL_EMPLOYEE_ID = "waybill_employeeId";
     public final String FIELD_CODE_EMPLOYEE_ID = "code";
@@ -307,5 +309,43 @@ public class CommonUtil {
     }
 
 
+    /**
+     * 批量更新指定表中某个字段的值
+     *
+     * @param tableName  数据库表名
+     * @param fieldName  要更新的字段名
+     * @param fieldValue 要设置的新值
+     * @param ids        需要更新的记录ID集合
+     * @return 影响的行数
+     */
+    public int updateBySql(String tableName, String fieldName, String fieldValue, Collection<String> ids) {
+        // 动态生成占位符：?, ?, ?
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = "UPDATE " + tableName + " SET " + fieldName + " = ? WHERE id IN (" + placeholders + ")";
+
+        SQLParameter sqlParameter = new SQLParameter();
+        sqlParameter.addParam(fieldValue);
+        for (String id : ids) {
+            sqlParameter.addParam(id);
+        }
+
+        return billRepository.update(sql, sqlParameter);
+    }
+
+
+
+    public String extractDigits(String input) {
+        if (input == null) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (char c : input.toCharArray()) {
+            if (Character.isDigit(c)) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
 
 }
