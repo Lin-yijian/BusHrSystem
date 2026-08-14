@@ -59,7 +59,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     }
 
     @Override
-    public Map<String, String> getByDateListAndStaffIds(List<String> dateList, Collection<String> staffIdList) {
+    public Map<String, String> getByDateListAndStaffIds(Collection<String> dateList, Collection<String> staffIdList) {
         if (staffIdList == null || dateList == null || staffIdList.isEmpty() || dateList.isEmpty()) {
             return Collections.emptyMap();
         }

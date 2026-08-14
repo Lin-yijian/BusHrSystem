@@ -34,7 +34,7 @@ public interface TcmAttendanceCorrectionService {
      * @param staffIdList 員工ID集合
      * @return
      */
-    Map<String,String> getByDateListAndStaffIds(List<String> dateList, Collection<String> staffIdList);
+    Map<String,String> getByDateListAndStaffIds(Collection<String> dateList, Collection<String> staffIdList);
 
     /**
      * 根据ID修改迟到早退状态

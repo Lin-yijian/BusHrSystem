@@ -22,9 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 @BillPlugin(busiObj = "tcmAbsenceDataRecord")
@@ -74,7 +72,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
+
 
     }
 
@@ -89,7 +87,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
 
-        List<String> dateList = new ArrayList<>();
+        Set<String> dateList = new HashSet<>();
         List<String> employeeIdList = new ArrayList<>();
         for (ImportSingleData data : dataList) {
 
@@ -104,6 +102,8 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             String overtime_date = (String) data.getData().get("date");
             dateList.add(overtime_date);
         }
+
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateList, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
 
         try {
