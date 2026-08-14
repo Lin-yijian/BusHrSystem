@@ -14,6 +14,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseWaybillLoginRecordService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
@@ -22,12 +23,10 @@ import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.SimpleCondition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -57,6 +56,9 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     @Autowired
     private TcmCarService tcmCarService;
 
+    @Autowired
+    private CommonUtil commonUtil;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -67,6 +69,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     }
 
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public void syncByActDate(String actDate) {
         List<HiSenseLoginRecordDataDTO> hiSenseDataList = getHiSenseDataByActDate(actDate);
@@ -86,19 +89,23 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         String tenantId = InvocationInfoProxy.getTenantid();
 
         // 用于存储缺失车辆信息的记录
-        List<HiSenseLoginRecordDataDTO> missingCarDataList = new ArrayList<>();
+        Set<String> missingCarSet = new HashSet<>();
         List<TcmHisenseWaybillLoginRecord> list = new ArrayList<>();
 
         for (HiSenseLoginRecordDataDTO dto : hiSenseDataList) {
-            TCMCar tcmCar = stringTCMCarMap.get(dto.getBusselfid());
+            String busSelfId = dto.getBusselfid();
+            TCMCar tcmCar = stringTCMCarMap.get(busSelfId);
             if (tcmCar == null) {
-                missingCarDataList.add(dto);
-                continue;
+                // 再次以纯数字匹配
+                String onlyNumber = commonUtil.extractDigits(busSelfId);
+                tcmCar = stringTCMCarMap.get(onlyNumber);
+                if (tcmCar == null) {
+                    missingCarSet.add(busSelfId);
+                    continue;
+                }
             }
 
-            String id = ymsOidGenerator.nextStrId();
             TcmHisenseWaybillLoginRecord data = new TcmHisenseWaybillLoginRecord();
-            data.setId(id);
             data.setYtenantId(tenantId);
             data.setDate(dto.getActdate());
             data.setWaybill_employee_id(dto.getDriverid());
@@ -110,16 +117,12 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         }
 
         // 如果有缺失车辆信息的记录，统一报错
-        if (!missingCarDataList.isEmpty()) {
-            List<String> missingBusselfids = missingCarDataList.stream()
-                    .map(HiSenseLoginRecordDataDTO::getBusselfid)
-                    .distinct()
-                    .collect(Collectors.toList());
+        if (!missingCarSet.isEmpty()) {
 
             String errorMsg = String.format(
                     "車輛信息缺失，請先完善檔案内容。缺失的內部編號共 %d 個：%s",
-                    missingBusselfids.size(),
-                    String.join("、", missingBusselfids)
+                    missingCarSet.size(),
+                    String.join("、", missingCarSet)
             );
 
             throw new RuntimeException(errorMsg);
