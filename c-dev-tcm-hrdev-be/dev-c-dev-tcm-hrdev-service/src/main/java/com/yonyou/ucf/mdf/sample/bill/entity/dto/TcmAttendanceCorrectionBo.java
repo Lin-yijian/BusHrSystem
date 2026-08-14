@@ -19,4 +19,6 @@ public class TcmAttendanceCorrectionBo {
 
     private String employeeId;
 
+    private String date;
+
 }

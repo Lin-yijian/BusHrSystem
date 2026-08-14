@@ -2,6 +2,7 @@ package com.yonyou.ucf.mdf.sample.controller;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.TcmAttendanceCorrectionBo;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.ResponseUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,9 @@ public class TcmAttendanceCorrectionController {
 
     @Autowired
     private TcmAttendanceCorrectionService service;
+
+    @Autowired
+    private TcmAttendanceCheckRecordService checkRecordService;
 
     @PutMapping("/error/status")
     public ResponseEntity<?> errorMark(@RequestBody TcmAttendanceCorrectionBo bo) {
@@ -53,6 +57,21 @@ public class TcmAttendanceCorrectionController {
 
         service.isWorkingHoliday(bo.getIds(),true);
         return ResponseUtil.success("標記成功");
+    }
+
+    @PutMapping("/dayEnd")
+    public ResponseEntity<?> dayEnd(@RequestBody TcmAttendanceCorrectionBo bo) {
+
+        checkRecordService.updateStatus(bo.getDate(),BaseEnum.CHECK_STATUS_1.getCode());
+        return ResponseUtil.success("日结成功");
+    }
+
+    @PutMapping("/dayEnd/cancel")
+    public ResponseEntity<?> dayEndCancel(@RequestBody TcmAttendanceCorrectionBo bo) {
+
+        checkRecordService.updateStatus(bo.getDate(),BaseEnum.CHECK_STATUS_0.getCode());
+        return ResponseUtil.success("日结取消成功");
+
     }
 
 

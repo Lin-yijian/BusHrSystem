@@ -104,12 +104,34 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
 
     }
 
+
+    @Override
+    public void updateStatus(String checkDate, String status) {
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> list = findRecordsByDate(checkDate, tenantId);
+        if (list.isEmpty()) {
+            return;
+        }
+        for (TcmAttendanceCheckRecord record : list) {
+            record.setCheck_status(status);
+        }
+        billRepository.update(list);
+    }
+
     /**
      * 根据日期和租户查询考勤记录
      */
     private List<TcmAttendanceCheckRecord> findRecordsByDates(Set<String> checkDateList, String tenantId) {
         LambdaQueryCondition<TcmAttendanceCheckRecord> condition = new LambdaQueryCondition<>(new TcmAttendanceCheckRecord());
         condition.in(TcmAttendanceCheckRecord::getCheck_date, checkDateList)
+                .eq(TcmAttendanceCheckRecord::getYtenantId, tenantId)
+                .eq(TcmAttendanceCheckRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(condition);
+    }
+
+    private List<TcmAttendanceCheckRecord> findRecordsByDate(String checkDate, String tenantId) {
+        LambdaQueryCondition<TcmAttendanceCheckRecord> condition = new LambdaQueryCondition<>(new TcmAttendanceCheckRecord());
+        condition.eq(TcmAttendanceCheckRecord::getCheck_date, checkDate)
                 .eq(TcmAttendanceCheckRecord::getYtenantId, tenantId)
                 .eq(TcmAttendanceCheckRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(condition);
