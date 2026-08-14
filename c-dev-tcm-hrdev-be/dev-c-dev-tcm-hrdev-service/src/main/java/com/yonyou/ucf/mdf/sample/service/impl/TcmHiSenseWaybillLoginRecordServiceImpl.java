@@ -11,7 +11,9 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseLoginRecordDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseWaybillLoginRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -59,6 +61,10 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     @Autowired
     private CommonUtil commonUtil;
 
+
+    @Autowired
+    private TcmAttendanceCheckRecordService checkRecordService;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -79,14 +85,17 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
 
         removeByActDate(actDate);
 
-        List<String> busSelfIdList = new ArrayList<>();
-        for (HiSenseLoginRecordDataDTO hiSenseData : hiSenseDataList) {
-            busSelfIdList.add(hiSenseData.getBusselfid());
+        String tenantId = InvocationInfoProxy.getTenantid();
+        Set<String> busSelfIdSet = new HashSet<>();
+        Set<String> weIdSet = new HashSet<>();
+        for (HiSenseLoginRecordDataDTO h : hiSenseDataList) {
+            busSelfIdSet.add(h.getBusselfid());
+            weIdSet.add(h.getDriverid());
         }
 
-        Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByInternalNo(busSelfIdList);
+        Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByInternalNo(busSelfIdSet);
+        Map<String, String> staffMap = commonUtil.getStaffByCardIds(weIdSet, tenantId);
 
-        String tenantId = InvocationInfoProxy.getTenantid();
 
         // 用于存储缺失车辆信息的记录
         Set<String> missingCarSet = new HashSet<>();
@@ -109,7 +118,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
             data.setYtenantId(tenantId);
             data.setDate(dto.getActdate());
             data.setWaybill_employee_id(dto.getDriverid());
-            data.setDriver_no(dto.getDriverid());
+            data.setDriver_no(staffMap.get(dto.getDriverid()));
             data.setOperate_type(dto.getOperatetype());
             data.setTime(dto.getActdatetime());
             data.setCar(tcmCar.getId());
@@ -130,6 +139,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
 
         if (!list.isEmpty()) {
             billRepository.insert(list);
+            checkRecordService.updateOrSaveRecord(actDate, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD,true);
             log.info("成功同步海信数据，日期: {}, 记录数: {}", actDate, list.size());
         } else {
             log.warn("没有可同步的数据，日期: {}", actDate);
@@ -139,6 +149,11 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     @Override
     public Integer countByActDate(String actDate) {
         return getByActDate(actDate).size();
+    }
+
+    @Override
+    public boolean checkDataByDate(String actDate){
+        return !getByActDate(actDate).isEmpty();
     }
 
     @Override

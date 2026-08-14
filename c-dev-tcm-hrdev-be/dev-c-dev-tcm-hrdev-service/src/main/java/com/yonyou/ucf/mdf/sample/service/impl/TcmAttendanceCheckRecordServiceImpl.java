@@ -153,6 +153,10 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                 flag = record.getRefueling_times();
                 record.setRefueling_times(isGood);
                 break;
+            case TCM_ATTENDANCE_CHECK_RECORD:
+                flag = record.getFirst_station_punch();
+                record.setFirst_station_punch(isGood);
+                break;
             default:
                 throw new BusinessException("100", "不支持的模块类型：" + moduleEnum.getCode());
         }
@@ -176,6 +180,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
         record.setSchedule_data(false);
         record.setHisense_attendance(false);
         record.setBus_fault(false);
+        record.setFirst_station_punch(false);
         record.setReserve_driver_absenteeism(false);
         record.setDriver_overtime(false);
         record.setControl_center_log(false);
