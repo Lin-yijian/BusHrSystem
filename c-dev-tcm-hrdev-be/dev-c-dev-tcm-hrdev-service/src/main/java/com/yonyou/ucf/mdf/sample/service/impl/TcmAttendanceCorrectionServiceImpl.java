@@ -13,10 +13,7 @@ import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -90,22 +87,47 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Override
     public void updateLateStatus(List<String> ids, String status, String type) {
-
-        if (null == ids || ids.isEmpty()){
-            throw new BusinessException("99","请先选择数据");
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("99", "请先选择数据");
         }
 
-
-        if ("LATE".equals(type)) {
-            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.LATESTATUS, status, ids);
-        } else if ("LEAVE".equals(type)) {
-            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.EARLYLEAVESTATUS, status, ids);
-        } else if ("ALL".equals(type)) {
-            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.LATESTATUS, status, ids);
-            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.EARLYLEAVESTATUS, status, ids);
-        }else {
-            throw new BusinessException("99","参数有误");
+        if (!Arrays.asList("LATE", "LEAVE", "ALL").contains(type)) {
+            throw new BusinessException("99", "无效的操作类型");
         }
+
+        String tenantId = InvocationInfoProxy.getTenantid();
+        LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        condition.in(TcmAttendanceCorrection::getId, ids)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+
+        List<TcmAttendanceCorrection> list = billRepository.queryByClause(condition);
+
+        if (list.isEmpty()) {
+            throw new BusinessException("99", "未找到对应的数据");
+        }
+
+        String approvedStatus = BaseEnum.AC_CHECK_STATUS_1.getCode();
+        String normalStatus = BaseEnum.NORMAL_CODE.getCode();
+
+        list.forEach(correction -> {
+
+            if ("LATE".equals(type)) {
+                correction.setLateStatus(approvedStatus);
+            } else if ("LEAVE".equals(type)) {
+                correction.setEarlyLeaveStatus(approvedStatus);
+            } else if ("ALL".equals(type)) {
+                correction.setLateStatus(approvedStatus);
+                correction.setEarlyLeaveStatus(approvedStatus);
+            }
+
+            if (approvedStatus.equals(correction.getLateStatus())
+                    && approvedStatus.equals(correction.getEarlyLeaveStatus())) {
+                correction.setAnomaly_verification(normalStatus);
+            }
+        });
+
+        billRepository.update(list);
     }
 
     @Override

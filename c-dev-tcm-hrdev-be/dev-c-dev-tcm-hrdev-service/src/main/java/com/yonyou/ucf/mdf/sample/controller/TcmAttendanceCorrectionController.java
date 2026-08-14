@@ -21,14 +21,14 @@ public class TcmAttendanceCorrectionController {
     public ResponseEntity<?> errorMark(@RequestBody TcmAttendanceCorrectionBo bo) {
 
         service.updateLateStatus(bo.getIds(), BaseEnum.AC_CHECK_STATUS_1.getCode(), bo.getType());
-        return ResponseUtil.success("成功获取海信数据");
+        return ResponseUtil.success("標記成功");
     }
 
     @PutMapping("/day/status")
     public ResponseEntity<?> dayMark(@RequestBody TcmAttendanceCorrectionBo bo) {
 
         service.updateLateStatus(bo.getIds(), BaseEnum.AC_CHECK_STATUS_2.getCode(),"ALL");
-        return ResponseUtil.success("成功获取海信数据");
+        return ResponseUtil.success("標記成功");
     }
 
 
@@ -36,7 +36,7 @@ public class TcmAttendanceCorrectionController {
     public ResponseEntity<?> updateEmployeeById(@RequestBody TcmAttendanceCorrectionBo bo) {
 
         service.updateEmployeeById(bo.getId(), bo.getEmployeeId());
-        return ResponseUtil.success("成功获取海信数据");
+        return ResponseUtil.success("工號修改成功");
     }
 
 
