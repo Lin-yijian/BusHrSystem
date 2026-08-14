@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class CommonUtil {
@@ -325,6 +326,43 @@ public class CommonUtil {
 
         SQLParameter sqlParameter = new SQLParameter();
         sqlParameter.addParam(fieldValue);
+        for (String id : ids) {
+            sqlParameter.addParam(id);
+        }
+
+        return billRepository.update(sql, sqlParameter);
+    }
+
+    /**
+     * 批量更新指定表中多个字段的值
+     *
+     * @param tableName  数据库表名
+     * @param fieldMap   要更新的字段名和值的映射关系 (key: 字段名, value: 字段值)
+     * @param ids        需要更新的记录ID集合
+     * @return 影响的行数
+     */
+    public int updateBySql(String tableName, Map<String, Object> fieldMap, Collection<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        if (fieldMap == null || fieldMap.isEmpty()) {
+            throw new IllegalArgumentException("fieldMap cannot be empty");
+        }
+
+        // 构建 SET 子句: field1 = ?, field2 = ?, field3 = ?
+        String setClause = fieldMap.keySet().stream()
+                .map(field -> field + " = ?")
+                .collect(Collectors.joining(", "));
+
+        // 动态生成 ID 占位符：?, ?, ?
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = "UPDATE " + tableName + " SET " + setClause + " WHERE id IN (" + placeholders + ")";
+
+        // 设置参数：先设置所有字段值，再设置所有ID值
+        SQLParameter sqlParameter = new SQLParameter();
+        for (Object value : fieldMap.values()) {
+            sqlParameter.addParam(value);
+        }
         for (String id : ids) {
             sqlParameter.addParam(id);
         }

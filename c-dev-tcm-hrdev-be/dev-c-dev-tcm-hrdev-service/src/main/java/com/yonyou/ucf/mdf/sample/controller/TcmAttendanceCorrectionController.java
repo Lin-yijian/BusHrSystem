@@ -40,4 +40,20 @@ public class TcmAttendanceCorrectionController {
     }
 
 
+    @PutMapping("/clearTime")
+    public ResponseEntity<?> clearTimeByIds(@RequestBody TcmAttendanceCorrectionBo bo) {
+
+        service.clearTimeByIds(bo.getIds());
+        return ResponseUtil.success("已成功清零");
+    }
+
+
+    @PutMapping("/isWorkingHoliday")
+    public ResponseEntity<?> isWorkingHoliday(@RequestBody TcmAttendanceCorrectionBo bo) {
+
+        service.isWorkingHoliday(bo.getIds(),true);
+        return ResponseUtil.success("標記成功");
+    }
+
+
 }

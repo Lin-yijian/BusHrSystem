@@ -50,4 +50,18 @@ public interface TcmAttendanceCorrectionService {
      * @param employeeId 工号ID
      */
     void updateEmployeeById(String id, String employeeId);
+
+    /**
+     * 迟到早退清零
+     * @param ids
+     */
+    void clearTimeByIds(List<String> ids);
+
+
+    /**
+     * 是否周假上班
+     * @param ids .
+     * @param isWorkingHoliday .
+     */
+    void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday);
 }

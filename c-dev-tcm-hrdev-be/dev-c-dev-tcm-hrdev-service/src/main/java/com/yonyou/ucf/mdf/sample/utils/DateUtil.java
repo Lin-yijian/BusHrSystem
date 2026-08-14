@@ -34,6 +34,7 @@ public class DateUtil {
     public static final String HHMM = "HHmm";
     public static final String ABSOLUTE = "ABSOLUTE";
     public static final String POSITIVE_ONLY = "POSITIVE_ONLY";
+    public static final String HH_MM_ZERO = "00:00";
 
     /**
      * 获取当前月的月首日期字符串 yyyy-MM-dd
@@ -295,7 +296,7 @@ public class DateUtil {
      * @return 时间差字符串，格式为 HH:mm
      */
     public static String getTimeDifference(Date date1, Date date2) {
-        return getTimeDifference(date1, date2, true, "00:00");
+        return getTimeDifference(date1, date2, true, HH_MM_ZERO);
     }
 
     /**
@@ -303,11 +304,11 @@ public class DateUtil {
      *
      * @param date1       第一个日期
      * @param date2       第二个日期
-     * @param useAbsolute 是否返回绝对值，true=返回绝对值，false=date1小于date2时返回"00:00"
+     * @param useAbsolute 是否返回绝对值，true=返回绝对值，false=date1小于date2时返回 HH_MM_ZERO
      * @return 时间差字符串，格式为 HH:mm
      */
     public static String getTimeDifference(Date date1, Date date2, boolean useAbsolute) {
-        return getTimeDifference(date1, date2, useAbsolute, "00:00");
+        return getTimeDifference(date1, date2, useAbsolute, HH_MM_ZERO);
     }
 
     /**
@@ -316,7 +317,7 @@ public class DateUtil {
      * @param date1        第一个日期
      * @param date2        第二个日期
      * @param useAbsolute  是否返回绝对值，true=返回绝对值，false=date1小于date2时返回defaultValue
-     * @param defaultValue 当 useAbsolute=false 且 date1 < date2 时返回的默认值，为null时返回"00:00"
+     * @param defaultValue 当 useAbsolute=false 且 date1 < date2 时返回的默认值，为null时返回 HH_MM_ZERO
      * @return 时间差字符串，格式为 HH:mm
      */
     public static String getTimeDifference(Date date1, Date date2, boolean useAbsolute, String defaultValue) {
@@ -341,16 +342,16 @@ public class DateUtil {
     }
 
     /**
-     * 获取默认值，若为null则返回"00:00"
+     * 获取默认值，若为null则返回 HH_MM_ZERO
      */
     private static String getDefaultValue(String defaultValue) {
-        return defaultValue != null ? defaultValue : "00:00";
+        return defaultValue != null ? defaultValue : HH_MM_ZERO;
     }
 
 
 
     public static boolean checkIsZeroTime(String timeStr) {
-        return StringUtil.isEmpty(timeStr) || "00:00".equals(timeStr) || "0:00".equals(timeStr) || "00:00:00".equals(timeStr);
+        return StringUtil.isEmpty(timeStr) || HH_MM_ZERO.equals(timeStr) || "0:00".equals(timeStr) || "00:00:00".equals(timeStr);
     }
 
 
@@ -363,7 +364,7 @@ public class DateUtil {
      */
     public static String addTimeDifferences(String... times) {
         if (times == null || times.length == 0) {
-            return "00:00";
+            return HH_MM_ZERO;
         }
 
         int totalMinutes = 0;
@@ -421,10 +422,10 @@ public class DateUtil {
     private static int diffByTimeString(String time1, String time2) {
         // 参数校验
         if (time1 == null || time1.isEmpty() || !time1.matches("\\d{2}:\\d{2}")) {
-            time1 = "00:00";
+            time1 = HH_MM_ZERO;
         }
         if (time2 == null || time2.isEmpty() || !time2.matches("\\d{2}:\\d{2}")) {
-            time2 = "00:00";
+            time2 = HH_MM_ZERO;
         }
 
         // 解析时间
@@ -595,10 +596,10 @@ public class DateUtil {
     public static int compareTimeStrings(String time1, String time2) {
         // 参数校验
         if (time1 == null || !time1.matches("\\d{2}:\\d{2}")) {
-            time1 = "00:00";
+            time1 = HH_MM_ZERO;
         }
         if (time2 == null || !time2.matches("\\d{2}:\\d{2}")) {
-            time2 = "00:00";
+            time2 = HH_MM_ZERO;
         }
 
         String[] parts1 = time1.split(":");
@@ -695,7 +696,7 @@ public class DateUtil {
      */
     public static String maxTime(String... times) {
         if (times == null || times.length == 0) {
-            return "00:00";
+            return HH_MM_ZERO;
         }
 
         String max = times[0];
@@ -715,7 +716,7 @@ public class DateUtil {
      */
     public static String minTime(String... times) {
         if (times == null || times.length == 0) {
-            return "00:00";
+            return HH_MM_ZERO;
         }
 
         String min = times[0];

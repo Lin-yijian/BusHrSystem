@@ -9,6 +9,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -133,6 +134,23 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     @Override
     public void updateEmployeeById(String id, String employeeId) {
         commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.EMPLOYEE_ID,employeeId, Collections.singleton(id));
+    }
+
+
+    @Override
+    public void clearTimeByIds(List<String> ids) {
+        Map<String,Object> map = new HashMap<>();
+        map.put(TcmAttendanceCorrection.ONE_LATE_DURATION, DateUtil.HH_MM_ZERO);
+        map.put(TcmAttendanceCorrection.TWO_LATE_DURATION, DateUtil.HH_MM_ZERO);
+        map.put(TcmAttendanceCorrection.LATE_DURATION, DateUtil.HH_MM_ZERO);
+        map.put(TcmAttendanceCorrection.ONE_EARLY_LEAVE_DURATION, DateUtil.HH_MM_ZERO);
+        map.put(TcmAttendanceCorrection.TWO_EARLY_LEAVE_DURATION, DateUtil.HH_MM_ZERO);
+        commonUtil.updateBySql(TABLE_NAME,map, ids);
+    }
+
+    @Override
+    public void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday) {
+        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, String.valueOf(isWorkingHoliday), ids);
     }
 
     // 辅助方法：构建key，处理null值
