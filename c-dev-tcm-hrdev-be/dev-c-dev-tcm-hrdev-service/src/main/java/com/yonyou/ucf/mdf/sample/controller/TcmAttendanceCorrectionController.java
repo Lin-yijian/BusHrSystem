@@ -1,5 +1,6 @@
 package com.yonyou.ucf.mdf.sample.controller;
 
+import com.yonyou.ucf.mdf.sample.bill.entity.dto.TcmAttendanceCorrectionBo;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.ResponseUtil;
@@ -7,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+
 
 @RestController
 @RequestMapping("/attendance/correction")
@@ -16,20 +17,25 @@ public class TcmAttendanceCorrectionController {
     @Autowired
     private TcmAttendanceCorrectionService service;
 
-    @PostMapping("/error/status")
-    public ResponseEntity<?> errorMark(
-            @RequestParam("type") String type,
-            @RequestParam(value = "ids") List<String> ids) {
+    @PutMapping("/error/status")
+    public ResponseEntity<?> errorMark(@RequestBody TcmAttendanceCorrectionBo bo) {
 
-        service.updateLateStatus(ids, BaseEnum.AC_CHECK_STATUS_1.getCode(),type);
+        service.updateLateStatus(bo.getIds(), BaseEnum.AC_CHECK_STATUS_1.getCode(), bo.getType());
         return ResponseUtil.success("成功获取海信数据");
     }
 
-    @PostMapping("/day/status")
-    public ResponseEntity<?> dayMark(
-            @RequestParam(value = "ids") List<String> ids) {
+    @PutMapping("/day/status")
+    public ResponseEntity<?> dayMark(@RequestBody TcmAttendanceCorrectionBo bo) {
 
-        service.updateLateStatus(ids, BaseEnum.AC_CHECK_STATUS_2.getCode(),"ALL");
+        service.updateLateStatus(bo.getIds(), BaseEnum.AC_CHECK_STATUS_2.getCode(),"ALL");
+        return ResponseUtil.success("成功获取海信数据");
+    }
+
+
+    @PutMapping("/employee")
+    public ResponseEntity<?> updateEmployeeById(@RequestBody TcmAttendanceCorrectionBo bo) {
+
+        service.updateEmployeeById(bo.getId(), bo.getEmployeeId());
         return ResponseUtil.success("成功获取海信数据");
     }
 

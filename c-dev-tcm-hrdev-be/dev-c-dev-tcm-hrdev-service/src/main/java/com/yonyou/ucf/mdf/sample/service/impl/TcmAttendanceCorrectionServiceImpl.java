@@ -29,6 +29,8 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     @Autowired
     private CommonUtil commonUtil;
 
+    public static final String TABLE_NAME = "tcm_attendance_correction";
+
     @Override
     public List<TcmAttendanceCorrection> getByDateAndStaffId(String date, String staffId) {
 
@@ -93,20 +95,23 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
             throw new BusinessException("99","请先选择数据");
         }
 
-        String tableName = "tcm_attendance_correction";
 
         if ("LATE".equals(type)) {
-            commonUtil.updateBySql(tableName, "lateStatus", status, ids);
+            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.LATESTATUS, status, ids);
         } else if ("LEAVE".equals(type)) {
-            commonUtil.updateBySql(tableName, "earlyLeaveStatus", status, ids);
+            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.EARLYLEAVESTATUS, status, ids);
         } else if ("ALL".equals(type)) {
-            commonUtil.updateBySql(tableName, "lateStatus", status, ids);
-            commonUtil.updateBySql(tableName, "earlyLeaveStatus", status, ids);
+            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.LATESTATUS, status, ids);
+            commonUtil.updateBySql(TABLE_NAME, TcmAttendanceCorrection.EARLYLEAVESTATUS, status, ids);
         }else {
             throw new BusinessException("99","参数有误");
         }
     }
 
+    @Override
+    public void updateEmployeeById(String id, String employeeId) {
+        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.EMPLOYEE_ID,employeeId, Collections.singleton(id));
+    }
 
     // 辅助方法：构建key，处理null值
     private String buildKey(String date, String employeeId) {

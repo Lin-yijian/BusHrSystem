@@ -43,4 +43,11 @@ public interface TcmAttendanceCorrectionService {
      * @param type LATE、LEAVE、ALL
      */
     void updateLateStatus(List<String> ids, String status, String type);
+
+    /**
+     * 根据ID修改工号
+     * @param id 数据ID
+     * @param employeeId 工号ID
+     */
+    void updateEmployeeById(String id, String employeeId);
 }
