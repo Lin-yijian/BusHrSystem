@@ -749,55 +749,73 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @return 合并后的考勤数据列表
      */
     private List<HiSenseAttendanceDataDTO> getHiSenseDataByRunData(String runDate) {
+        // 参数校验：业务日期不能为空
         if (StringUtil.isEmpty(runDate)) {
             throw new RuntimeException("业务日期不能为空");
         }
 
         try {
+            // 使用RestTemplate调用海信接口，分页请求
             RestTemplate restTemplate = new RestTemplate();
             List<HiSenseAttendanceDataDTO> allData = new ArrayList<>();
 
             int pageNum = 1;
-            int pageSize = 500;
+            int pageSize = 1000;
             boolean hasMoreData = true;
-            Integer totalCount = null;
+            int maxRetries = 3;   // 单页请求最大重试次数
 
             while (hasMoreData) {
-                // 构建请求体
+                // 构建分页请求体
                 String body = String.format(
                         "{\"rundate\":\"%s\", \"pageNum\":%d, \"pageSize\":%d}",
                         runDate, pageNum, pageSize
                 );
 
-                String result = restTemplate.postForObject(HI_SENSE_ATTENDANCE_URL, body, String.class);
+                // 请求重试机制，避免单次请求失败导致整体中断
+                String result = null;
+                for (int retry = 0; retry < maxRetries; retry++) {
+                    try {
+                        result = restTemplate.postForObject(HI_SENSE_ATTENDANCE_URL, body, String.class);
+                        break;
+                    } catch (Exception e) {
+                        log.warn("【海信考勤接口】业务日期：【{}】，第{}页请求失败（第{}次重试），原因：{}",
+                                runDate, pageNum, retry + 1, e.getMessage());
+                        if (retry < maxRetries - 1) {
+                            // 等待后重试，避免短时间内重复请求
+                            Thread.sleep(2000);
+                        } else {
+                            throw new RuntimeException("请求海信考勤接口失败，已达到最大重试次数", e);
+                        }
+                    }
+                }
 
+                // 解析JSON响应为HiSenseResponseDTO对象（使用泛型）
                 HiSenseResponseDTO<HiSenseAttendanceDataDTO> response = objectMapper.readValue(result,
-                        objectMapper.getTypeFactory().constructParametricType(
-                                HiSenseResponseDTO.class,
-                                HiSenseAttendanceDataDTO.class
-                        ));
+                        objectMapper.getTypeFactory().constructParametricType(HiSenseResponseDTO.class, HiSenseAttendanceDataDTO.class));
 
                 if (response == null || response.getResult() == null || response.getResult().isEmpty()) {
                     // 没有更多数据了
                     hasMoreData = false;
                 } else {
-                    if (totalCount == null) {
-                        totalCount = response.getTotalCount();
-                    }
                     // 添加当前页数据
                     allData.addAll(response.getResult());
+                    log.info("【海信考勤接口】业务日期：【{}】，第{}页获取到{}条数据，累计{}条，接口总记录数：【{}】",
+                            runDate, pageNum, response.getResult().size(), allData.size(), response.getTotalCount());
 
                     // 如果返回的数据少于pageSize，说明是最后一页
                     if (response.getResult().size() < pageSize) {
                         hasMoreData = false;
                     } else {
                         pageNum++; // 继续获取下一页
+                        // 分页间稍作等待，避免请求过于频繁
+                        Thread.sleep(500);
                     }
                 }
             }
 
-            log.info("【海信考勤接口】业务日期：【{}】，接口返回记录数：【{}】， 实际返回数：【{}】", runDate, totalCount, allData.size());
+            log.info("【海信考勤接口】业务日期：【{}】，分页获取完成，总记录数：【{}】", runDate, allData.size());
             return allData;
+
         } catch (Exception e) {
             throw new RuntimeException("解析海信考勤数据失败", e);
         }
