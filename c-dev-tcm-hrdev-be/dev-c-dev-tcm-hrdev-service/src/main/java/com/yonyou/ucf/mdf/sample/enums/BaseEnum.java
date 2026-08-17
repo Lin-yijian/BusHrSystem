@@ -25,6 +25,10 @@ public enum BaseEnum {
     CHECK_STATUS_1("1","日結完畢"),
     CHECK_STATUS_2("2","已確認"),
 
+    AC_CHECK_STATUS_0("1","待核對"),
+    AC_CHECK_STATUS_1("2","已核對"),
+    AC_CHECK_STATUS_2("3","正常"),
+
     ERROR_CODE("1","异常"),
 
     NORMAL_CODE("2","正常"),

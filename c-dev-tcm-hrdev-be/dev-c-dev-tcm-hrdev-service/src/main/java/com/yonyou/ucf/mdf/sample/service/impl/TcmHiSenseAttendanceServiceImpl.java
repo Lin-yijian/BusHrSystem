@@ -86,6 +86,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Autowired
     private CommonUtil commonUtil;
 
+    @Autowired
+    private TcmAttendanceCalculationService calculationService;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -128,6 +131,59 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     public boolean checkDataByDate(String date) throws Exception {
         List<TcmHisenseAttendanceData> list = getByRunDate(date);
         return !list.isEmpty();
+    }
+
+    @Override
+    public void refreshCorrectionFromLocalData(String runDate) {
+        refreshCorrectionFromLocalData(runDate, null);
+    }
+
+    @Override
+    public void refreshCorrectionFromLocalData(String runDate, String staffId) {
+        if (StringUtil.isEmpty(runDate)) {
+            return;
+        }
+        List<TcmHisenseAttendanceData> dataList = getByRunDate(runDate);
+        if (dataList == null || dataList.isEmpty()) {
+            return;
+        }
+        if (!StringUtil.isEmpty(staffId)) {
+            dataList = dataList.stream()
+                    .filter(d -> staffId.equals(d.getEmployee_id()))
+                    .collect(Collectors.toList());
+            if (dataList.isEmpty()) {
+                return;
+            }
+        }
+        Set<String> staffSet = dataList.stream()
+                .map(TcmHisenseAttendanceData::getEmployee_id)
+                .filter(id -> !StringUtil.isEmpty(id))
+                .collect(Collectors.toSet());
+        if (staffSet.isEmpty()) {
+            return;
+        }
+        Map<String, String> staffPostMap = new HashMap<>();
+        try {
+            String tenantId = InvocationInfoProxy.getTenantid();
+            List<String> waybillIds = dataList.stream()
+                    .map(TcmHisenseAttendanceData::getWaybill_employee_id)
+                    .filter(id -> !StringUtil.isEmpty(id))
+                    .distinct()
+                    .collect(Collectors.toList());
+            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
+            if (staffInfoList != null) {
+                for (Map<String, Object> map : staffInfoList) {
+                    String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
+                    String postCode = (String) map.get(commonUtil.FIELD_CODE_POST_CODE);
+                    if (sid != null) {
+                        staffPostMap.put(sid, postCode);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("刷新修正时加载岗位信息失败, date={}", runDate, e);
+        }
+        assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
     }
 
     @Transactional(rollbackFor = RuntimeException.class)
@@ -305,6 +361,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 更新核对记录
         tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE,true);
 
+
+        // 計算
+        calculationService.getAndUpdateAssessReviseByDate(runDate);
+
     }
 
     /**
@@ -342,22 +402,17 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 创建可变列表用于跟踪已匹配的数据
             List<TcmHisenseAttendanceData> availableDataList = new ArrayList<>(attendanceDataList);
 
-            // 步骤1和步骤2：处理一更数据（两条可共享同一条记录）
+            // 处理一更数据（两条可共享同一条记录）
             processFirstShift(entity, availableDataList);
 
-            // 步骤3和步骤4：处理二更数据（与一更数据隔离）
+            // 处理二更数据（与一更数据隔离）
             processSecondShift(entity, availableDataList);
+
+            // 计算结果
+            commonUtil.processDate(entity);
 
             // 巴型工时计算
             calculateTypeWorkHour(entity, baTypeMap.get(employeeId), carTypeMap);
-
-            // 是否迟到早退
-            String lateDuration = entity.getLate_duration();
-            String oneEarlyLeaveDuration = entity.getOne_early_leave_duration();
-            String twoEarlyLeaveDuration = entity.getTwo_early_leave_duration();
-            if (!StringUtil.isEmpty(lateDuration) || !DateUtil.checkIsZeroTime(oneEarlyLeaveDuration) || !DateUtil.checkIsZeroTime(twoEarlyLeaveDuration)) {
-                entity.setIs_late_or_early_leave(true);
-            }
 
             // 是否兼职司机
             String postCode = staffPostMap.get(employeeId);
@@ -587,7 +642,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             bus_type_rpm = busTypeRpmBuilder.substring(0, busTypeRpmBuilder.length() - 1);
         }
 
-        String status = StringUtil.isEmpty(bus_type_rpm_order) ? BaseEnum.NORMAL_CODE.getCode() : BaseEnum.ERROR_CODE.getCode();
+        String status = StringUtil.isEmpty(bus_type_rpm_order) ? BaseEnum.AC_CHECK_STATUS_0.getCode() : BaseEnum.AC_CHECK_STATUS_2.getCode();
 
         entity.setTcmBarTypeHourStatus(status);
         entity.setBus_type_rpm_order(bus_type_rpm_order);

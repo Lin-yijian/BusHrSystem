@@ -34,4 +34,15 @@ public interface TcmHiSenseAttendanceService {
      */
     boolean checkDataByDate(String date) throws Exception;
 
+    /**
+     * 基于本地已落库的海信考勤数据，重新装配考勤修正（不调外部接口、不触发计算）。
+     * @param runDate 业务日期 yyyy-MM-dd
+     */
+    void refreshCorrectionFromLocalData(String runDate);
+
+    /**
+     * 仅重装指定员工的考勤修正。
+     */
+    void refreshCorrectionFromLocalData(String runDate, String staffId);
+
 }

@@ -34,7 +34,9 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
                                TCMcztrainingPlugin p14,
                                TcmFuelGasDataRecordPlugin p15,
                                TcmReserveCaptainAttendanceRecordPlugin p16,
-                               TcmLeaveRecordPlugin p17) {
+                               TcmLeaveRecordPlugin p17,
+                               TcmScheduleGeneratePlugin p18,
+                               TcmDriverHolidayWorkRecordPlugin p19) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
         strategyMap.put("tcmDriverOvertimeRecord", p3::beforeTranslate);
@@ -51,10 +53,14 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
         strategyMap.put("tcmVehicleDutyRecord", p13::beforeTranslate);
         strategyMap.put("TCMcztraining", p14::beforeTranslate);
 
-        strategyMap.put("tcmFuelGasDataRecord",p15::beforeTranslate);
+        strategyMap.put("tcmFuelGasDataRecord", p15::beforeTranslate);
 
-        strategyMap.put("tcmReserveCaptainAttendanceRecord",p16::beforeTranslate);
-        strategyMap.put("tcmLeaveRecord",p17::beforeTranslate);
+        strategyMap.put("tcmReserveCaptainAttendanceRecord", p16::beforeTranslate);
+        strategyMap.put("tcmLeaveRecord", p17::beforeTranslate);
+
+        // 需触发考勤计算的导入
+        strategyMap.put("tcmSheduleShiftsData", p18::beforeTranslate);
+        strategyMap.put("tcmDriverHolidayWorkRecord", p19::beforeTranslate);
     }
 
     @Override

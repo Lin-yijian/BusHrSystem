@@ -17,4 +17,12 @@ public interface TcmAttendanceCalculationService {
      */
     Map<String, Object> getAndUpdateAssessReviseByDate(Date date, String employeeCode);
 
+
+    /**
+     * 根据日期和员工代码获取并更新考勤计算结果
+     * @param dateStr yyyy-MM-dd
+     * @return .
+     */
+    Map<String, Object> getAndUpdateAssessReviseByDate(String dateStr);
+
 }

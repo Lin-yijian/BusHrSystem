@@ -34,5 +34,34 @@ public interface TcmAttendanceCorrectionService {
      * @param staffIdList 員工ID集合
      * @return
      */
-    Map<String,String> getByDateListAndStaffIds(List<String> dateList, Collection<String> staffIdList);
+    Map<String,String> getByDateListAndStaffIds(Collection<String> dateList, Collection<String> staffIdList);
+
+    /**
+     * 根据ID修改迟到早退状态
+     * @param ids
+     * @param status
+     * @param type LATE、LEAVE、ALL
+     */
+    void updateLateStatus(List<String> ids, String status, String type);
+
+    /**
+     * 根据ID修改工号
+     * @param id 数据ID
+     * @param employeeId 工号ID
+     */
+    void updateEmployeeById(String id, String employeeId);
+
+    /**
+     * 迟到早退清零
+     * @param ids
+     */
+    void clearTimeByIds(List<String> ids);
+
+
+    /**
+     * 是否周假上班
+     * @param ids .
+     * @param isWorkingHoliday .
+     */
+    void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday);
 }

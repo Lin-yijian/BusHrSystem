@@ -1,16 +1,15 @@
+/*--------------------JavaPOJO for 排更數據(tcmSheduleShiftsData)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
-import com.yonyou.ypd.bill.base.ICode;
-import com.yonyou.ypd.bill.base.ILogicDelete;
-import com.yonyou.ypd.bill.basic.entity.SuperDO;
-
+import com.yonyou.ypd.bill.base.*;
 import java.util.Date;
+import com.yonyou.ypd.bill.basic.entity.SuperDO;
 
 /**
  * @author root
  * @description 排更數據
- * @Date 2026-08-06 16:38:01
+ * @Date 2026-08-13 11:08:19
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmSheduleShiftsData", domain = "c-dev-tcm-hrdev")
@@ -36,6 +35,10 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     public static final String TWO_EARLY_LINE = "two_early_line";
     public static final String PARKING_SPACE = "parking_space";
     public static final String ATTENDANCE_STATE = "attendance_state";
+    public static final String TWO_DEPARTURE_TIME = "two_departure_time";
+    public static final String ONE_FINISH_TIME = "one_finish_time";
+    public static final String GET_OUT_CAR = "get_out_car";
+    public static final String CAR = "car";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -58,9 +61,9 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     private String type;
     /* 任務编号 */
     private String task_code;
-    /* 發車時間 */
+    /* 一更發車時間 */
     private Date departure_time;
-    /* 收車時間 */
+    /* 二更收車時間 */
     private Date finish_time;
     /* 上下更時間1 */
     private String shift_change_time1;
@@ -69,7 +72,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     /* 用膳 */
     private Integer meal;
     /* 上下更 */
-    private String shift_change;
+    private Integer shift_change;
     /* 澳門車場 */
     private Boolean macau_car_park;
     /* 凼仔車場 */
@@ -86,6 +89,14 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     private String parking_space;
     /* 考勤狀態 */
     private String attendance_state;
+    /* 二更發車時間 */
+    private Date two_departure_time;
+    /* 一更收車時間 */
+    private Date one_finish_time;
+    /* 交取車次數 */
+    private Integer get_out_car;
+    /* 車牌號 */
+    private String car;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -149,7 +160,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         this.meal = meal;
     }
 
-    public void setShift_change(String shift_change) {
+    public void setShift_change(Integer shift_change) {
         this.shift_change = shift_change;
     }
 
@@ -183,6 +194,22 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
 
     public void setAttendance_state(String attendance_state) {
         this.attendance_state = attendance_state;
+    }
+
+    public void setTwo_departure_time(Date two_departure_time) {
+        this.two_departure_time = two_departure_time;
+    }
+
+    public void setOne_finish_time(Date one_finish_time) {
+        this.one_finish_time = one_finish_time;
+    }
+
+    public void setGet_out_car(Integer get_out_car) {
+        this.get_out_car = get_out_car;
+    }
+
+    public void setCar(String car) {
+        this.car = car;
     }
 
     public void setCode(String code) {
@@ -265,7 +292,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         return meal;
     }
 
-    public String getShift_change() {
+    public Integer getShift_change() {
         return shift_change;
     }
 
@@ -299,6 +326,22 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
 
     public String getAttendance_state() {
         return attendance_state;
+    }
+
+    public Date getTwo_departure_time() {
+        return two_departure_time;
+    }
+
+    public Date getOne_finish_time() {
+        return one_finish_time;
+    }
+
+    public Integer getGet_out_car() {
+        return get_out_car;
+    }
+
+    public String getCar() {
+        return car;
     }
 
     public String getCode() {

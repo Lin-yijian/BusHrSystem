@@ -22,4 +22,11 @@ public interface TcmAttendanceCheckRecordService {
      * @param isGood true 打勾  false 打叉
      */
     void updateOrSaveRecord(String checkDate, ModuleEnum moduleEnum, boolean isGood);
+
+    /**
+     * 修改状态
+     * @param checkDate 日期
+     * @param status 。
+     */
+    void updateStatus(String checkDate, String status);
 }

@@ -32,6 +32,9 @@ public class DateUtil {
     public static final String YYYYMM = "yyyyMM";
     public static final String HHMMSS = "HHmmss";
     public static final String HHMM = "HHmm";
+    public static final String ABSOLUTE = "ABSOLUTE";
+    public static final String POSITIVE_ONLY = "POSITIVE_ONLY";
+    public static final String HH_MM_ZERO = "00:00";
 
     /**
      * 获取当前月的月首日期字符串 yyyy-MM-dd
@@ -49,7 +52,8 @@ public class DateUtil {
 
     /**
      * 获取指定月份的首日
-     * @param year 年份
+     *
+     * @param year  年份
      * @param month 月份（1-12）
      */
     public static String getMonthFirstDay(int year, int month) {
@@ -58,7 +62,8 @@ public class DateUtil {
 
     /**
      * 获取指定月份的末日
-     * @param year 年份
+     *
+     * @param year  年份
      * @param month 月份（1-12）
      */
     public static String getMonthLastDay(int year, int month) {
@@ -67,6 +72,7 @@ public class DateUtil {
 
     /**
      * 获取当前日期时间字符串
+     *
      * @param targetFormat 目标格式，支持DateTimeFormatter的所有合法模式
      * @return 格式化后的日期时间字符串
      * @throws IllegalArgumentException 当格式字符串为null、空白或非法时抛出
@@ -82,8 +88,9 @@ public class DateUtil {
 
     /**
      * 获取当前日期前第N天的日期
+     *
      * @param targetFormat 目标日期格式（如：yyyy-MM-dd）
-     * @param days 往前推的天数（必须大于0）
+     * @param days         往前推的天数（必须大于0）
      * @return 格式化后的日期字符串
      * @throws IllegalArgumentException 当格式字符串为null、空白或非法时抛出
      */
@@ -100,8 +107,9 @@ public class DateUtil {
 
     /**
      * 获取当前日期后第N天的日期
+     *
      * @param targetFormat 目标日期格式（如：yyyy-MM-dd）
-     * @param days 往后推的天数（必须大于0）
+     * @param days         往后推的天数（必须大于0）
      * @return 格式化后的日期字符串
      */
     public static String getDateAfterNow(@NotBlank(message = "目标格式不能为空") String targetFormat,
@@ -129,8 +137,8 @@ public class DateUtil {
      * @throws DateTimeParseException   如果时间字符串无法按源格式解析
      */
     public static String convertTimeFormat(@NotBlank(message = "源格式不能为空") String sourceFormat,
-                             @NotBlank(message = "目标格式不能为空") String targetFormat,
-                             @NotBlank(message = "时间字符串不能为空") String timeStr) {
+                                           @NotBlank(message = "目标格式不能为空") String targetFormat,
+                                           @NotBlank(message = "时间字符串不能为空") String timeStr) {
         if (timeStr == null || timeStr.trim().isEmpty()) {
             throw new IllegalArgumentException("时间字符串不能为空");
         }
@@ -147,7 +155,6 @@ public class DateUtil {
 
 
     /**
-     *
      * @param targetFormat
      * @param dateStr
      * @return
@@ -230,11 +237,12 @@ public class DateUtil {
 
     /**
      * 计算相差的分钟数据
+     *
      * @param date1 .
      * @param date2 .
      * @return .
      */
-    public static long dateDiffMinutes(Date date1, Date date2){
+    public static long dateDiffMinutes(Date date1, Date date2) {
         // 计算毫秒差并转换为分钟
         long diffInMilliseconds = date2.getTime() - date1.getTime();
         return TimeUnit.MILLISECONDS.toMinutes(diffInMilliseconds);
@@ -243,6 +251,7 @@ public class DateUtil {
 
     /**
      * 计算两个日期的时间差，返回小时数（保留指定小数位数）
+     *
      * @param date1 第一个日期
      * @param date2 第二个日期
      * @param scale 小数位数
@@ -261,6 +270,7 @@ public class DateUtil {
 
     /**
      * 计算两个日期的时间差，返回小时数（支持小数）
+     *
      * @param date1 第一个日期
      * @param date2 第二个日期
      * @return 时间差（小时），保留完整精度
@@ -278,41 +288,83 @@ public class DateUtil {
         return (double) diffInMillis / (1000.0 * 60.0 * 60.0);
     }
 
-
     /**
-     * 计算两个日期的时间差，返回 HH:mm 格式的字符串
-     * @param date1 第一个日期（被减数）
-     * @param date2 第二个日期（减数）
+     * 计算两个日期的时间差，返回 HH:mm 格式的字符串（返回绝对值）
+     *
+     * @param date1 第一个日期
+     * @param date2 第二个日期
      * @return 时间差字符串，格式为 HH:mm
      */
     public static String getTimeDifference(Date date1, Date date2) {
+        return getTimeDifference(date1, date2, true, HH_MM_ZERO);
+    }
 
+    /**
+     * 计算两个日期的时间差，返回 HH:mm 格式的字符串
+     *
+     * @param date1       第一个日期
+     * @param date2       第二个日期
+     * @param useAbsolute 是否返回绝对值，true=返回绝对值，false=date1小于date2时返回 HH_MM_ZERO
+     * @return 时间差字符串，格式为 HH:mm
+     */
+    public static String getTimeDifference(Date date1, Date date2, boolean useAbsolute) {
+        return getTimeDifference(date1, date2, useAbsolute, HH_MM_ZERO);
+    }
+
+    /**
+     * 计算两个日期的时间差，返回 HH:mm 格式的字符串
+     *
+     * @param date1        第一个日期
+     * @param date2        第二个日期
+     * @param useAbsolute  是否返回绝对值，true=返回绝对值，false=date1小于date2时返回defaultValue
+     * @param defaultValue 当 useAbsolute=false 且 date1 < date2 时返回的默认值，为null时返回 HH_MM_ZERO
+     * @return 时间差字符串，格式为 HH:mm
+     */
+    public static String getTimeDifference(Date date1, Date date2, boolean useAbsolute, String defaultValue) {
+        // 空值校验，统一使用默认值
         if (date1 == null || date2 == null) {
-            return "00:00";
+            return getDefaultValue(defaultValue);
         }
 
-        long diffInMillis = Math.abs(date1.getTime() - date2.getTime());
+        long diffInMillis = date1.getTime() - date2.getTime();
 
+        // 负数且不返回绝对值时，返回默认值
+        if (diffInMillis < 0 && !useAbsolute) {
+            return getDefaultValue(defaultValue);
+        }
+
+        // 取绝对值并格式化
+        diffInMillis = Math.abs(diffInMillis);
         long hours = diffInMillis / (60 * 60 * 1000);
         long minutes = (diffInMillis % (60 * 60 * 1000)) / (60 * 1000);
 
         return String.format("%02d:%02d", hours, minutes);
     }
 
-    public static boolean checkIsZeroTime(String timeStr){
-        return StringUtil.isEmpty(timeStr) || "00:00".equals(timeStr) || "0:00".equals(timeStr) || "00:00:00".equals(timeStr);
+    /**
+     * 获取默认值，若为null则返回 HH_MM_ZERO
+     */
+    private static String getDefaultValue(String defaultValue) {
+        return defaultValue != null ? defaultValue : HH_MM_ZERO;
+    }
+
+
+
+    public static boolean checkIsZeroTime(String timeStr) {
+        return StringUtil.isEmpty(timeStr) || HH_MM_ZERO.equals(timeStr) || "0:00".equals(timeStr) || "00:00:00".equals(timeStr);
     }
 
 
 
     /**
      * 将多个时间差字符串相加
+     *
      * @param times 多个时间差字符串数组，每个格式为 HH:mm
      * @return 相加后的时间差字符串，格式为 HH:mm
      */
     public static String addTimeDifferences(String... times) {
         if (times == null || times.length == 0) {
-            return "00:00";
+            return HH_MM_ZERO;
         }
 
         int totalMinutes = 0;
@@ -336,13 +388,14 @@ public class DateUtil {
 
     /**
      * 计算两个时间差字符串的差值（第一个减第二个）
+     *
      * @param time1 第一个时间差字符串，格式为 HH:mm（被减数）
      * @param time2 第二个时间差字符串，格式为 HH:mm（减数）
      * @return 差值字符串，格式为 HH:mm（绝对值，始终为正）
      */
     public static String subtractTimeDifferences(String time1, String time2) {
 
-        int diffMinutes = diffByTimeString(time1,time2);
+        int diffMinutes = diffByTimeString(time1, time2);
 
         // 转换为小时和分钟
         int diffHours = diffMinutes / 60;
@@ -353,13 +406,14 @@ public class DateUtil {
 
     /**
      * 计算两个时间差字符串的差值（返回小时数）
+     *
      * @param time1 第一个时间差字符串，格式为 HH:mm（被减数）
      * @param time2 第二个时间差字符串，格式为 HH:mm（减数）
      * @return 差值（小时），double类型
      */
     public static double subtractTimeDifferencesToHours(String time1, String time2) {
 
-        int diffMinutes = diffByTimeString(time1,time2);
+        int diffMinutes = diffByTimeString(time1, time2);
 
         // 转换为小时
         return diffMinutes / 60.0;
@@ -368,10 +422,10 @@ public class DateUtil {
     private static int diffByTimeString(String time1, String time2) {
         // 参数校验
         if (time1 == null || time1.isEmpty() || !time1.matches("\\d{2}:\\d{2}")) {
-            time1 = "00:00";
+            time1 = HH_MM_ZERO;
         }
         if (time2 == null || time2.isEmpty() || !time2.matches("\\d{2}:\\d{2}")) {
-            time2 = "00:00";
+            time2 = HH_MM_ZERO;
         }
 
         // 解析时间
@@ -392,6 +446,7 @@ public class DateUtil {
 
     /**
      * 将 HH:mm 格式的字符串转换为小时数（double）
+     *
      * @param timeStr HH:mm 格式的时间字符串，如 "01:30"
      * @return 小时数，如 1.5
      */
@@ -419,8 +474,9 @@ public class DateUtil {
 
     /**
      * 将 HH:mm 格式的字符串转换为小时数（BigDecimal，高精度）
+     *
      * @param timeStr HH:mm 格式的时间字符串
-     * @param scale 小数位数
+     * @param scale   小数位数
      * @return 小时数（BigDecimal）
      */
     public static BigDecimal timeStringToHoursBigDecimal(String timeStr, int scale) {
@@ -449,6 +505,7 @@ public class DateUtil {
 
     /**
      * 将小时数（double）转换为 HH:mm 格式的字符串
+     *
      * @param hours 小时数，如 1.5
      * @return HH:mm 格式的字符串，如 "01:30"
      */
@@ -466,7 +523,8 @@ public class DateUtil {
 
     /**
      * 将小时数（double）转换为 HH:mm 格式的字符串（支持自定义舍入模式）
-     * @param hours 小时数，如 1.5
+     *
+     * @param hours        小时数，如 1.5
      * @param roundingMode 舍入模式
      * @return HH:mm 格式的字符串
      */
@@ -487,6 +545,7 @@ public class DateUtil {
 
     /**
      * 将小时数（BigDecimal）转换为 HH:mm 格式的字符串
+     *
      * @param hours 小时数（BigDecimal）
      * @return HH:mm 格式的字符串
      */
@@ -506,6 +565,7 @@ public class DateUtil {
 
     /**
      * 将小时数（double）转换为 HH:mm 格式的字符串（保留小数部分为分钟）
+     *
      * @param hours 小时数，如 1.29611111
      * @param scale 小数位数（用于精度控制）
      * @return HH:mm 格式的字符串，如 "01:18"
@@ -528,6 +588,7 @@ public class DateUtil {
 
     /**
      * 比较两个 HH:mm 格式的时间字符串大小
+     *
      * @param time1 第一个时间字符串，格式为 HH:mm
      * @param time2 第二个时间字符串，格式为 HH:mm
      * @return 1: time1 > time2, 0: time1 == time2, -1: time1 < time2
@@ -535,10 +596,10 @@ public class DateUtil {
     public static int compareTimeStrings(String time1, String time2) {
         // 参数校验
         if (time1 == null || !time1.matches("\\d{2}:\\d{2}")) {
-            time1 = "00:00";
+            time1 = HH_MM_ZERO;
         }
         if (time2 == null || !time2.matches("\\d{2}:\\d{2}")) {
-            time2 = "00:00";
+            time2 = HH_MM_ZERO;
         }
 
         String[] parts1 = time1.split(":");
@@ -568,6 +629,7 @@ public class DateUtil {
 
     /**
      * 比较两个 HH:mm 格式的时间字符串大小（返回布尔值）
+     *
      * @param time1 第一个时间字符串
      * @param time2 第二个时间字符串
      * @return true: time1 > time2
@@ -606,6 +668,7 @@ public class DateUtil {
 
     /**
      * 获取两个时间中较大的那个
+     *
      * @param time1 第一个时间字符串
      * @param time2 第二个时间字符串
      * @return 较大的时间字符串
@@ -616,6 +679,7 @@ public class DateUtil {
 
     /**
      * 获取两个时间中较小的那个
+     *
      * @param time1 第一个时间字符串
      * @param time2 第二个时间字符串
      * @return 较小的时间字符串
@@ -626,12 +690,13 @@ public class DateUtil {
 
     /**
      * 比较多个时间，返回最大值
+     *
      * @param times 多个时间字符串
      * @return 最大的时间字符串
      */
     public static String maxTime(String... times) {
         if (times == null || times.length == 0) {
-            return "00:00";
+            return HH_MM_ZERO;
         }
 
         String max = times[0];
@@ -645,12 +710,13 @@ public class DateUtil {
 
     /**
      * 比较多个时间，返回最小值
+     *
      * @param times 多个时间字符串
      * @return 最小的时间字符串
      */
     public static String minTime(String... times) {
         if (times == null || times.length == 0) {
-            return "00:00";
+            return HH_MM_ZERO;
         }
 
         String min = times[0];
@@ -664,9 +730,10 @@ public class DateUtil {
 
     /**
      * 检查时间是否在指定范围内（包含边界）
-     * @param time 要检查的时间
+     *
+     * @param time  要检查的时间
      * @param start 起始时间
-     * @param end 结束时间
+     * @param end   结束时间
      * @return true: 在范围内
      */
     public static boolean isTimeInRange(String time, String start, String end) {
@@ -675,9 +742,10 @@ public class DateUtil {
 
     /**
      * 检查时间是否在指定范围内（不包含边界）
-     * @param time 要检查的时间
+     *
+     * @param time  要检查的时间
      * @param start 起始时间
-     * @param end 结束时间
+     * @param end   结束时间
      * @return true: 在范围内
      */
     public static boolean isTimeInRangeExclusive(String time, String start, String end) {
@@ -687,8 +755,9 @@ public class DateUtil {
 
     /**
      * 计算两个时间的差
+     *
      * @param startDate .
-     * @param endDate .
+     * @param endDate   .
      * @return 单位（小时）
      */
     public static double getHoursDiff(Date startDate, Date endDate) {
