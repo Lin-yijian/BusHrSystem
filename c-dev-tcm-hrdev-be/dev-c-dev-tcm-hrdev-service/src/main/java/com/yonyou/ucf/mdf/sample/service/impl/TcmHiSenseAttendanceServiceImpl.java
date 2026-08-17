@@ -749,23 +749,55 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @return 合并后的考勤数据列表
      */
     private List<HiSenseAttendanceDataDTO> getHiSenseDataByRunData(String runDate) {
-        // 参数校验：业务日期不能为空
         if (StringUtil.isEmpty(runDate)) {
             throw new RuntimeException("业务日期不能为空");
         }
 
-        // 使用RestTemplate调用海信接口
-        RestTemplate restTemplate = new RestTemplate();
-        String body = "{\"rundate\":\"" + runDate + "\"}";
-        String result = restTemplate.postForObject(HI_SENSE_ATTENDANCE_URL, body, String.class);
-
         try {
-            // 解析JSON响应为HiSenseResponseDTO对象（使用泛型）
-            HiSenseResponseDTO<HiSenseAttendanceDataDTO> response = objectMapper.readValue(result,
-                    objectMapper.getTypeFactory().constructParametricType(HiSenseResponseDTO.class, HiSenseAttendanceDataDTO.class));
-            log.info("【海信考勤接口】业务日期：【{}】，接口返回记录数：【{}】， 实际返回数：【{}】", runDate, response.getTotalCount(), response.getResult().size());
-            return response.getResult();
+            RestTemplate restTemplate = new RestTemplate();
+            List<HiSenseAttendanceDataDTO> allData = new ArrayList<>();
 
+            int pageNum = 1;
+            int pageSize = 500;
+            boolean hasMoreData = true;
+            Integer totalCount = null;
+
+            while (hasMoreData) {
+                // 构建请求体
+                String body = String.format(
+                        "{\"rundate\":\"%s\", \"pageNum\":%d, \"pageSize\":%d}",
+                        runDate, pageNum, pageSize
+                );
+
+                String result = restTemplate.postForObject(HI_SENSE_ATTENDANCE_URL, body, String.class);
+
+                HiSenseResponseDTO<HiSenseAttendanceDataDTO> response = objectMapper.readValue(result,
+                        objectMapper.getTypeFactory().constructParametricType(
+                                HiSenseResponseDTO.class,
+                                HiSenseAttendanceDataDTO.class
+                        ));
+
+                if (response == null || response.getResult() == null || response.getResult().isEmpty()) {
+                    // 没有更多数据了
+                    hasMoreData = false;
+                } else {
+                    if (totalCount == null) {
+                        totalCount = response.getTotalCount();
+                    }
+                    // 添加当前页数据
+                    allData.addAll(response.getResult());
+
+                    // 如果返回的数据少于pageSize，说明是最后一页
+                    if (response.getResult().size() < pageSize) {
+                        hasMoreData = false;
+                    } else {
+                        pageNum++; // 继续获取下一页
+                    }
+                }
+            }
+
+            log.info("【海信考勤接口】业务日期：【{}】，接口返回记录数：【{}】， 实际返回数：【{}】", runDate, totalCount, allData.size());
+            return allData;
         } catch (Exception e) {
             throw new RuntimeException("解析海信考勤数据失败", e);
         }
