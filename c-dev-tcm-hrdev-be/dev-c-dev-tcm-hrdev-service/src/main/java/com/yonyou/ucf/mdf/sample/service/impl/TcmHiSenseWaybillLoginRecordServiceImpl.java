@@ -83,6 +83,8 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
         }
 
+        log.info("【海信登陆记录接口】业务日期：【{}】， 实际返回数：【{}】", actDate, hiSenseDataList.size());
+
         removeByActDate(actDate);
 
         String tenantId = InvocationInfoProxy.getTenantid();

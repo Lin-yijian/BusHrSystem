@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -65,6 +66,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             return;
         }
 
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(staffIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
         Map<String, TcmAttendanceCorrection> existingMap = loadCorrectionMap(dates, staffIds, tenantId);
         List<TcmAttendanceCorrection> insertList = new ArrayList<>();
         List<TcmAttendanceCorrection> updateList = new ArrayList<>();
@@ -99,7 +101,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             correction.setVehicle_handover_count(schedule.getGet_out_car());
             correction.setShift_change_count(schedule.getShift_change());
             applyScheduleToCorrection(correction, schedule);
-            commonUtil.processDate(correction);
+            commonUtil.processDate(correction,staffMap);
             if (isNew) {
                 insertList.add(correction);
             } else if (!updateList.contains(correction)) {
@@ -127,12 +129,14 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             if (list == null || list.isEmpty()) {
                 return;
             }
+            Set<String> idSet = list.stream().map(TcmAttendanceCorrection::getEmployee_id).collect(Collectors.toSet());
+            Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(idSet, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
             for (TcmAttendanceCorrection c : list) {
                 c.setPg_one_departure_time(null);
                 c.setPg_one_return_time(null);
                 c.setPg_two_departure_time(null);
                 c.setPg_two_return_time(null);
-                commonUtil.processDate(c);
+                commonUtil.processDate(c,staffMap);
             }
             billRepository.update(list);
             return;
@@ -168,6 +172,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             return;
         }
 
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(staffIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
         Map<String, TcmAttendanceCorrection> existingMap = loadCorrectionMap(dates, staffIds, tenantId);
         List<TcmAttendanceCorrection> insertList = new ArrayList<>();
         List<TcmAttendanceCorrection> updateList = new ArrayList<>();
@@ -191,7 +196,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             }
 
             applyReserveToCorrection(correction, reserve);
-            commonUtil.processDate(correction);
+            commonUtil.processDate(correction,staffMap);
             if (isNew) {
                 insertList.add(correction);
             } else if (!updateList.contains(correction)) {

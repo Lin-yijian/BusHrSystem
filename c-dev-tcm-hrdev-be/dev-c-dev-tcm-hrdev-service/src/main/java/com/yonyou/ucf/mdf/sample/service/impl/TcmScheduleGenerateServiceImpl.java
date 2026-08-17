@@ -214,16 +214,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
      */
     private void processDate(List<TcmAttendanceCorrection> list, Map<String, Map<String, Object>> staffMap) {
         for (TcmAttendanceCorrection entity : list) {
-            commonUtil.processDate(entity);
-
-            // 是否不足标准工时
-            String employeeId = entity.getEmployee_id();
-            Map<String, Object> staff = staffMap.get(employeeId);
-            if (staff != null) {
-                if (commonUtil.PART_TIME_JOB_CODE.equals(staff.get(commonUtil.FIELD_CODE_POST_CODE))) {
-                    entity.setIs_less_than_8_hours(false);
-                }
-            }
+            commonUtil.processDate(entity,staffMap);
 
         }
     }

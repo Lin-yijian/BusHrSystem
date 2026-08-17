@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 public class CommonUtil {
 
@@ -28,12 +30,20 @@ public class CommonUtil {
     public final String FIELD_CODE_EMPLOYEE_ID = "code";
     public final String FIELD_CODE_POST_CODE = "postCode";
     public final String FIELD_CODE_STAFF_ID = "id";
+    public final String FIELD_CODE_STAFF_AB_09 = "diverType";
 
 
     /** 兼职司机岗位编码 */
     public final String PART_TIME_JOB_CODE = "P0020103_NC07";
 
+    /** 深宵司机枚举编号 */
+    public final String NIGHT_DIVER_TYPE = "4";
+
+    /** 非深宵司机标准工时 */
     public static final String WORK_TIME = "08:00";
+
+    /** 深宵司机标准工时 */
+    public static final String NIGHT_WORK_TIME = "06:30";
 
 
     /**
@@ -119,7 +129,7 @@ public class CommonUtil {
      * @return .
      */
     public List<Map<String, Object>> getStaffByEmployeeIds(Collection<String> ids, String tenantId) {
-        QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as waybill_employeeId, postId, postId.code as postCode,code");
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as waybill_employeeId, staffDefines.ab_09 as diverType, postId, postId.code as postCode,code");
         querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
         querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
@@ -233,7 +243,7 @@ public class CommonUtil {
 
 
 
-    public void processDate(TcmAttendanceCorrection entity){
+    public void processDate(TcmAttendanceCorrection entity, Map<String, Map<String, Object>> staffMap){
 
         // 初始化状态
         if (StringUtils.isEmpty(entity.getTcmBarTypeHourStatus())){
@@ -249,65 +259,142 @@ public class CommonUtil {
             entity.setAnomaly_verification(BaseEnum.NORMAL_CODE.getCode());
         }
 
-        calculateCorrection(entity);
+        calculateCorrection(entity,staffMap);
     }
 
 
-    private void calculateCorrection(TcmAttendanceCorrection entity){
-        // 一更时长 = 一更计量排更收车 - 一更计量排更发车
+
+    private void calculateCorrection(TcmAttendanceCorrection entity, Map<String, Map<String, Object>> staffMap) {
+        // 一更时长 = 一更计量排更收车 - 一更计量排更发车    二更时长 = 二更计量排更收车 - 二更计量排更发车
         String oneTimeDifference = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getJl_one_departure_time());
         entity.setOne_time(oneTimeDifference);
-        // 二更时长 = 二更计量排更收车 - 二更计量排更发车
+
         String twoTimeDifference = DateUtil.getTimeDifference(entity.getJl_two_return_time(), entity.getJl_two_departure_time());
         entity.setTwo_time(twoTimeDifference);
-        // 一更早退时长 = 一更计量排更收车 - 考勤一更收车
-        String one_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getKq_one_return_time(), false);
-        entity.setOne_early_leave_duration(one_early_leave_duration);
-        // 二更早退时长 = 二更计量排更收车 - 考勤二更收车
-        String two_early_leave_duration = DateUtil.getTimeDifference(entity.getJl_two_return_time(), entity.getKq_two_return_time(), false);
-        entity.setTwo_early_leave_duration(two_early_leave_duration);
+
         // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）
         entity.setJl_valid_time(DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference));
-        // 加班工时 = 计量有效工时 - 08:00
-        if (DateUtil.isTimeLessOrEqual(entity.getJl_valid_time(), WORK_TIME)) {
-            entity.setOvertime_time("00:00");
-        }else {
-            entity.setOvertime_time(DateUtil.subtractTimeDifferences(entity.getJl_valid_time(), WORK_TIME));
-        }
-        // 一更遲到時長 =  考勤一更發車 - 計糧一更發車
+
+        // 一更早退时长 = 一更计量排更收车 - 考勤一更收车     二更早退时长 = 二更计量排更收车 - 考勤二更收车
+        String oneEarlyLeaveDuration = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getKq_one_return_time(), false);
+        entity.setOne_early_leave_duration(oneEarlyLeaveDuration);
+
+        String twoEarlyLeaveDuration = DateUtil.getTimeDifference(entity.getJl_two_return_time(), entity.getKq_two_return_time(), false);
+        entity.setTwo_early_leave_duration(twoEarlyLeaveDuration);
+
+        // 计算迟到时长 一更遲到時長 =  考勤一更發車 - 計糧一更發車    二更遲到時長 =  考勤二更發車 - 計糧二更發車
         String oneLateDuration = DateUtil.getTimeDifference(entity.getKq_one_departure_time(), entity.getJl_one_departure_time(), false);
         entity.setOne_late_duration(oneLateDuration);
-        // 二更遲到時長 =  考勤二更發車 - 計糧二更發車
+
         String twoLateDuration = DateUtil.getTimeDifference(entity.getKq_two_departure_time(), entity.getJl_two_departure_time(), false);
         entity.setTwo_late_duration(twoLateDuration);
-        // 迟到总时长
-        String lateDuration = DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference);
-        entity.setLate_duration(lateDuration);
+        entity.setLate_duration(DateUtil.addTimeDifferences(oneLateDuration, twoLateDuration));
 
-        // 迟到状态 1、一更遲到時長或二更遲到時長>10分鐘，則待核對  2、遲到時長計算的參數不完整（比如排更有兩更、考勤只有一更時；或排更有一更、考勤有兩更就是參數不完整）
-        String lateTime = "00:10"; // todo 待转参数
-        boolean oneD = (entity.getKq_one_departure_time() != null) == (entity.getPg_one_departure_time() != null);
-        boolean oneR = (entity.getKq_one_return_time() != null) == (entity.getPg_one_return_time() != null);
-        boolean twoD = (entity.getKq_two_departure_time() != null) == (entity.getPg_two_departure_time() != null);
-        boolean twoR = (entity.getKq_two_return_time() != null) == (entity.getPg_two_return_time() != null);
-        if (DateUtil.isTimeGreater(oneLateDuration, lateTime) || DateUtil.isTimeGreater(twoLateDuration, lateTime)) {
+        // 计算加班时长（根据员工类型）
+        calculateOvertimeTime(entity, staffMap);
+
+        // 计算迟到早退状态
+        calculateLateEarlyStatus(entity);
+
+        // 计算异常核对状态
+        calculateAnomalyVerification(entity);
+    }
+
+
+    /**
+     * 判断迟到是否超过阈值（10分钟）
+     */
+    private boolean isLateExceedsThreshold(TcmAttendanceCorrection entity) {
+        String threshold = "00:10"; // TODO: 待转参数配置
+        String oneLateDuration = entity.getOne_late_duration();
+        String twoLateDuration = entity.getTwo_late_duration();
+
+        return DateUtil.isTimeGreater(oneLateDuration, threshold)
+                || DateUtil.isTimeGreater(twoLateDuration, threshold);
+    }
+
+    /**
+     * 判断考勤数据是否完整（排更和考勤数据必须成对出现）
+     */
+    private boolean isAttendanceDataIncomplete(TcmAttendanceCorrection entity) {
+        boolean oneDepartureMatch = (entity.getKq_one_departure_time() != null) == (entity.getPg_one_departure_time() != null);
+        boolean oneReturnMatch = (entity.getKq_one_return_time() != null) == (entity.getPg_one_return_time() != null);
+        boolean twoDepartureMatch = (entity.getKq_two_departure_time() != null) == (entity.getPg_two_departure_time() != null);
+        boolean twoReturnMatch = (entity.getKq_two_return_time() != null) == (entity.getPg_two_return_time() != null);
+
+        return !oneDepartureMatch || !oneReturnMatch || !twoDepartureMatch || !twoReturnMatch;
+    }
+
+    /**
+     * 计算异常核对状态
+     */
+    private void calculateAnomalyVerification(TcmAttendanceCorrection entity) {
+        // 迟到状态判断
+        if (isLateExceedsThreshold(entity)) {
             entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
         }
 
-        if (!oneD || !oneR || !twoD || !twoR){
+        // 数据不完整判断
+        if (isAttendanceDataIncomplete(entity)) {
             entity.setLateStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
             entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
         }
-        // 异常核对状态变更
-        if (BaseEnum.AC_CHECK_STATUS_0.getCode().equals(entity.getOvertimeStatus()) || BaseEnum.AC_CHECK_STATUS_0.getCode().equals(entity.getLateStatus())) {
+
+        // 存在任何异常状态，设置异常核对标记
+        if (BaseEnum.AC_CHECK_STATUS_0.getCode().equals(entity.getOvertimeStatus())
+                || BaseEnum.AC_CHECK_STATUS_0.getCode().equals(entity.getLateStatus())) {
             entity.setAnomaly_verification(BaseEnum.ERROR_CODE.getCode());
         }
+    }
 
-        // 是否迟到早退
-        if (!DateUtil.checkIsZeroTime(lateDuration) || !DateUtil.checkIsZeroTime(one_early_leave_duration) || !DateUtil.checkIsZeroTime(two_early_leave_duration)) {
-            entity.setIs_late_or_early_leave(true);
+
+    /**
+     * 计算迟到早退状态
+     */
+    private void calculateLateEarlyStatus(TcmAttendanceCorrection entity) {
+        String lateDuration = entity.getLate_duration();
+        String oneEarlyLeaveDuration = entity.getOne_early_leave_duration();
+        String twoEarlyLeaveDuration = entity.getTwo_early_leave_duration();
+
+        boolean hasLate = !DateUtil.checkIsZeroTime(lateDuration);
+        boolean hasEarlyLeave = !DateUtil.checkIsZeroTime(oneEarlyLeaveDuration) || !DateUtil.checkIsZeroTime(twoEarlyLeaveDuration);
+
+        entity.setIs_late_or_early_leave(hasLate || hasEarlyLeave);
+    }
+
+
+    /**
+     * 计算加班时长
+     */
+    private void calculateOvertimeTime(TcmAttendanceCorrection entity, Map<String, Map<String, Object>> staffMap) {
+        Map<String, Object> staff = staffMap.get(entity.getEmployee_id());
+        if (staff == null) {
+            log.warn("未找到员工信息, employeeId: {}", entity.getEmployee_id());
+            return;
+        }
+
+        String validTime = entity.getJl_valid_time();
+        String postCode = (String) staff.get(FIELD_CODE_POST_CODE);
+        String staffType = (String) staff.get(FIELD_CODE_STAFF_AB_09);
+
+        // 兼职司机：标准工时不足标记为false，加班时长为0
+        if (PART_TIME_JOB_CODE.equals(postCode)) {
+            entity.setIs_less_than_8_hours(false);
+            entity.setOvertime_time(DateUtil.HH_MM_ZERO);
+            return;
+        }
+
+        // 确定标准工时 todo 待转参数
+        String standardWorkTime = NIGHT_DIVER_TYPE.equals(staffType) ? NIGHT_WORK_TIME : WORK_TIME;
+
+        // 计算加班时长
+        if (DateUtil.isTimeLessOrEqual(validTime, standardWorkTime)) {
+            entity.setOvertime_time(DateUtil.HH_MM_ZERO);
+        } else {
+            entity.setOvertime_time(DateUtil.subtractTimeDifferences(validTime, standardWorkTime));
         }
     }
+
 
 
     /**

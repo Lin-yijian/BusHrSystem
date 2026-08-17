@@ -386,6 +386,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 .filter(Objects::nonNull)
                 .collect(Collectors.groupingBy(TcmHisenseAttendanceData::getEmployee_id));
 
+        Set<String> idSet = attendanceGroupMap.keySet();
+        String tenantId = InvocationInfoProxy.getTenantid();
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(idSet, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
+
         // 预加载车型映射，避免重复查询
         Map<String, TCMCarType> carTypeMap = carTypeService.mapByFieldGetter(TCMCarType::getId);
 
@@ -409,16 +413,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             processSecondShift(entity, availableDataList);
 
             // 计算结果
-            commonUtil.processDate(entity);
+            commonUtil.processDate(entity,staffMap);
 
             // 巴型工时计算
             calculateTypeWorkHour(entity, baTypeMap.get(employeeId), carTypeMap);
 
-            // 是否兼职司机
-            String postCode = staffPostMap.get(employeeId);
-            if (commonUtil.PART_TIME_JOB_CODE.equals(postCode)) {
-                entity.setIs_less_than_8_hours(false);
-            }
         }
 
         // 批量更新修正数据
@@ -764,6 +763,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             // 解析JSON响应为HiSenseResponseDTO对象（使用泛型）
             HiSenseResponseDTO<HiSenseAttendanceDataDTO> response = objectMapper.readValue(result,
                     objectMapper.getTypeFactory().constructParametricType(HiSenseResponseDTO.class, HiSenseAttendanceDataDTO.class));
+            log.info("【海信考勤接口】业务日期：【{}】，接口返回记录数：【{}】， 实际返回数：【{}】", runDate, response.getTotalCount(), response.getResult().size());
             return response.getResult();
 
         } catch (Exception e) {
