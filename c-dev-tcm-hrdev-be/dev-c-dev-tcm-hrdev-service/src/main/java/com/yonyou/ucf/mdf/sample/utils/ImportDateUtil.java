@@ -83,13 +83,13 @@ public class ImportDateUtil {
     public void validateRow(ImportSingleData data, ImportDateUtil.ValidateContext ctx,
                             String nameKey, String cardIdKey, String employeeIdKey) {
         // 姓名
-        String name = (String) data.getValueByKey(nameKey);
-        if (name == null || name.isEmpty()) {
-
-            data.addImportError("數據中姓名為空，請檢查");
-            return;
-//            throw new RuntimeException("數據中姓名為空，請檢查");
-        }
+//        String name = (String) data.getValueByKey(nameKey);
+//        if (name == null || name.isEmpty()) {
+//
+//            data.addImportError("數據中姓名為空，請檢查");
+//            return;
+////            throw new RuntimeException("數據中姓名為空，請檢查");
+//        }
 
         String employeeId = null;
         // 工号 → 员工ID
