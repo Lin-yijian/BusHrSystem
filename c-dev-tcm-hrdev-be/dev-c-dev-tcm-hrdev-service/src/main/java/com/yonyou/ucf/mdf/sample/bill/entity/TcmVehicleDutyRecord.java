@@ -8,7 +8,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 交車取車次記錄
- * @Date 2026-07-16 15:23:47
+ * @Date 2026-08-18 10:46:21
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMCaptainAttendance.CJ26030001.tcmVehicleDutyRecord", domain = "c-dev-tcm-hrdev")
@@ -16,7 +16,6 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
     public static final String ENTITY_NAME = "TCMCaptainAttendance.CJ26030001.tcmVehicleDutyRecord";
     public static final String DATE = "date";
     public static final String EMPLOYEE_ID = "employee_id";
-    public static final String DRIVER_NO = "driver_no";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String DRIVER_NAME = "driver_name";
     public static final String VEHICLE_EXCHANGE_COUNT = "vehicle_exchange_count";
@@ -34,8 +33,6 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
     private String date;
     /* 工號 */
     private String employee_id;
-    /* 澳巴工號 */
-    private String driver_no;
     /* 澳巴工號 */
     private String waybill_employee_id;
     /* 姓名 */
@@ -69,8 +66,8 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
         this.employee_id = employee_id;
     }
 
-    public void setDriver_no(String driver_no) {
-        this.driver_no = driver_no;
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
     }
 
     public void setDriver_name(String driver_name) {
@@ -117,13 +114,6 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
         this.ytenantId = ytenantId;
     }
 
-
-    //新增澳巴工號set get 方法
-    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
-    public String getWaybillEmployeeId(){return waybill_employee_id;}
-
-
-
     public String getDate() {
         return date;
     }
@@ -132,8 +122,8 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
         return employee_id;
     }
 
-    public String getDriver_no() {
-        return driver_no;
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
     }
 
     public String getDriver_name() {
@@ -188,4 +178,3 @@ public class TcmVehicleDutyRecord extends SuperDO implements ICode,ILogicDelete 
         }
     }
 }
-
