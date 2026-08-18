@@ -29,6 +29,7 @@ public class TcmHisenseAttendanceData extends SuperDO implements ICode,ILogicDel
     public static final String END_STATION_NAME = "end_station_name";
     public static final String FAKE_FLAG = "fake_flag";
     public static final String TROUBLE_FLAG = "trouble_flag";
+    public static final String HANDLE_STATUS = "handle_status";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -69,6 +70,8 @@ public class TcmHisenseAttendanceData extends SuperDO implements ICode,ILogicDel
     private String fake_flag;
     /* 故障標識 */
     private String trouble_flag;
+    /* 狀態 */
+    private String handle_status;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -146,6 +149,14 @@ public class TcmHisenseAttendanceData extends SuperDO implements ICode,ILogicDel
 
     public void setTrouble_flag(String trouble_flag) {
         this.trouble_flag = trouble_flag;
+    }
+
+    public String getHandle_status() {
+        return handle_status;
+    }
+
+    public void setHandle_status(String handle_status) {
+        this.handle_status = handle_status;
     }
 
     public void setCode(String code) {
