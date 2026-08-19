@@ -33,6 +33,9 @@ public enum BaseEnum {
 
     NORMAL_CODE("2","正常"),
 
+    TODO("1","待處理"),
+    DONE("2","已處理"),
+
     /**
      * 逻辑删除 - 未删除
      */

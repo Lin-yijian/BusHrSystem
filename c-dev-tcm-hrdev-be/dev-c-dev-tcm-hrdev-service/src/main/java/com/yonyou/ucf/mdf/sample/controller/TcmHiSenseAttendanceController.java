@@ -29,6 +29,14 @@ public class TcmHiSenseAttendanceController {
     }
 
 
+    @GetMapping("/generate")
+    public ResponseEntity<?> generate(@RequestParam(defaultValue = "",value = "runDate") String runDate) {
+
+        service.generate(runDate);
+        return ResponseUtil.success("成功生成本地考勤");
+    }
+
+
     @GetMapping("/count")
     public ResponseEntity<?> count(@RequestParam String runDate) {
 

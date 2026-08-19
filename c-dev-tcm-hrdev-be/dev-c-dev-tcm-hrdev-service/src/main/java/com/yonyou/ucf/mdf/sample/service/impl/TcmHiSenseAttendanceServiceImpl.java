@@ -188,7 +188,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
     }
 
-    @SyncLog(model = TaskTypeEnum.HISENSE_ATTENDANCE_DATA,dateParam = "runDate")
+    @SyncLog(model = TaskTypeEnum.HXKQ_SYNC,dateParam = "runDate")
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public void syncData(String runDate) {
@@ -216,22 +216,18 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 基礎信息
         String tenantId = InvocationInfoProxy.getTenantid();
         Map<String, String> staffIdMap = new HashMap<>();
-        Map<String, String> staffPostMap = new HashMap<>();
         Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
         Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
         List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
         if (staffInfoList != null && !staffInfoList.isEmpty()) {
             for (Map<String, Object> map : staffInfoList) {
                 staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_STAFF_ID));
-                staffPostMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_POST_CODE));
-
             }
         }
 
         // 收集缺失数据
         List<String> missingCarNumbers = new ArrayList<>();
         List<String> missingRouteNames = new ArrayList<>();
-        Set<String> staffSet = new HashSet<>();
 
         for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
             String id = ymsOidGenerator.nextStrId();
@@ -249,7 +245,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             data.setDriver_name(hiSenseData.getDriverName());
             data.setWaybill_employee_id(hiSenseData.getEmployeeId());
             data.setRun_date(runDate);
-            data.setCount(hiSenseData.getCount());
+            // 标记为待处理，供 generate 查询更新修正
+            data.setHandle_status(BaseEnum.TODO.getCode());
 
             // 检查车辆信息
             TCMCar tcmCar = stringTCMCarMap.get(hiSenseData.getBuscardid());
@@ -269,7 +266,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             }
 
             String staffId = staffIdMap.get(hiSenseData.getEmployeeId());
-            staffSet.add(staffId);
             data.setEmployee_id(staffId);
             data.setCar(tcmCar.getId());
             data.setRoute(tcmRoute.getId());
@@ -300,12 +296,123 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             throw new RuntimeException(errorMsg.toString());
         }
 
-        // 巴型转数：按员工工号分组处理
+        // 以 run_date + employee_id 为标志分组统计，将统计数量放入对应分组对象的 count 字段
+        Map<String, List<TcmHisenseAttendanceData>> countGroupMap = dataList.stream()
+                .collect(Collectors.groupingBy(d -> d.getRun_date() + "|" + d.getEmployee_id()));
+        for (List<TcmHisenseAttendanceData> group : countGroupMap.values()) {
+            int cnt = group.size();
+            for (TcmHisenseAttendanceData d : group) {
+                d.setCount(cnt);
+            }
+        }
+
+        billRepository.insert(dataList);
+        // 車長假期工作記錄
+        driverHolidayWorkRecordService.coverInsert(runDate, driverHolidayWorkRecordList);
+
+        // 更新核对记录
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE,true);
+
+        // 計算
+        calculationService.getAndUpdateAssessReviseByDate(runDate);
+
+    }
+
+    @SyncLog(model = TaskTypeEnum.HXKQ_MAKE,dateParam = "runDate")
+    @Override
+    public void generate(String runDate) {
+        if (StringUtil.isEmpty(runDate)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        LambdaQueryCondition<TcmHisenseAttendanceData> condition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
+        condition.eq(TcmHisenseAttendanceData::getRun_date, runDate)
+                .eq(TcmHisenseAttendanceData::getYtenantId, tenantId)
+                .eq(TcmHisenseAttendanceData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
+                .eq(TcmHisenseAttendanceData::getHandle_status, BaseEnum.TODO.getCode())
+                .lt(TcmHisenseAttendanceData::getCount, 3); // count <= 2
+        List<TcmHisenseAttendanceData> dataList = billRepository.queryByClause(condition);
+        if (dataList == null || dataList.isEmpty()) {
+            return;
+        }
+
+        Set<String> staffSet = dataList.stream()
+                .map(TcmHisenseAttendanceData::getEmployee_id)
+                .filter(id -> !StringUtil.isEmpty(id))
+                .collect(Collectors.toSet());
+        if (staffSet.isEmpty()) {
+            return;
+        }
+
+        // 加载员工岗位信息
+        Map<String, String> staffPostMap = new HashMap<>();
+        try {
+            List<String> waybillIds = dataList.stream()
+                    .map(TcmHisenseAttendanceData::getWaybill_employee_id)
+                    .filter(id -> !StringUtil.isEmpty(id))
+                    .distinct()
+                    .collect(Collectors.toList());
+            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
+            if (staffInfoList != null) {
+                for (Map<String, Object> map : staffInfoList) {
+                    String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
+                    String postCode = (String) map.get(commonUtil.FIELD_CODE_POST_CODE);
+                    if (sid != null) {
+                        staffPostMap.put(sid, postCode);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("生成修正时加载岗位信息失败, date={}", runDate, e);
+        }
+
+        // 更新考勤修正数据（巴型工时由 syncBaType 链路负责，此处传空 baTypeMap）
+        assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
+    }
+
+    @SyncLog(model = TaskTypeEnum.BXZS_SYNC,dateParam = "runDate")
+    @Override
+    public void syncBaType(String runDate) {
+        List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
+        if (hiSenseDTOList.isEmpty()) {
+            throw new RuntimeException("當前日期數據爲空，請稍後再試");
+        }
+
+        // 基礎信息
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<String> busCardIdList = hiSenseDTOList.stream()
+                .map(HiSenseAttendanceDataDTO::getBuscardid)
+                .filter(id -> !StringUtil.isEmpty(id))
+                .distinct()
+                .collect(Collectors.toList());
+        List<String> employeeIdList = hiSenseDTOList.stream()
+                .map(dto -> parseEmployeeId(dto.getDrivername()))
+                .filter(id -> !StringUtil.isEmpty(id))
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
+        Map<String, String> staffIdMap = new HashMap<>();
+        Map<String, String> staffPostMap = new HashMap<>();
+        List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
+        if (staffInfoList != null && !staffInfoList.isEmpty()) {
+            for (Map<String, Object> map : staffInfoList) {
+                staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_STAFF_ID));
+                String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
+                String postCode = (String) map.get(commonUtil.FIELD_CODE_POST_CODE);
+                if (sid != null) {
+                    staffPostMap.put(sid, postCode);
+                }
+            }
+        }
+
+        // 生成巴型转数：按员工工号分组处理
+        List<TcmBaTypeAttendanceData> baTypeAttendanceDataList = new ArrayList<>();
+        // 按人员分组 将排序好的巴型转数放入集合，供更新考勤修正时计算巴型工时使用
+        Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap = new HashMap<>();
         Map<String, List<HiSenseAttendanceDataDTO>> groupedByEmployee = hiSenseDTOList.stream()
                 .filter(dto -> !StringUtil.isEmpty(parseEmployeeId(dto.getDrivername())))
                 .collect(Collectors.groupingBy(dto -> parseEmployeeId(dto.getDrivername())));
-
-        Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap = new HashMap<>();
 
         for (Map.Entry<String, List<HiSenseAttendanceDataDTO>> entry : groupedByEmployee.entrySet()) {
             String employeeId = entry.getKey();
@@ -338,7 +445,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 // 按人员分组 将排序好的巴型转数放入集合中
                 String carType = tcmCar.getCar_type();
                 BaTypeAttendanceSummaryDTO summaryDTO = new BaTypeAttendanceSummaryDTO(staffId, carType, orderNo, busTransferTimes);
-                orderNo++;
                 List<BaTypeAttendanceSummaryDTO> summary = baTypeMap.get(staffId);
                 if (summary == null || summary.isEmpty()) {
                     // 数据不存在，新建记录
@@ -349,25 +455,22 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     summary.add(summaryDTO);
                 }
                 baTypeMap.put(staffId, summary);
+                orderNo++;
             }
         }
 
-        // 更新考勤修正数据
-        assemblyCorrection(dataList, baTypeMap, runDate, staffSet, staffPostMap);
-
-        billRepository.insert(dataList);
-        // 車長假期工作記錄
-        driverHolidayWorkRecordService.coverInsert(runDate, driverHolidayWorkRecordList);
-        // 巴型转数
         baTypeAttendanceDataService.coverInsert(runDate, baTypeAttendanceDataList);
 
-        // 更新核对记录
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE,true);
-
-
-        // 計算
-        calculationService.getAndUpdateAssessReviseByDate(runDate);
-
+        // 更新考勤修正数据：基于已落库的海信考勤数据 + 本方法生成的巴型转数
+        List<TcmHisenseAttendanceData> dataList = getByRunDate(runDate);
+        if (dataList == null || dataList.isEmpty()) {
+            return;
+        }
+        Set<String> staffSet = dataList.stream()
+                .map(TcmHisenseAttendanceData::getEmployee_id)
+                .filter(id -> !StringUtil.isEmpty(id))
+                .collect(Collectors.toSet());
+        assemblyCorrection(dataList, baTypeMap, runDate, staffSet, staffPostMap);
     }
 
     /**

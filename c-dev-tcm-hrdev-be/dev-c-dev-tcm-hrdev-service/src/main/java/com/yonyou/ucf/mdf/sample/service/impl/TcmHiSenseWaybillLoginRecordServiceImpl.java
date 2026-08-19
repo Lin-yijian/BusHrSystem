@@ -77,7 +77,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     }
 
 
-    @SyncLog(model = TaskTypeEnum.VEHICLE_SYSTEM_LOGIN,dateParam = "actDate")
+    @SyncLog(model = TaskTypeEnum.HXDL_SYNC,dateParam = "actDate")
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void syncByActDate(String actDate) {
