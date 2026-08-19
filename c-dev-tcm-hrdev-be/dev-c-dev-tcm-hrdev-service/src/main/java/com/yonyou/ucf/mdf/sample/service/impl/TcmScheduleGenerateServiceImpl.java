@@ -287,7 +287,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             String timeOut = "03:00"; // todo 待转参数
             boolean isTimeOut = DateUtil.isTimeGreaterOrEqual(timeDifference, timeOut);
             int times = isTimeOut ? 1 : 0;
-            entity.setGet_out_car(times);
+            entity.setShift_change(times);
         }
         entity.setFinish_time(row.getFinish_time());
 

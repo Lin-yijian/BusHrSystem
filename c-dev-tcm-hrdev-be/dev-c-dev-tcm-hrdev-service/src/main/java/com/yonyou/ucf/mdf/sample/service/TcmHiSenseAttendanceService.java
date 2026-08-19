@@ -11,6 +11,19 @@ public interface TcmHiSenseAttendanceService {
 
 
     /**
+     * 生成本地考勤
+     * @param runDate 业务日期
+     */
+    void generate(String runDate);
+
+    /**
+     * 同步巴型转数
+     * @param runDate 业务日期
+     */
+    void syncBaType(String runDate);
+
+
+    /**
      * 统计数据数量
      * @param runDate 业务日期
      * @return 数量

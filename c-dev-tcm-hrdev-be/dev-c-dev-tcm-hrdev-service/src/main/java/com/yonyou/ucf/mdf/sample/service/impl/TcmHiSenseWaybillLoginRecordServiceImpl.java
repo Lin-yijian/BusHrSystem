@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
+import com.yonyou.ucf.mdf.sample.aop.SyncLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseWaybillLoginRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
@@ -12,6 +13,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseLoginRecordDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
@@ -75,6 +77,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     }
 
 
+    @SyncLog(model = TaskTypeEnum.HXDL_SYNC,dateParam = "actDate")
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void syncByActDate(String actDate) {

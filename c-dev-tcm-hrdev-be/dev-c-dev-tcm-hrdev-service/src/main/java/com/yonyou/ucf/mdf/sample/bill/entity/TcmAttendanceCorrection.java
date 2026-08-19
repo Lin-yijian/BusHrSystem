@@ -14,7 +14,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceCorrection", domain = "c-dev-tcm-hrdev")
-public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDelete {
+public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     public static final String ENTITY_NAME = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceCorrection";
     public static final String DATE = "date";
     public static final String EMPLOYEE_ID = "employee_id";
@@ -89,7 +89,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     public static final String BUS_TYPE_RPM = "bus_type_rpm";
     public static final String ONE_LATE_DURATION = "one_late_duration";
     public static final String TWO_LATE_DURATION = "two_late_duration";
-    public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
     public static final String DR = "dr";
@@ -248,8 +247,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
     private String one_late_duration;
     /* 二更遲到時長 */
     private String two_late_duration;
-    /* 编码 */
-    private String code;
     /* 创建时间 */
     private Date createTime;
     /* 创建人 */
@@ -615,10 +612,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
         this.is_late_or_early_leave = is_late_or_early_leave;
     }
 
-    public void setCode(String code) {
-        this.code = code;
-    }
-
     public void setCreateTime(Date createTime) {
         this.createTime = createTime;
     }
@@ -905,10 +898,6 @@ public class TcmAttendanceCorrection extends SuperDO implements ICode,ILogicDele
 
     public Boolean getIs_late_or_early_leave() {
         return is_late_or_early_leave;
-    }
-
-    public String getCode() {
-        return code;
     }
 
     public Date getCreateTime() {
