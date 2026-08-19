@@ -10,6 +10,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 import java.io.IOException;
 
@@ -18,6 +19,7 @@ import java.io.IOException;
  * spring-boot 入口类
  */
 @EnableAsync
+@EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class, RabbitAutoConfiguration.class})
 @ComponentScan(basePackages = {"com.yonyou", "com.yonyoucloud"})
 @ImportResource(locations = {"classpath*:/config/applicationContext*.xml", "classpath*:/spring-sub/applicationContext*.xml"})
