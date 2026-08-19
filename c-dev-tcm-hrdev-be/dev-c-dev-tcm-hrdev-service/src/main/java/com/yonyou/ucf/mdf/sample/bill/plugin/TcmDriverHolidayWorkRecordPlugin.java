@@ -66,14 +66,14 @@ public class TcmDriverHolidayWorkRecordPlugin extends AbstractBillPlugin {
 
         // 收集 + 批量查询员工
         ImportDateUtil.ValidateContext ctx = importDateUtil.collectAndQuery(
-                dataList, TcmDriverHolidayWorkRecord.DRIVER_NO, TcmDriverHolidayWorkRecord.EMPLOYEE_ID
+                dataList, TcmDriverHolidayWorkRecord.WAYBILL_EMPLOYEE_ID, TcmDriverHolidayWorkRecord.EMPLOYEE_ID
         );
 
         // 逐行校验
         for (ImportSingleData data : dataList) {
             importDateUtil.validateRow(data, ctx,
                     TcmDriverHolidayWorkRecord.DRIVER_NAME,
-                    TcmDriverHolidayWorkRecord.DRIVER_NO,
+                    TcmDriverHolidayWorkRecord.WAYBILL_EMPLOYEE_ID,
                     TcmDriverHolidayWorkRecord.EMPLOYEE_ID
             );
             if (data.getData() != null) {
