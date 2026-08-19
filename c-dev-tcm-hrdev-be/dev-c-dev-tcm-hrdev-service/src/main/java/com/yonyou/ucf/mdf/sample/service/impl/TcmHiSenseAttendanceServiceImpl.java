@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
+import com.yonyou.ucf.mdf.sample.aop.SyncLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.BaTypeAttendanceSummaryDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceDataDTO;
@@ -12,6 +13,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -186,6 +188,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
     }
 
+    @SyncLog(model = TaskTypeEnum.HISENSE_ATTENDANCE_DATA,dateParam = "runDate")
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public void syncData(String runDate) {
