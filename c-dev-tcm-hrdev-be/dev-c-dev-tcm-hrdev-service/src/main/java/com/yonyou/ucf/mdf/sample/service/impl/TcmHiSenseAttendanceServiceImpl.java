@@ -376,6 +376,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 更新考勤修正数据（巴型工时由 syncBaType 链路负责，此处传空 baTypeMap）
         assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
+        for (TcmHisenseAttendanceData data : dataList) {
+            data.setHandle_status(BaseEnum.DONE.getCode());
+        }
+        billRepository.update(dataList);
     }
 
     @SyncLog(model = TaskTypeEnum.BXZS_SYNC,dateParam = "runDate")
@@ -961,7 +965,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 遍历每个分组，进行组内排序和合并
         for (List<HiSenseAttendanceDataDTO> group : groupedMap.values()) {
             // 按实际发车时间排序，null值排在最后
-            group.sort(Comparator.comparing(HiSenseAttendanceDataDTO::getRealleavetime, Comparator.nullsLast(Date::compareTo)));
+            group.sort(Comparator.comparing(
+                    HiSenseAttendanceDataDTO::getRealleavetime,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            ));
             // 在组内执行合并逻辑
             mergedList.addAll(mergeWithinGroup(group));
         }
