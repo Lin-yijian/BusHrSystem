@@ -52,7 +52,7 @@ public class ImportValidateUtil {
         Set<String> cardIds = new HashSet<>();
 
 
-//        for (ImportSingleData data : dataList) {
+        for (ImportSingleData data : dataList) {
 ////            collectValue(data, carPlateKey, plateNumbers);
 //            String carValue = (String) data.getValueByKey(carPlateKey);
 //            if (carValue != null && !carValue.isEmpty()) {
@@ -64,8 +64,8 @@ public class ImportValidateUtil {
 //            if (routeValue != null && !routeValue.isEmpty()) {
 //                routeCodes.add(routeValue.toUpperCase());
 //            }
-//            collectValue(data, cardIdKey, cardIds);
-//        }
+            collectValue(data, cardIdKey, cardIds);
+        }
 
         String tenantId = InvocationInfoProxy.getTenantid();
         ValidateContext ctx = new ValidateContext();
