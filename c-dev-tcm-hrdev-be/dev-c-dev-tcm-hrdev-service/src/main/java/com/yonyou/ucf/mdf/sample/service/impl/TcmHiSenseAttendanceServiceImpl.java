@@ -422,6 +422,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         List<TcmBaTypeAttendanceData> baTypeAttendanceDataList = new ArrayList<>();
         // 按人员分组 将排序好的巴型转数放入集合，供更新考勤修正时计算巴型工时使用
         Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap = new HashMap<>();
+        // 收集缺失数据
+        List<String> missingCarNumbers = new ArrayList<>();
         Map<String, List<HiSenseAttendanceDataDTO>> groupedByEmployee = hiSenseDTOList.stream()
                 .filter(dto -> !StringUtil.isEmpty(parseEmployeeId(dto.getDrivername())))
                 .collect(Collectors.groupingBy(dto -> parseEmployeeId(dto.getDrivername())));
@@ -440,10 +442,15 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             for (HiSenseAttendanceDataDTO dto : dtoList) {
                 TcmBaTypeAttendanceData data = new TcmBaTypeAttendanceData();
 
-                data.setBuscard_id(data.getBusself_id());
+                data.setBuscard_id(dto.getBuscardid());
                 data.setYtenantId(tenantId);
                 data.setEmployee_id(staffId);
                 TCMCar tcmCar = stringTCMCarMap.get(dto.getBuscardid());
+                // 检查车辆信息：缺失则收集，跳过当前记录继续处理
+                if (tcmCar == null) {
+                    missingCarNumbers.add(dto.getBuscardid());
+                    continue;
+                }
                 data.setCar(tcmCar.getId());
                 // 空值检查：如果发车时间或到达时间为空，巴型转数设为0
                 BigDecimal busTransferTimes = BigDecimal.ZERO;
@@ -470,6 +477,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 baTypeMap.put(staffId, summary);
                 orderNo++;
             }
+        }
+
+        // 统一校验缺失数据，如果有缺失则抛出包含所有缺失信息的异常
+        if (!missingCarNumbers.isEmpty()) {
+            throw new RuntimeException("数据校验失败：\n车辆信息档案缺失，请先完善档案内容，缺失车牌号："
+                    + missingCarNumbers.stream().distinct().collect(Collectors.joining("、")));
         }
 
         baTypeAttendanceDataService.coverInsert(runDate, baTypeAttendanceDataList);
