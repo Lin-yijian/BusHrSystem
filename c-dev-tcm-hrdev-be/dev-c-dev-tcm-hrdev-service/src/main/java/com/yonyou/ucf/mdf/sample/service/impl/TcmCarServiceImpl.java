@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import io.edap.util.StringUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,7 @@ public class TcmCarServiceImpl implements TcmCarService {
         return groupCarMapByField(
                 busPlateNumberList,
                 TCMCar::getPlate_number,
-                "车牌号",
+                null,
                 (condition, list) -> condition.in(TCMCar::getPlate_number, list)
         );
     }
@@ -70,6 +71,9 @@ public class TcmCarServiceImpl implements TcmCarService {
         List<TCMCar> list = billRepository.queryByClause(carCondition);
 
         if (list.isEmpty()) {
+            if (StringUtil.isEmpty(fieldName)){
+                return new HashMap<>();
+            }
             throw new RuntimeException(String.format("车辆信息档案缺失，请先完善档案内容，%s：%s",
                     fieldName, String.join(", ", valueList)));
         }

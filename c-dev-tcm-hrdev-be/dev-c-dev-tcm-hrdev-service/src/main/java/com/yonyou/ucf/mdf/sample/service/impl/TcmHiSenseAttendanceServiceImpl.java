@@ -247,18 +247,26 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             data.setRun_date(runDate);
             // 标记为待处理，供 generate 查询更新修正
             data.setHandle_status(BaseEnum.TODO.getCode());
+            data.setCar_str(hiSenseData.getBuscardid());
+            data.setInternal_no(hiSenseData.getBusselfid());
 
             // 检查车辆信息
             TCMCar tcmCar = stringTCMCarMap.get(hiSenseData.getBuscardid());
-            if (tcmCar == null) {
-                missingCarNumbers.add(hiSenseData.getBuscardid());
+            if (null != tcmCar){
+                data.setCar(tcmCar.getId());
             }
+//            if (tcmCar == null) {
+//                missingCarNumbers.add(hiSenseData.getBuscardid());
+//            }
 
             // 检查路线信息
             TCMRoute tcmRoute = stringTCMRouteMap.get(hiSenseData.getRoutename());
-            if (tcmRoute == null) {
-                missingRouteNames.add(hiSenseData.getRoutename());
+            if (tcmRoute != null){
+                data.setRoute(tcmRoute.getId());
             }
+//            if (tcmRoute == null) {
+//                missingRouteNames.add(hiSenseData.getRoutename());
+//            }
 
             // 如果车辆或路线缺失，跳过当前数据处理，继续收集
 //            if (tcmCar == null || tcmRoute == null) {
@@ -837,7 +845,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         List<TCMRoute> list = billRepository.queryByClause(routeCondition);
 
         if (list.isEmpty()) {
-            throw new RuntimeException("路线信息档案缺失，请先完善档案内容，路线：" + routeNameList);
+//            throw new RuntimeException("路线信息档案缺失，请先完善档案内容，路线：" + routeNameList);
+            return new HashMap<>();
         }
 
         return list.stream().collect(Collectors.toMap(
