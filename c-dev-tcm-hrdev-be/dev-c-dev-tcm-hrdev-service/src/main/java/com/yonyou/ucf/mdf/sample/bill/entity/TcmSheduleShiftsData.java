@@ -39,7 +39,6 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     public static final String ONE_FINISH_TIME = "one_finish_time";
     public static final String GET_OUT_CAR = "get_out_car";
     public static final String CAR = "car";
-    public static final String TASK = "task";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -98,8 +97,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     private Integer get_out_car;
     /* 車牌號 */
     private String car;
-    /* 任務 */
-    private String task;
+
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -379,13 +377,7 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         return pubts;
     }
 
-    public String getTask() {
-        return task;
-    }
 
-    public void setTask(String task) {
-        this.task = task;
-    }
 
     public String getYtenantId() {
         return ytenantId;
