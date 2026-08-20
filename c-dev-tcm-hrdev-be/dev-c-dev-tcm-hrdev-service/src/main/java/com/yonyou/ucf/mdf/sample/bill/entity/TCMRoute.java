@@ -8,7 +8,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 路线管理
- * @Date 2026-07-10 11:38:12
+ * @Date 2026-08-20 10:23:34
  * @since 2023/11/28
  **/
 @YMSEntity(name = "TCMBaseInfo.TCMBaseInfo.TCMRoute", domain = "c-dev-tcm-hrdev")
@@ -19,6 +19,7 @@ public class TCMRoute extends SuperDO implements ICode,ILogicDelete {
     public static final String ROUTE_TYPE = "route_type";
     public static final String IS_NO_ROUTE = "is_no_route";
     public static final String IS_SPECIAL_ROUTE = "is_special_route";
+    public static final String STATION = "station";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -39,6 +40,8 @@ public class TCMRoute extends SuperDO implements ICode,ILogicDelete {
     private Boolean is_no_route;
     /* 是否特殊线路 */
     private Boolean is_special_route;
+    /* 所属总站 */
+    private String station;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -76,6 +79,10 @@ public class TCMRoute extends SuperDO implements ICode,ILogicDelete {
 
     public void setIs_special_route(Boolean is_special_route) {
         this.is_special_route = is_special_route;
+    }
+
+    public void setStation(String station) {
+        this.station = station;
     }
 
     public void setCode(String code) {
@@ -132,6 +139,10 @@ public class TCMRoute extends SuperDO implements ICode,ILogicDelete {
 
     public Boolean getIs_special_route() {
         return is_special_route;
+    }
+
+    public String getStation() {
+        return station;
     }
 
     public String getCode() {
