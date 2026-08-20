@@ -21,6 +21,23 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
     public static final String BUS_TRANSFER_TIMES = "bus_transfer_times";
     public static final String ORDER_NO = "order_no";
     public static final String CAR = "car";
+    public static final String ROUTE_NAME = "route_name";
+    public static final String SEGMENT_ID = "segment_id";
+    public static final String SEGMENT_NAME = "segment_name";
+    public static final String START_STATION_NAME = "start_station_name";
+    public static final String END_STATION_NAME = "end_station_name";
+    public static final String BUSSELF_ID = "busself_id";
+    public static final String BUSCARD_ID = "buscard_id";
+    public static final String DRIVER_NAME = "driver_name";
+    public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
+    public static final String LEAVE_TIME = "leave_time";
+    public static final String ARRIVE_TIME = "arrive_time";
+    public static final String REAL_LEAVE_TIME = "real_leave_time";
+    public static final String REAL_ARRIVE_TIME = "real_arrive_time";
+    public static final String IS_CONFIRM = "is_confirm";
+    public static final String FAKE_FLAG = "fake_flag";
+    public static final String TROUBLE_FLAG = "trouble_flag";
+    public static final String REC_STATE = "rec_state";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -41,6 +58,40 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
     private String order_no;
     /* 車輛 */
     private String car;
+    /* 线路名 */
+    private String route_name;
+    /* 方向ID */
+    private String segment_id;
+    /* 方向名称 */
+    private String segment_name;
+    /* 发车站点 */
+    private String start_station_name;
+    /* 到达站点 */
+    private String end_station_name;
+    /* 车号 */
+    private String busself_id;
+    /* 车牌 */
+    private String buscard_id;
+    /* 驾驶员 */
+    private String driver_name;
+    /* 澳巴工號 */
+    private String waybill_employee_id;
+    /* 调度发车时间 */
+    private Date leave_time;
+    /* 调度到达时间 */
+    private Date arrive_time;
+    /* 实际发车时间 */
+    private Date real_leave_time;
+    /* 实际到达时间 */
+    private Date real_arrive_time;
+    /* 是否已确认 */
+    private String is_confirm;
+    /* 烂班标识 */
+    private String fake_flag;
+    /* 故障标识 */
+    private String trouble_flag;
+    /* 车次执行状态（暂无用） */
+    private String rec_state;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -78,6 +129,74 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
 
     public void setCar(String car) {
         this.car = car;
+    }
+
+    public void setRoute_name(String route_name) {
+        this.route_name = route_name;
+    }
+
+    public void setSegment_id(String segment_id) {
+        this.segment_id = segment_id;
+    }
+
+    public void setSegment_name(String segment_name) {
+        this.segment_name = segment_name;
+    }
+
+    public void setStart_station_name(String start_station_name) {
+        this.start_station_name = start_station_name;
+    }
+
+    public void setEnd_station_name(String end_station_name) {
+        this.end_station_name = end_station_name;
+    }
+
+    public void setBusself_id(String busself_id) {
+        this.busself_id = busself_id;
+    }
+
+    public void setBuscard_id(String buscard_id) {
+        this.buscard_id = buscard_id;
+    }
+
+    public void setDriver_name(String driver_name) {
+        this.driver_name = driver_name;
+    }
+
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
+    }
+
+    public void setLeave_time(Date leave_time) {
+        this.leave_time = leave_time;
+    }
+
+    public void setArrive_time(Date arrive_time) {
+        this.arrive_time = arrive_time;
+    }
+
+    public void setReal_leave_time(Date real_leave_time) {
+        this.real_leave_time = real_leave_time;
+    }
+
+    public void setReal_arrive_time(Date real_arrive_time) {
+        this.real_arrive_time = real_arrive_time;
+    }
+
+    public void setIs_confirm(String is_confirm) {
+        this.is_confirm = is_confirm;
+    }
+
+    public void setFake_flag(String fake_flag) {
+        this.fake_flag = fake_flag;
+    }
+
+    public void setTrouble_flag(String trouble_flag) {
+        this.trouble_flag = trouble_flag;
+    }
+
+    public void setRec_state(String rec_state) {
+        this.rec_state = rec_state;
     }
 
     public void setCode(String code) {
@@ -134,6 +253,74 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
 
     public String getCar() {
         return car;
+    }
+
+    public String getRoute_name() {
+        return route_name;
+    }
+
+    public String getSegment_id() {
+        return segment_id;
+    }
+
+    public String getSegment_name() {
+        return segment_name;
+    }
+
+    public String getStart_station_name() {
+        return start_station_name;
+    }
+
+    public String getEnd_station_name() {
+        return end_station_name;
+    }
+
+    public String getBusself_id() {
+        return busself_id;
+    }
+
+    public String getBuscard_id() {
+        return buscard_id;
+    }
+
+    public String getDriver_name() {
+        return driver_name;
+    }
+
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
+    }
+
+    public Date getLeave_time() {
+        return leave_time;
+    }
+
+    public Date getArrive_time() {
+        return arrive_time;
+    }
+
+    public Date getReal_leave_time() {
+        return real_leave_time;
+    }
+
+    public Date getReal_arrive_time() {
+        return real_arrive_time;
+    }
+
+    public String getIs_confirm() {
+        return is_confirm;
+    }
+
+    public String getFake_flag() {
+        return fake_flag;
+    }
+
+    public String getTrouble_flag() {
+        return trouble_flag;
+    }
+
+    public String getRec_state() {
+        return rec_state;
     }
 
     public String getCode() {

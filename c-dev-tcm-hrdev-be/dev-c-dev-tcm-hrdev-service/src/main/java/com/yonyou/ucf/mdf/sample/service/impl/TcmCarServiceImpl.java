@@ -28,7 +28,7 @@ public class TcmCarServiceImpl implements TcmCarService {
         return groupCarMapByField(
                 busPlateNumberList,
                 TCMCar::getPlate_number,
-                null,
+                "车牌号",
                 (condition, list) -> condition.in(TCMCar::getPlate_number, list)
         );
     }

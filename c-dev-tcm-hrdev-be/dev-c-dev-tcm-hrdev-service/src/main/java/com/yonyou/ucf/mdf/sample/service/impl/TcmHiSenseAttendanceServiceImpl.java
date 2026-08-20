@@ -255,28 +255,28 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             if (null != tcmCar){
                 data.setCar(tcmCar.getId());
             }
-//            if (tcmCar == null) {
-//                missingCarNumbers.add(hiSenseData.getBuscardid());
-//            }
+            if (tcmCar == null) {
+                missingCarNumbers.add(hiSenseData.getBuscardid());
+            }
 
             // 检查路线信息
             TCMRoute tcmRoute = stringTCMRouteMap.get(hiSenseData.getRoutename());
             if (tcmRoute != null){
                 data.setRoute(tcmRoute.getId());
             }
-//            if (tcmRoute == null) {
-//                missingRouteNames.add(hiSenseData.getRoutename());
-//            }
+            if (tcmRoute == null) {
+                missingRouteNames.add(hiSenseData.getRoutename());
+            }
 
             // 如果车辆或路线缺失，跳过当前数据处理，继续收集
-//            if (tcmCar == null || tcmRoute == null) {
-//                continue;
-//            }
+            if (tcmCar == null || tcmRoute == null) {
+                continue;
+            }
 
             String staffId = staffIdMap.get(hiSenseData.getEmployeeId());
             data.setEmployee_id(staffId);
-//            data.setCar(tcmCar.getId());
-//            data.setRoute(tcmRoute.getId());
+            data.setCar(tcmCar.getId());
+            data.setRoute(tcmRoute.getId());
 
             // 车长假期工作
             TcmDriverHolidayWorkRecord driverHolidayWorkRecord = new TcmDriverHolidayWorkRecord();
@@ -291,18 +291,18 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         }
 
         // 统一校验缺失数据，如果有缺失则抛出包含所有缺失信息的异常
-//        if (!missingCarNumbers.isEmpty() || !missingRouteNames.isEmpty()) {
-//            StringBuilder errorMsg = new StringBuilder("数据校验失败：");
-//            if (!missingCarNumbers.isEmpty()) {
-//                errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
-//                        .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
-//            }
-//            if (!missingRouteNames.isEmpty()) {
-//                errorMsg.append("\n路线信息档案缺失，请先完善档案内容，缺失路线：")
-//                        .append(String.join("、", missingRouteNames.stream().distinct().collect(Collectors.toList())));
-//            }
-//            throw new RuntimeException(errorMsg.toString());
-//        }
+        if (!missingCarNumbers.isEmpty() || !missingRouteNames.isEmpty()) {
+            StringBuilder errorMsg = new StringBuilder("数据校验失败：");
+            if (!missingCarNumbers.isEmpty()) {
+                errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
+                        .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
+            }
+            if (!missingRouteNames.isEmpty()) {
+                errorMsg.append("\n路线信息档案缺失，请先完善档案内容，缺失路线：")
+                        .append(String.join("、", missingRouteNames.stream().distinct().collect(Collectors.toList())));
+            }
+            throw new RuntimeException(errorMsg.toString());
+        }
 
         // 以 run_date + employee_id 为标志分组统计，将统计数量放入对应分组对象的 count 字段
         Map<String, List<TcmHisenseAttendanceData>> countGroupMap = dataList.stream()
@@ -436,6 +436,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             for (HiSenseAttendanceDataDTO dto : dtoList) {
                 TcmBaTypeAttendanceData data = new TcmBaTypeAttendanceData();
 
+                data.setBuscard_id(data.getBusself_id());
                 data.setYtenantId(tenantId);
                 data.setEmployee_id(staffId);
                 TCMCar tcmCar = stringTCMCarMap.get(dto.getBuscardid());
