@@ -32,8 +32,8 @@ public class ImportValidateUtil {
      * 校验上下文：缓存批量查询结果
      */
     public static class ValidateContext {
-        public Map<String, TCMCar> carMap = Collections.emptyMap();
-        public Map<String, TCMRoute> routeMap = Collections.emptyMap();
+//        public Map<String, TCMCar> carMap = Collections.emptyMap();
+//        public Map<String, TCMRoute> routeMap = Collections.emptyMap();
         public Map<String, String> cardMap = Collections.emptyMap(); // cardId → employeeId
 
 
@@ -47,30 +47,30 @@ public class ImportValidateUtil {
                                            String carPlateKey,
                                            String routeCodeKey,
                                            String cardIdKey) {
-        Set<String> plateNumbers = new HashSet<>();
-        Set<String> routeCodes = new HashSet<>();
+//        Set<String> plateNumbers = new HashSet<>();
+//        Set<String> routeCodes = new HashSet<>();
         Set<String> cardIds = new HashSet<>();
 
 
-        for (ImportSingleData data : dataList) {
-//            collectValue(data, carPlateKey, plateNumbers);
-            String carValue = (String) data.getValueByKey(carPlateKey);
-            if (carValue != null && !carValue.isEmpty()) {
-                plateNumbers.add(normalizePlateNumber(carValue));
-            }
-
-//            collectValue(data, routeCodeKey, routeCodes);
-            String routeValue = (String) data.getValueByKey(routeCodeKey);
-            if (routeValue != null && !routeValue.isEmpty()) {
-                routeCodes.add(routeValue.toUpperCase());
-            }
-            collectValue(data, cardIdKey, cardIds);
-        }
+//        for (ImportSingleData data : dataList) {
+////            collectValue(data, carPlateKey, plateNumbers);
+//            String carValue = (String) data.getValueByKey(carPlateKey);
+//            if (carValue != null && !carValue.isEmpty()) {
+//                plateNumbers.add(normalizePlateNumber(carValue));
+//            }
+//
+////            collectValue(data, routeCodeKey, routeCodes);
+//            String routeValue = (String) data.getValueByKey(routeCodeKey);
+//            if (routeValue != null && !routeValue.isEmpty()) {
+//                routeCodes.add(routeValue.toUpperCase());
+//            }
+//            collectValue(data, cardIdKey, cardIds);
+//        }
 
         String tenantId = InvocationInfoProxy.getTenantid();
         ValidateContext ctx = new ValidateContext();
-        ctx.carMap = queryCars(plateNumbers, tenantId);
-        ctx.routeMap = queryRoutes(routeCodes, tenantId);
+//        ctx.carMap = queryCars(plateNumbers, tenantId);
+//        ctx.routeMap = queryRoutes(routeCodes, tenantId);
         ctx.cardMap = queryCards(cardIds, tenantId);
         return ctx;
     }
@@ -152,16 +152,17 @@ public class ImportValidateUtil {
 //            }
 //            data.getData().put(carIdKey, ctx.carMap.get(carPlateNum).getId());
 //        }
-        // 车辆（支持 e3432、E3432、3432 匹配同一辆车）
-        String carPlateNum = (String) data.getValueByKey(carPlateKey);
-        if (carPlateNum != null && !carPlateNum.isEmpty()) {
-            String normalizedPlate = normalizePlateNumber(carPlateNum);
-            if (!ctx.carMap.containsKey(normalizedPlate)) {
-                data.addImportError("車牌號【" + carPlateNum + "】在車輛檔案中不存在");
-                return;
-            }
-            data.getData().put(carIdKey, ctx.carMap.get(normalizedPlate).getId());
-        }
+
+//        // 车辆（支持 e3432、E3432、3432 匹配同一辆车）
+//        String carPlateNum = (String) data.getValueByKey(carPlateKey);
+//        if (carPlateNum != null && !carPlateNum.isEmpty()) {
+//            String normalizedPlate = normalizePlateNumber(carPlateNum);
+//            if (!ctx.carMap.containsKey(normalizedPlate)) {
+//                data.addImportError("車牌號【" + carPlateNum + "】在車輛檔案中不存在");
+//                return;
+//            }
+//            data.getData().put(carIdKey, ctx.carMap.get(normalizedPlate).getId());
+//        }
 
 
 //        // 路线
@@ -172,16 +173,17 @@ public class ImportValidateUtil {
 //            }
 //            data.getData().put(routeIdKey, ctx.routeMap.get(routeCode).getId());
 //        }
-        // 路线（支持大小写不敏感，如 8a → 8A）
-        String routeCode = (String) data.getValueByKey(routeCodeKey);
-        if (routeCode != null && !routeCode.isEmpty()) {
-            String upperRouteCode = routeCode.toUpperCase();
-            if (!ctx.routeMap.containsKey(upperRouteCode)) {
-                data.addImportError("路線編號【" + routeCode + "】在路線檔案中不存在");
-                return;
-            }
-            data.getData().put(routeIdKey, ctx.routeMap.get(upperRouteCode).getId());
-        }
+
+//        // 路线（支持大小写不敏感，如 8a → 8A）
+//        String routeCode = (String) data.getValueByKey(routeCodeKey);
+//        if (routeCode != null && !routeCode.isEmpty()) {
+//            String upperRouteCode = routeCode.toUpperCase();
+//            if (!ctx.routeMap.containsKey(upperRouteCode)) {
+//                data.addImportError("路線編號【" + routeCode + "】在路線檔案中不存在");
+//                return;
+//            }
+//            data.getData().put(routeIdKey, ctx.routeMap.get(upperRouteCode).getId());
+//        }
 
 
     }
