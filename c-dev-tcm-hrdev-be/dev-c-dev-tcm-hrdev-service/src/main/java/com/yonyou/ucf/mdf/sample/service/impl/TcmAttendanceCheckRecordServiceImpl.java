@@ -41,7 +41,8 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
     public void updateOrSaveRecords(Set<String> checkDateList, ModuleEnum moduleEnum, boolean isGood) {
 
         if (CollectionUtils.isEmpty(checkDateList)) {
-            throw new BusinessException("99", "日期参数不能为空");
+//            throw new BusinessException("99", "日期参数不能为空");
+            return;
         }
 
         String tenantId = InvocationInfoProxy.getTenantid();
@@ -75,7 +76,8 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
     @Override
     public void updateOrSaveRecord(String checkDate, ModuleEnum moduleEnum, boolean isGood) {
         if (StringUtil.isEmpty(checkDate)) {
-            throw new BusinessException("99", "日期参数不能为空");
+//            throw new BusinessException("99", "日期参数不能为空");
+            return;
         }
         String tenantId = InvocationInfoProxy.getTenantid();
 //        ModuleEnum moduleEnum = ModuleEnum.getByCode(module);
