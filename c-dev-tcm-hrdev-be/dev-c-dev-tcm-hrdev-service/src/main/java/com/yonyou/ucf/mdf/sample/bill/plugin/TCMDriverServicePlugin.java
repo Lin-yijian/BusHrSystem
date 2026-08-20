@@ -82,9 +82,10 @@ public class TCMDriverServicePlugin extends AbstractBillPlugin {
                 if (!indexMap.containsKey(indexCode)) {
                     data.addImportError("指標編號在指標檔案中不存在");
 //                    throw new RuntimeException("指標編號【" + indexCode + "】在指標檔案中不存在");
+                } else {
+                    data.getData().put(TCMDriverService.INDEX_NO, indexMap.get(indexCode).getId());
+                    data.getData().put(TCMDriverService.INDEX_DESC, indexMap.get(indexCode).getContent());
                 }
-                data.getData().put(TCMDriverService.INDEX_NO, indexMap.get(indexCode).getId());
-                data.getData().put(TCMDriverService.INDEX_DESC, indexMap.get(indexCode).getContent());
             }
         }
     }
