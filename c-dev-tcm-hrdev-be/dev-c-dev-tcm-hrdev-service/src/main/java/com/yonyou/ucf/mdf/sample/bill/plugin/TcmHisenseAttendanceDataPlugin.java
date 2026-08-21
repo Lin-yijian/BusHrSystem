@@ -27,13 +27,17 @@ public class TcmHisenseAttendanceDataPlugin extends AbstractBillPlugin {
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
-        TcmHisenseAttendanceData data = (TcmHisenseAttendanceData) billContext.getBillDO();
-        if (data == null) {
-            return;
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmHisenseAttendanceData) {
+            TcmHisenseAttendanceData data = (TcmHisenseAttendanceData) billDo;
+            String date = data.getRun_date();
+            if (date != null) {
+                service.refreshCorrectionFromLocalData(date, data.getEmployee_id());
+                calcTrigger.afterDataChanged(date, data.getEmployee_id());
+            }
         }
-        String date = data.getRun_date();
-        service.refreshCorrectionFromLocalData(date, data.getEmployee_id());
-        calcTrigger.afterDataChanged(date, data.getEmployee_id());
+
     }
 
     @Override

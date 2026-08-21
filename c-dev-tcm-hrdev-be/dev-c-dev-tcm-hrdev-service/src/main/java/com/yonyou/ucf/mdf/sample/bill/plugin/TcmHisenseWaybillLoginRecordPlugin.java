@@ -2,6 +2,7 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseWaybillLoginRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseWaybillLoginRecordService;
@@ -25,11 +26,17 @@ public class TcmHisenseWaybillLoginRecordPlugin extends AbstractBillPlugin {
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
-        TcmHisenseAttendanceData data = (TcmHisenseAttendanceData) billContext.getBillDO();
-        String date = data.getRun_date();
-        boolean existFlag = service.checkDataByDate(date);
-        if (!existFlag) {
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD, false);
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmHisenseWaybillLoginRecord) {
+            TcmHisenseWaybillLoginRecord data = (TcmHisenseWaybillLoginRecord) billDo;
+            String date = data.getDate();
+            if (date != null) {
+                boolean existFlag = service.checkDataByDate(date);
+                if (!existFlag) {
+                    tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD, false);
+                }
+            }
         }
     }
 
