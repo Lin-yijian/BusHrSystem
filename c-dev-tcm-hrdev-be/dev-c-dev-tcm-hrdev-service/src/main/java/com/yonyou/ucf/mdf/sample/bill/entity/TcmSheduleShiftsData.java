@@ -9,7 +9,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 排更數據
- * @Date 2026-08-13 11:08:19
+ * @Date 2026-08-21 15:00:22
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmSheduleShiftsData", domain = "c-dev-tcm-hrdev")
@@ -38,7 +38,8 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     public static final String TWO_DEPARTURE_TIME = "two_departure_time";
     public static final String ONE_FINISH_TIME = "one_finish_time";
     public static final String GET_OUT_CAR = "get_out_car";
-    public static final String CAR = "car";
+    public static final String ONE_CAR = "one_car";
+    public static final String TWO_CAR = "two_car";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -95,9 +96,10 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     private Date one_finish_time;
     /* 交取車次數 */
     private Integer get_out_car;
-    /* 車牌號 */
-    private String car;
-
+    /* 一更車牌 */
+    private String one_car;
+    /* 二更車牌 */
+    private String two_car;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -209,8 +211,12 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         this.get_out_car = get_out_car;
     }
 
-    public void setCar(String car) {
-        this.car = car;
+    public void setOne_car(String one_car) {
+        this.one_car = one_car;
+    }
+
+    public void setTwo_car(String two_car) {
+        this.two_car = two_car;
     }
 
     public void setCode(String code) {
@@ -341,8 +347,12 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
         return get_out_car;
     }
 
-    public String getCar() {
-        return car;
+    public String getOne_car() {
+        return one_car;
+    }
+
+    public String getTwo_car() {
+        return two_car;
     }
 
     public String getCode() {
@@ -376,8 +386,6 @@ public class TcmSheduleShiftsData extends SuperDO implements ICode,ILogicDelete 
     public Date getPubts() {
         return pubts;
     }
-
-
 
     public String getYtenantId() {
         return ytenantId;

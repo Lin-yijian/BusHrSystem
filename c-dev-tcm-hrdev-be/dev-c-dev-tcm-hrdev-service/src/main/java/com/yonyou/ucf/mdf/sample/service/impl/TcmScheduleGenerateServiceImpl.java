@@ -261,7 +261,6 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setDate(row.getDate());
         entity.setEmployee_id(row.getEmployee_id());
         entity.setTask_code(row.getTask_code());
-        entity.setCar(row.getCar());
         fillScheduleFields(entity, row, isFirst);
         return entity;
     }
@@ -278,10 +277,12 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         if (isFirst){
             entity.setDeparture_time(row.getDeparture_time());
             entity.setOne_early_line(row.getLine());
+            entity.setOne_car(row.getCar());
         }else {
             entity.setOne_finish_time(entity.getFinish_time());
             entity.setTwo_departure_time(row.getDeparture_time());
             entity.setTwo_early_line(row.getLine());
+            entity.setTwo_car(row.getCar());
 
             String timeDifference = DateUtil.getTimeDifference(entity.getOne_finish_time(), entity.getTwo_departure_time());
             String timeOut = "03:00"; // todo 待转参数
@@ -365,7 +366,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             vehicle_handover_count = vehicle_handover_count + 1;
         }
 
+        entity.setOne_license_plate(earlyRow.getCar());
+
         if (lateRow != null) {
+            entity.setTwo_license_plate(lateRow.getCar());
             entity.setPg_two_departure_time(lateRow.getDeparture_time());
             entity.setPg_two_return_time(lateRow.getFinish_time());
             entity.setJl_two_departure_time(lateRow.getDeparture_time());
