@@ -15,6 +15,7 @@ import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -274,15 +275,22 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     private void fillScheduleFields(TcmSheduleShiftsData entity, TcmWaybillSheduleShiftsData row, boolean isFirst) {
         entity.setWaybill_employee_id(row.getWaybill_employee_id());
         entity.setName(row.getDriver_name());
+        String taskCode = row.getTask_code() == null ? "" : row.getTask_code();
         if (isFirst){
+            // 任務為培訓或跟車培訓的，即任務=培訓/跟車培訓，要自動填寫发出時間10：00，收车时间18:30  ，用膳次數=1次 todo 待转参数
+            if (Objects.equals(taskCode,"培訓") || Objects.equals(taskCode,"跟車培訓")){
+                row.setDeparture_time(DateUtil.stringToDate(DateUtil.YYYY_MM_DD_HH_MM_SS,row.getDate() + " 10:00:00"));
+                row.setFinish_time(DateUtil.stringToDate(DateUtil.YYYY_MM_DD_HH_MM_SS,row.getDate() + " 18:30:00"));
+                row.setMeal_time(1);
+            }
             entity.setDeparture_time(row.getDeparture_time());
-            entity.setOne_early_line(row.getLine());
-            entity.setOne_car(row.getCar());
+            entity.setOne_early_line(row.getLine_str());
+            entity.setOne_car(row.getCar_num());
         }else {
             entity.setOne_finish_time(entity.getFinish_time());
             entity.setTwo_departure_time(row.getDeparture_time());
-            entity.setTwo_early_line(row.getLine());
-            entity.setTwo_car(row.getCar());
+            entity.setTwo_early_line(row.getLine_str());
+            entity.setTwo_car(row.getCar_num());
 
             String timeDifference = DateUtil.getTimeDifference(entity.getOne_finish_time(), entity.getTwo_departure_time());
             String timeOut = "03:00"; // todo 待转参数
@@ -305,7 +313,8 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             int i = entity.getMeal() + Optional.ofNullable(row.getMeal_time()).orElse(0);
             entity.setMeal(i);
         }
-        entity.setGet_out_car(countCarParkLocations(row));
+
+        entity.setGet_out_car(countParkingLotFields(row.getLine_str(), row.getGet_car(), row.getOut_car()));
 
 
 
@@ -314,14 +323,22 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
     /**
      * 判断郊区车次数
-     * @param row
+     * @param lineStr 路线名称
+     * @param getCar 取车点
+     * @param outCar 交车点
      * @return
      */
-    private Integer countCarParkLocations(TcmWaybillSheduleShiftsData row) {
-
+    private Integer countParkingLotFields(String lineStr, String getCar, String outCar) {
+        // 任務為N線 交取車次數=0
+        if (!StringUtils.isEmpty(lineStr)){
+            boolean isNRoute = lineStr.startsWith("N");
+            if (isNRoute){
+                return 0;
+            }
+        }
         List<String> parkKeyWords = Arrays.asList("車場", "车场"); // todo 待转参数
-        return (int) Stream.of(row.getGet_car(), row.getOut_car())
-                .filter(Objects::nonNull)
+        return (int) Stream.of(getCar, outCar)
+                .filter(text -> text != null && !text.trim().isEmpty())
                 .filter(text -> parkKeyWords.stream().anyMatch(text::contains))
                 .count();
     }
@@ -358,13 +375,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setJl_one_return_time(earlyRow.getFinish_time());
         entity.setShift_change_count(0);
         int mealCount = earlyRow.getMeal_time() == null ? 0 : earlyRow.getMeal_time();
-        int vehicle_handover_count = 0;
-        if (earlyRow.getOut_car().contains("車場")) {
-            vehicle_handover_count = vehicle_handover_count + 1;
-        }
-        if (earlyRow.getGet_car().contains("車場")) {
-            vehicle_handover_count = vehicle_handover_count + 1;
-        }
+        int vehicle_handover_count = countParkingLotFields(earlyRow.getLine_str(), earlyRow.getOut_car(), earlyRow.getGet_car());
 
         entity.setOne_license_plate(earlyRow.getCar());
 
@@ -377,14 +388,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             int lateMealCount = lateRow.getMeal_time() == null ? 0 : lateRow.getMeal_time();
             mealCount = mealCount + lateMealCount;
 
-            if (lateRow.getOut_car().contains("車場")) {
-                vehicle_handover_count = vehicle_handover_count + 1;
-            }
-            if (lateRow.getGet_car().contains("車場")) {
-                vehicle_handover_count = vehicle_handover_count + 1;
-            }
+            vehicle_handover_count = vehicle_handover_count + countParkingLotFields(lateRow.getLine_str(),lateRow.getOut_car(), lateRow.getGet_car());
 
-            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次
+            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次 todo 待转参数
             double hours = DateUtil.getHoursDiff(earlyRow.getFinish_time(), lateRow.getDeparture_time());
             if (hours >= 3.0) {
                 entity.setShift_change_count(1);
