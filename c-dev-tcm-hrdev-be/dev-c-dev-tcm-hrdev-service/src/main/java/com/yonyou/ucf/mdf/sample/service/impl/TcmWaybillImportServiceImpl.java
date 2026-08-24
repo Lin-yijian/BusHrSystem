@@ -99,7 +99,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                 errorRemark = "海信工號匹配失敗；";
             }
             if (data.getCar_num() == null){
-                errorRemark = errorRemark + "車輛編號缺失";
+                errorRemark = errorRemark + "車輛編號缺失；";
             }
 
             String key = buildDataKey(data);
@@ -313,6 +313,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                     // 将aList中的employeeId和employeeName复制到bList对应对象
                     bRecord.setEmployeeId(aRecord.getEmployeeId());
                     bRecord.setEmployeeName(aRecord.getEmployeeName());
+                    matched = true;
+                }else if (aRecord.getEmployeeId().equals(bRecord.getEmployeeId())){
                     matched = true;
                 }
             }
