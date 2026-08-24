@@ -13,6 +13,7 @@ import com.yonyou.ucf.mdf.sample.service.TcmRouteService;
 import com.yonyou.ucf.mdf.sample.service.TcmWaybillImportService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,8 +140,13 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         data.setTask_code(record.getTask());
         data.setWaybill_employee_id(record.getEmployeeId());
         data.setDriver_name(record.getEmployeeName());
-        data.setDeparture_time(com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate("yyyy-MM-dd HH:mm:ss",record.getRunTime()));
-        data.setFinish_time(com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate("yyyy-MM-dd HH:mm:ss",record.getBackTime()));
+        if (!StringUtils.isEmpty(record.getRunTime())){
+            data.setDeparture_time(com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate("yyyy-MM-dd HH:mm:ss",record.getRunTime()));
+        }
+        if (!StringUtils.isEmpty(record.getBackTime())){
+            data.setFinish_time(com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate("yyyy-MM-dd HH:mm:ss",record.getBackTime()));
+        }
+
         data.setLine_str(record.getRoute());
         try {
             data.setMeal_time(record.getDiningNum() != null && !record.getDiningNum().isEmpty() 
