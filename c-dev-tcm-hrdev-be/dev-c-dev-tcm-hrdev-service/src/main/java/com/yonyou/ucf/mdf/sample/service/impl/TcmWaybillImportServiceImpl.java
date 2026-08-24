@@ -43,15 +43,16 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> importWaybillExcel(MultipartFile file) throws Exception {
 
-        Map<String, TCMRoute> routeMap = routeService.getMap();
-        if (routeMap == null || routeMap.isEmpty()) {
-            throw new RuntimeException("路綫數據缺失，請先維護路綫信息！");
-        }
-        Set<String> sheetNameList = routeMap.keySet();
+//        Map<String, TCMRoute> routeMap = routeService.getMap();
+//        if (routeMap == null || routeMap.isEmpty()) {
+//            throw new RuntimeException("路綫數據缺失，請先維護路綫信息！");
+//        }
 
-        List<WaybillExcelRecordDTO> records = parseWaybillExcel(file, sheetNameList);
+        List<WaybillExcelRecordDTO> records = parseWaybillExcel(file);
 
-        return saveData(records,routeMap);
+//        return saveData(records,routeMap);
+        System.out.println(records);
+        return null;
 
     }
 
@@ -78,17 +79,20 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         List<TcmWaybillSheduleShiftsData> updateList = new ArrayList<>();
         for (WaybillExcelRecordDTO record : records) {
             String str = record.getRoute();
-            String routeCode = str.endsWith("(標準)")
-                    ? str.substring(0, str.length() - "(標準)".length())
-                    : str;
             TcmWaybillSheduleShiftsData data = changeData(record);
-            TCMRoute tcmRoute = routeMap.get(routeCode);
-            if (tcmRoute != null) {
-                data.setLine(tcmRoute.getId());
-            }
-            boolean flag = str.matches("(?i)^N.*");
-            if (flag) {
-                data.setShift("NM");
+            // Data工作表中未匹配的数据（route为空），跳过路线匹配
+            if (str != null) {
+                String routeCode = str.endsWith("(標準)")
+                        ? str.substring(0, str.length() - "(標準)".length())
+                        : str;
+                TCMRoute tcmRoute = routeMap.get(routeCode);
+                if (tcmRoute != null) {
+                    data.setLine(tcmRoute.getId());
+                }
+                boolean flag = str.matches("(?i)^N.*");
+                if (flag) {
+                    data.setShift("NM");
+                }
             }
             TCMCar tcmCar = carMap.get(record.getCarNumber());
             if (tcmCar != null) {
@@ -221,16 +225,20 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
     }
     /**
      * 解析派车单Excel文件
+     * 1. 先解析Data工作表：B1为日期，A2/B2/C2为标题行，数据从第3行开始，解析为aList
+     * 2. 循环除Data外的工作表：判断第二行（C2-U2合并格子）是否含有"線"，若是则解析正式数据为bList
+     * 3. 比对：bList中存在与aList相同task的数据时，从aList中删除
+     * 4. 合并剩余aList和bList为cList返回
      * @param file Excel文件
-     * @param sheetNameSet 需要处理的sheet名称集合
      * @return 解析后的派车单记录列表
      */
-    private List<WaybillExcelRecordDTO> parseWaybillExcel(MultipartFile file, Set<String> sheetNameSet) throws Exception {
-        List<WaybillExcelRecordDTO> records = new ArrayList<>();
+    private List<WaybillExcelRecordDTO> parseWaybillExcel(MultipartFile file) throws Exception {
+        List<WaybillExcelRecordDTO> aList = new ArrayList<>();
+        List<WaybillExcelRecordDTO> bList = new ArrayList<>();
         String baseDate = null;
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            // 从Data sheet获取日期数据（B1单元格）
+            // 1. 解析Data工作表：B1为日期，A2/B2/C2为标题行（任務/工號/姓名），数据从第3行开始
             Sheet dataSheet = workbook.getSheet("Data");
             if (dataSheet != null) {
                 Row firstRow = dataSheet.getRow(0);
@@ -238,14 +246,34 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                     Cell dateCell = firstRow.getCell(1);
                     baseDate = getCellDateValue(dateCell);
                 }
+
+                // 从第3行（索引2）开始读取A/B/C列数据
+                for (int rowIdx = 2; rowIdx <= dataSheet.getLastRowNum(); rowIdx++) {
+                    Row row = dataSheet.getRow(rowIdx);
+                    if (row == null) {
+                        continue;
+                    }
+
+                    String task = getCellValue(row.getCell(0));        // A列：任務
+                    String employeeId = getCellValue(row.getCell(1));    // B列：工號
+                    String employeeName = getCellValue(row.getCell(2)); // C列：姓名
+
+                    if (task == null || task.isEmpty()) {
+                        continue;
+                    }
+
+                    WaybillExcelRecordDTO record = new WaybillExcelRecordDTO();
+                    record.setTask(task);
+                    record.setEmployeeId(employeeId);
+                    record.setEmployeeName(employeeName);
+                    aList.add(record);
+                }
             }
 
+            // 2. 循环除了Data之外的工作表
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
                 String sheetName = workbook.getSheetName(i).trim();
-                String routeCode = sheetName.endsWith("(標準)")
-                        ? sheetName.substring(0, sheetName.length() - "(標準)".length())
-                        : sheetName;
-                if (!sheetNameSet.contains(routeCode)) {
+                if ("Data".equals(sheetName)) {
                     continue;
                 }
 
@@ -256,6 +284,16 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
                 List<CellRangeAddress> mergedRegions = sheet.getMergedRegions();
 
+                // 判断第二行数据是否含有"線"或等于"包車"（第二行处于C2-U2合并的格子中）
+                String routeValue = getCellValueWithMerged(sheet, 1, 2, mergedRegions);
+                if (routeValue == null || (!routeValue.contains("線") && !"包車".equals(routeValue))) {
+                    continue;
+                }
+
+                // N开头路线：只有C-U范围数据，shift设为NM，无晚更
+                boolean isNRoute = routeValue.startsWith("N");
+
+                // 解析正式数据（早更+晚更），逻辑与原方法一致
                 for (int rowIdx = 4; rowIdx <= sheet.getLastRowNum(); rowIdx++) {
                     Row row = sheet.getRow(rowIdx);
                     if (row == null) {
@@ -263,24 +301,43 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                     }
 
                     // 解析早更数据（C列到U列）
-                    WaybillExcelRecordDTO amRecord = parseAMRecord(sheet, rowIdx, sheetName, mergedRegions);
+                    WaybillExcelRecordDTO amRecord = parseAMRecord(sheet, rowIdx, routeValue, mergedRegions);
                     if (amRecord != null) {
-                        records.add(amRecord);
+                        // N开头路线：shift覆盖为NM
+                        if (isNRoute) {
+                            amRecord.setShift("NM");
+                        }
+                        bList.add(amRecord);
                     }
 
-                    // 解析晚更数据（V列到AN列）
-                    WaybillExcelRecordDTO pmRecord = parsePMRecord(sheet, rowIdx, sheetName, mergedRegions);
-                    if (pmRecord != null) {
-                        records.add(pmRecord);
+                    // N开头路线只有C-U范围数据，跳过晚更解析
+                    if (!isNRoute) {
+                        // 解析晚更数据（V列到AN列）
+                        WaybillExcelRecordDTO pmRecord = parsePMRecord(sheet, rowIdx, routeValue, mergedRegions);
+                        if (pmRecord != null) {
+                            bList.add(pmRecord);
+                        }
                     }
                 }
             }
         }
 
-        // 设置日期字段并处理时间格式
-        processDateTime(records, baseDate);
+        // 3. 比对aList和bList：bList中存在与aList相同task的数据时，从aList中删除
+        Set<String> bListTasks = bList.stream()
+                .map(WaybillExcelRecordDTO::getTask)
+                .filter(task -> task != null && !task.isEmpty())
+                .collect(Collectors.toSet());
+        aList.removeIf(record -> record.getTask() != null && bListTasks.contains(record.getTask()));
 
-        return records;
+        // 4. 合并剩余aList和bList为cList
+        List<WaybillExcelRecordDTO> cList = new ArrayList<>();
+        cList.addAll(aList);
+        cList.addAll(bList);
+
+        // 设置日期字段并处理时间格式
+        processDateTime(cList, baseDate);
+
+        return cList;
     }
 
     /**
