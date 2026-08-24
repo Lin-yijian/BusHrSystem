@@ -322,12 +322,29 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             }
         }
 
-        // 3. 比对aList和bList：bList中存在与aList相同task的数据时，从aList中删除
-        Set<String> bListTasks = bList.stream()
-                .map(WaybillExcelRecordDTO::getTask)
-                .filter(task -> task != null && !task.isEmpty())
-                .collect(Collectors.toSet());
-        aList.removeIf(record -> record.getTask() != null && bListTasks.contains(record.getTask()));
+        // 3. 比对aList和bList：bList中存在与aList相同task的数据时，
+        //    先将aList中的employeeId和employeeName复制到bList对应对象，再从aList中删除
+        Iterator<WaybillExcelRecordDTO> aIter = aList.iterator();
+        while (aIter.hasNext()) {
+            WaybillExcelRecordDTO aRecord = aIter.next();
+            if (aRecord.getTask() == null) {
+                continue;
+            }
+            boolean matched = false;
+            // 在bList中查找相同task的记录
+            for (WaybillExcelRecordDTO bRecord : bList) {
+                if (aRecord.getTask().equals(bRecord.getTask())) {
+                    // 将aList中的employeeId和employeeName复制到bList对应对象
+                    bRecord.setEmployeeId(aRecord.getEmployeeId());
+                    bRecord.setEmployeeName(aRecord.getEmployeeName());
+                    matched = true;
+                }
+            }
+            // 仅在bList中找到匹配时才从aList中删除
+            if (matched) {
+                aIter.remove();
+            }
+        }
 
         // 4. 合并剩余aList和bList为cList
         List<WaybillExcelRecordDTO> cList = new ArrayList<>();
