@@ -47,57 +47,28 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 //        if (routeMap == null || routeMap.isEmpty()) {
 //            throw new RuntimeException("路綫數據缺失，請先維護路綫信息！");
 //        }
-
         List<WaybillExcelRecordDTO> records = parseWaybillExcel(file);
-
-//        return saveData(records,routeMap);
-        System.out.println(records);
-        return null;
+        return saveData(records);
 
     }
 
 
-    private Map<String, Object> saveData(List<WaybillExcelRecordDTO> records, Map<String, TCMRoute> routeMap){
+    private Map<String, Object> saveData(List<WaybillExcelRecordDTO> records){
 
         String tenantId = InvocationInfoProxy.getTenantid();
-
-        Set<String> carNumberSet = new HashSet<>();
         Set<String> waybillEmployeeSet = new HashSet<>();
-
         for (WaybillExcelRecordDTO record : records) {
-            carNumberSet.add(record.getCarNumber());
             waybillEmployeeSet.add(record.getEmployeeId());
 
         }
-        Map<String, TCMCar> carMap = carService.groupCarMapByInternalNo(carNumberSet);
         Map<String, String> staffMap = commonUtil.getStaffByCardIds(waybillEmployeeSet, tenantId);
-
         String acDate = "1949-10-01";
 
         List<TcmWaybillSheduleShiftsData> dataList = new ArrayList<>();
         List<TcmWaybillSheduleShiftsData> insertList = new ArrayList<>();
         List<TcmWaybillSheduleShiftsData> updateList = new ArrayList<>();
         for (WaybillExcelRecordDTO record : records) {
-            String str = record.getRoute();
             TcmWaybillSheduleShiftsData data = changeData(record);
-            // Data工作表中未匹配的数据（route为空），跳过路线匹配
-            if (str != null) {
-                String routeCode = str.endsWith("(標準)")
-                        ? str.substring(0, str.length() - "(標準)".length())
-                        : str;
-                TCMRoute tcmRoute = routeMap.get(routeCode);
-                if (tcmRoute != null) {
-                    data.setLine(tcmRoute.getId());
-                }
-                boolean flag = str.matches("(?i)^N.*");
-                if (flag) {
-                    data.setShift("NM");
-                }
-            }
-            TCMCar tcmCar = carMap.get(record.getCarNumber());
-            if (tcmCar != null) {
-                data.setCar(tcmCar.getId());
-            }
             data.setEmployee_id(staffMap.get(record.getEmployeeId()));
             data.setYtenantId(tenantId);
             dataList.add(data);
@@ -124,10 +95,10 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             String errorRemark = "";
             // 記錄员工或车辆未匹配到的数据
             if (data.getEmployee_id() == null) {
-                errorRemark = "海信工號匹配失敗 ";
+                errorRemark = "海信工號匹配失敗；";
             }
-            if (data.getCar() == null){
-                errorRemark = errorRemark + " 車輛編號匹配失敗";
+            if (data.getCar_num() == null){
+                errorRemark = errorRemark + "車輛編號缺失";
             }
 
             String key = buildDataKey(data);
@@ -238,7 +209,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         String baseDate = null;
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            // 1. 解析Data工作表：B1为日期，A2/B2/C2为标题行（任務/工號/姓名），数据从第3行开始
+            // 解析Data工作表：B1为日期，A2/B2/C2为标题行（任務/工號/姓名），数据从第3行开始
             Sheet dataSheet = workbook.getSheet("Data");
             if (dataSheet != null) {
                 Row firstRow = dataSheet.getRow(0);
@@ -270,7 +241,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
                 }
             }
 
-            // 2. 循环除了Data之外的工作表
+            // 循环除了Data之外的工作表
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
                 String sheetName = workbook.getSheetName(i).trim();
                 if ("Data".equals(sheetName)) {
@@ -322,8 +293,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             }
         }
 
-        // 3. 比对aList和bList：bList中存在与aList相同task的数据时，
-        //    先将aList中的employeeId和employeeName复制到bList对应对象，再从aList中删除
+        // 比对aList和bList：bList中存在与aList相同task的数据时，先将aList中的employeeId和employeeName复制到bList对应对象，再从aList中删除
         Iterator<WaybillExcelRecordDTO> aIter = aList.iterator();
         while (aIter.hasNext()) {
             WaybillExcelRecordDTO aRecord = aIter.next();
@@ -346,7 +316,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             }
         }
 
-        // 4. 合并剩余aList和bList为cList
+        // 合并剩余aList和bList为cList
         List<WaybillExcelRecordDTO> cList = new ArrayList<>();
         cList.addAll(aList);
         cList.addAll(bList);
