@@ -46,7 +46,7 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             // 更新核对记录
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,false);
         }
     }
 
@@ -57,7 +57,7 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         String tenantId = InvocationInfoProxy.getTenantid();
 
         TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
 
     }
 
@@ -74,14 +74,16 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         );
 
         // 逐行校验
+        Set<String> dateSet = new HashSet<>();
         for (ImportSingleData data : dataList) {
             importDateUtil.validateRow(data, ctx,
                     TcmFuelGasDataRecord.NAME,
                     TcmFuelGasDataRecord.WAYBILL_EMPLOYEE_ID,
                     TcmFuelGasDataRecord.EMPLOYEE_ID
                     );
-
+            dateSet.add((String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE));
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD, true);
 
     }
 }

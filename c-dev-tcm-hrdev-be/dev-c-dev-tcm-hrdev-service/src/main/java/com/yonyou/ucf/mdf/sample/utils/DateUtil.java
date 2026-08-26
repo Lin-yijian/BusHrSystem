@@ -11,7 +11,10 @@ import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -352,6 +355,61 @@ public class DateUtil {
 
     public static boolean checkIsZeroTime(String timeStr) {
         return StringUtil.isEmpty(timeStr) || HH_MM_ZERO.equals(timeStr) || "0:00".equals(timeStr) || "00:00:00".equals(timeStr);
+    }
+
+    /**
+     * 将日期字符串归一为 yyyy-MM-dd。
+     * 兼容 yyyy-MM-dd、yyyy-MM-dd HH:mm:ss、yyyy/MM/dd、yyyyMMdd。
+     */
+    public static String normalizeToYyyyMmDd(String dateStr) {
+        if (dateStr == null) {
+            return null;
+        }
+        String s = dateStr.trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        s = s.replace('/', '-');
+        if (s.length() >= 10 && s.charAt(4) == '-' && s.charAt(7) == '-') {
+            String candidate = s.substring(0, 10);
+            if (candidate.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return candidate;
+            }
+        }
+        if (s.matches("\\d{8}")) {
+            return s.substring(0, 4) + "-" + s.substring(4, 6) + "-" + s.substring(6, 8);
+        }
+        return null;
+    }
+
+    /**
+     * 查询核对日期时同时匹配 yyyy-MM-dd 与带时分秒的写法，避免查不到已有记录。
+     */
+    public static Set<String> dateQueryVariants(String dateStr) {
+        Set<String> variants = new HashSet<>();
+        if (dateStr != null) {
+            String trimmed = dateStr.trim();
+            if (!trimmed.isEmpty()) {
+                variants.add(trimmed);
+            }
+        }
+        String normalized = normalizeToYyyyMmDd(dateStr);
+        if (normalized != null) {
+            variants.add(normalized);
+            variants.add(normalized + " 00:00:00");
+        }
+        return variants;
+    }
+
+    public static Set<String> dateQueryVariants(Collection<String> dates) {
+        Set<String> variants = new HashSet<>();
+        if (dates == null) {
+            return variants;
+        }
+        for (String date : dates) {
+            variants.addAll(dateQueryVariants(date));
+        }
+        return variants;
     }
 
 

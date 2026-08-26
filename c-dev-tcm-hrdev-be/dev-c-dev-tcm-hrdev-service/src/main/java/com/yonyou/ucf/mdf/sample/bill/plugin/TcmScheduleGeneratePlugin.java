@@ -13,7 +13,9 @@ import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @BillPlugin(busiObj = "tcmSheduleShiftsData")
 @Slf4j
@@ -40,7 +42,6 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
         }
         if (AttendanceCalcImportContext.isImporting()) {
             AttendanceCalcImportContext.collectSchedule(data);
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_SHEDULE_SHIFTS, true);
             calcTrigger.registerImportFlushAfterCommit();
             return;
         }
@@ -71,10 +72,14 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
         if (dataList == null) {
             return;
         }
+        Set<String> dateSet = new HashSet<>();
         for (ImportSingleData data : dataList) {
             if (data.getData() != null) {
-                AttendanceCalcImportContext.collectDate((String) data.getData().get("date"));
+                String date = (String) data.getData().get("date");
+                AttendanceCalcImportContext.collectDate(date);
+                dateSet.add(date);
             }
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_SHEDULE_SHIFTS, true);
     }
 }

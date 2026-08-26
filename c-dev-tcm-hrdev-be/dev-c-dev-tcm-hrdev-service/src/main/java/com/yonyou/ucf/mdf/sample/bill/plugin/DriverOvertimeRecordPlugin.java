@@ -23,8 +23,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 @BillPlugin(busiObj = "tcmDriverOvertimeRecord")
@@ -77,8 +79,9 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getOvertime_date(), ModuleEnum.TCM_DRIVER_OVERTIME,true);
-
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getOvertime_date(), ModuleEnum.TCM_DRIVER_OVERTIME, true);
+        }
     }
 
     @Override
@@ -109,6 +112,7 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
 
         List<String> dateList = new ArrayList<>();
+        Set<String> dateSet = new HashSet<>();
         List<String> employeeIdList = new ArrayList<>();
         for (ImportSingleData data : dataList) {
 
@@ -116,14 +120,14 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             String employee_id = staffByCardIds.get(waybill_employee_id);
             if (StringUtils.isEmpty(employee_id)){
                 data.addImportError("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
-//                throw new RuntimeException("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
             }
             data.getData().put("employee_id",employee_id);
             employeeIdList.add(employee_id);
             String overtime_date = (String) data.getData().get("overtime_date");
             dateList.add(overtime_date);
-
+            dateSet.add(overtime_date);
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_DRIVER_OVERTIME, true);
 
         try {
             // 插入考勤修正

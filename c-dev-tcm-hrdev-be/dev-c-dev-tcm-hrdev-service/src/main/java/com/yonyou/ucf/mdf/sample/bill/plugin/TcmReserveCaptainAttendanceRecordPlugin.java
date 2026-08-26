@@ -20,8 +20,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @BillPlugin(busiObj = "tcmReserveCaptainAttendanceRecord")
 @Slf4j
@@ -58,7 +60,9 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
+        }
     }
 
     @Override
@@ -90,6 +94,7 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
 
+        Set<String> dateSet = new HashSet<>();
         for (ImportSingleData data : dataList) {
             String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
             String employee_id = staffByCardIds.get(waybill_employee_id);
@@ -97,6 +102,8 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
                 data.addImportError("員工不存在，澳巴工號：【" + waybill_employee_id + "】");
             }
             data.getData().put("driver_no", employee_id);
+            dateSet.add((String) data.getData().get("date"));
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
     }
 }

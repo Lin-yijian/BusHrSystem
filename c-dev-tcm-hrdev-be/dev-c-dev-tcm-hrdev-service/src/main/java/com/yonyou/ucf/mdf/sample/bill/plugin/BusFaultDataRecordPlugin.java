@@ -49,7 +49,7 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             // 更新核对记录
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,false);
         }
     }
 
@@ -59,7 +59,7 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
 
         TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billContext.getBillDO();
         String date = data.getReport_date();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,true);
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,true);
 
     }
 
@@ -73,6 +73,7 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
                 TcmBusFaultDataRecord.WAYBILL_EMPLOYEE_ID
         );
 
+        Set<String> dateSet = new HashSet<>();
         for (ImportSingleData data : dataList) {
             importValidateUtil.validateRow(data, ctx,
                     TcmBusFaultDataRecord.CAPTAIN_NAME,
@@ -80,7 +81,9 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
                     TcmBusFaultDataRecord.CAR_PLATE_NUMBER, TcmBusFaultDataRecord.CAR,
                     TcmBusFaultDataRecord.ROUTE_ROUTE_CODE, TcmBusFaultDataRecord.ROUTE
             );
+            dateSet.add((String) data.getData().get(TcmBusFaultDataRecord.REPORT_DATE));
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD, true);
 //
 //        ImportValidateUtil.ValidateContext ctx = importDateUtil.collectAndQuerybd(
 //                dataList,

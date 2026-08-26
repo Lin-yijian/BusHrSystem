@@ -60,7 +60,7 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             // 更新核对记录
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,false);
         }
     }
 
@@ -76,7 +76,7 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             entity.setEmployee_id(staffId);
         }
         String date = entity.getDate();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
+        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,true);
 
     }
 
@@ -105,6 +105,7 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             dateList.add(date);
             employeeIdList.add(employee_id);
         }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(new HashSet<>(dateList), ModuleEnum.TCM_CONTROL_CENTER_LOG, true);
 
         try {
             // 插入考勤修正
