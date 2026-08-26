@@ -35,14 +35,14 @@ public class TcmVehicleDutyRecordPlugin extends AbstractBillPlugin {
 
         List<String> wayBillIds  = new ArrayList<>();
         for (ImportSingleData data : dataList) {
-            wayBillIds.add((String) data.getData().get("driver_no"));
+            wayBillIds.add((String) data.getData().get("waybill_employee_id"));
         }
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
 
         for (ImportSingleData data : dataList) {
 
-            String waybill_employee_id = (String) data.getData().get("driver_no");
+            String waybill_employee_id = (String) data.getData().get("waybill_employee_id");
             String employee_id = staffByCardIds.get(waybill_employee_id);
             if (StringUtils.isEmpty(employee_id)){
                 data.addImportError("員工不存在，澳巴工號：【"+waybill_employee_id+"】");
