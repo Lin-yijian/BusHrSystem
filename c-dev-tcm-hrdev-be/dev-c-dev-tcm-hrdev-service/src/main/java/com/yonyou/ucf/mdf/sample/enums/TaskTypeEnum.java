@@ -13,6 +13,7 @@ public enum TaskTypeEnum {
 
     /** 生成本地考勤 */
     HXKQ_MAKE("HXKQ_MAKE", "生成本地考勤"),
+    HXPG_MAKE("HXPG_MAKE", "生成休假記錄"),
 
     /** 拉取海信考勤數據 */
     HXKQ_SYNC("HXKQ_SYNC", "拉取海信考勤數據");

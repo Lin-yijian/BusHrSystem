@@ -3,9 +3,11 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
+import com.yonyou.ucf.mdf.sample.aop.SyncLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
@@ -46,6 +48,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @SyncLog(model = TaskTypeEnum.HXPG_MAKE)
     public void generateLeaveR(String ruleId,String date) {
         TcmLeaveRule rule = queryService.findById(TcmLeaveRule.ENTITY_NAME, ruleId);
         if (rule == null) {
