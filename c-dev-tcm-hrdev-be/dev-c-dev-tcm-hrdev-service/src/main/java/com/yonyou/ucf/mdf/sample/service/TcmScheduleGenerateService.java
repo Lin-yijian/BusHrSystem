@@ -20,4 +20,11 @@ public interface TcmScheduleGenerateService {
      * @throws Exception .
      */
     boolean checkDataByDate(String date) throws Exception;
+
+    /**
+     * 生成休假記錄
+     * @param ruleId
+     * @param date
+     */
+    void generateLeaveR(String ruleId,String date);
 }

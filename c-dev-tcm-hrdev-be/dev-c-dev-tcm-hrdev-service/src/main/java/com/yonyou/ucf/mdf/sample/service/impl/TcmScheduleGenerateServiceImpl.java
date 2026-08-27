@@ -3,9 +3,7 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
@@ -13,8 +11,8 @@ import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
+import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
-import io.edap.util.StringUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -37,12 +35,86 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     private CommonUtil commonUtil;
 
     @Autowired
+    protected IBillQueryRepository queryService;
+
+    @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
     private TcmAttendanceCalculationService calculationService;
 
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void generateLeaveR(String ruleId,String date) {
+        TcmLeaveRule rule = queryService.findById(TcmLeaveRule.ENTITY_NAME, ruleId);
+        if (rule == null) {
+            throw new RuntimeException("请至少选择一条规则进行匹配");
+        }
+        String original = rule.getOriginal();
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmWaybillSheduleShiftsData> dataList = queryWaybillData(date, original, tenantId);
+        if (dataList.isEmpty()) {
+            throw new RuntimeException("任务编码【" + original + "】下无排更数据，日期：" + date);
+        }
+
+        List<TcmLeaveRecord> list = new ArrayList<>();
+
+        java.time.LocalDate baseLocalDate;
+        try {
+            baseLocalDate = java.time.LocalDate.parse(date,
+                    java.time.format.DateTimeFormatter.ofPattern(DateUtil.YYYY_MM_DD));
+        } catch (Exception e) {
+            throw new RuntimeException("日期格式非法，应为 yyyy-MM-dd：" + date, e);
+        }
+        String effectiveMonth = baseLocalDate.format(
+                java.time.format.DateTimeFormatter.ofPattern(DateUtil.YYYY_MM));
+        String startDate = baseLocalDate.toString();
+        String endDate = baseLocalDate.toString();
+
+        for (TcmWaybillSheduleShiftsData data : dataList) {
+            String id = ymsOidGenerator.nextStrId();
+            TcmLeaveRecord record = new TcmLeaveRecord();
+            record.setId(id);
+            record.setWaybill_employee_id(data.getWaybill_employee_id());
+            record.setEmployee_id(data.getEmployee_id());
+            record.setDriver_name(data.getDriver_name());
+            record.setLeave_type(rule.getReference());
+            record.setWaybill_shedule(data.getId());
+            record.setStart_date(startDate);
+            record.setEffective_month(effectiveMonth);
+            record.setEnd_date(endDate);
+            record.setYtenantId(tenantId);
+            list.add(record);
+        }
+        billRepository.insert(list);
+
+        Map<String, List<TcmLeaveRecord>> leaveRecordMap = list.stream()
+                .filter(r -> r.getEmployee_id() != null && !r.getEmployee_id().isEmpty())
+                .collect(Collectors.groupingBy(TcmLeaveRecord::getEmployee_id));
+
+        // 查询该日期+任务编码下的考勤修正数据，通过员工维度将休假记录挂到修正单的缺勤子表
+        List<TcmAttendanceCorrection> correctionList = queryAttendanceCorrection(date, original, tenantId);
+        List<TcmAttendanceAbsenceDataRecord> recordList = new ArrayList<>();
+        for (TcmAttendanceCorrection correction : correctionList) {
+            List<TcmLeaveRecord> leaveRecords = leaveRecordMap.get(correction.getEmployee_id());
+            if (leaveRecords == null || leaveRecords.isEmpty()) {
+                continue;
+            }
+            for (TcmLeaveRecord leaveRecord : leaveRecords) {
+                String id = ymsOidGenerator.nextStrId();
+                TcmAttendanceAbsenceDataRecord record = new TcmAttendanceAbsenceDataRecord();
+                record.setId(id);
+                record.setForeignerKey(correction.getId());
+                record.setEntity(leaveRecord.getId());
+                record.setYtenantId(tenantId);
+                recordList.add(record);
+            }
+        }
+        if (!recordList.isEmpty()) {
+            billRepository.insert(recordList);
+        }
+    }
 
     @Override
     public boolean checkDataByDate(String date) throws Exception {
@@ -229,6 +301,32 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         return billRepository.queryByClause(condition);
     }
 
+    private List<TcmWaybillSheduleShiftsData> queryWaybillData(String date,String takeCode, String tenantId) {
+        LambdaQueryCondition<TcmWaybillSheduleShiftsData> condition = new LambdaQueryCondition<>(new TcmWaybillSheduleShiftsData());
+        condition.eq(TcmWaybillSheduleShiftsData::getDate, date)
+                .eq(TcmWaybillSheduleShiftsData::getTask_code, takeCode)
+                .eq(TcmWaybillSheduleShiftsData::getYtenantId, tenantId)
+                .eq(TcmWaybillSheduleShiftsData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(condition);
+    }
+
+    private List<TcmAttendanceCorrection> queryAttendanceCorrection(String date,String takeCode, String tenantId) {
+        LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        condition.eq(TcmAttendanceCorrection::getDate, date)
+                .eq(TcmAttendanceCorrection::getTask_code, takeCode)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(condition);
+    }
+
+    private List<TcmAttendanceAbsenceDataRecord> queryAttendanceAbsenceDataRecord(Collection<String> ids, String tenantId) {
+        LambdaQueryCondition<TcmAttendanceAbsenceDataRecord> condition = new LambdaQueryCondition<>(new TcmAttendanceAbsenceDataRecord());
+        condition.in(TcmAttendanceAbsenceDataRecord::getForeignerKey, ids)
+                .eq(TcmAttendanceAbsenceDataRecord::getYtenantId, tenantId)
+                .eq(TcmAttendanceAbsenceDataRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(condition);
+    }
+
     private List<TcmSheduleShiftsData> querySheduleShiftsData(String date, String tenantId) {
         LambdaQueryCondition<TcmSheduleShiftsData> condition = new LambdaQueryCondition<>(new TcmSheduleShiftsData());
         condition.eq(TcmSheduleShiftsData::getDate, date)
@@ -377,10 +475,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         int mealCount = earlyRow.getMeal_time() == null ? 0 : earlyRow.getMeal_time();
         int vehicle_handover_count = countParkingLotFields(earlyRow.getLine_str(), earlyRow.getOut_car(), earlyRow.getGet_car());
 
-        entity.setOne_license_plate(earlyRow.getCar());
+        entity.setOne_license_plate(earlyRow.getCar_num());
 
         if (lateRow != null) {
-            entity.setTwo_license_plate(lateRow.getCar());
+            entity.setTwo_license_plate(lateRow.getCar_num());
             entity.setPg_two_departure_time(lateRow.getDeparture_time());
             entity.setPg_two_return_time(lateRow.getFinish_time());
             entity.setJl_two_departure_time(lateRow.getDeparture_time());

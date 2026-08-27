@@ -183,11 +183,11 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         target.setTask_code(source.getTask_code());
         target.setWaybill_employee_id(source.getWaybill_employee_id());
         target.setDriver_name(source.getDriver_name());
-        target.setCar(source.getCar());
+//        target.setCar(source.getCar());
         target.setCar_num(source.getCar_num());
         target.setDeparture_time(source.getDeparture_time());
         target.setFinish_time(source.getFinish_time());
-        target.setLine(source.getLine());
+//        target.setLine(source.getLine());
         target.setParking_space(source.getParking_space());
         target.setMeal_time(source.getMeal_time());
         target.setGet_car(source.getGet_car());
