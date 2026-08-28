@@ -199,7 +199,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
             RestTemplate restTemplate = new RestTemplate();
             List<HiSenseLoginRecordDataDTO> allData = new ArrayList<>();
 
-            int pageNum = 1;
+            int pageNum = 0;
             int pageSize = 500;
             boolean hasMoreData = true;
 

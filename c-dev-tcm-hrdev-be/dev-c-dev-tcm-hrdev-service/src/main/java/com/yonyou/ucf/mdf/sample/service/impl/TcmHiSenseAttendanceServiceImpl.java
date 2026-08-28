@@ -892,7 +892,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             RestTemplate restTemplate = new RestTemplate();
             List<HiSenseAttendanceDataDTO> allData = new ArrayList<>();
 
-            int pageNum = 1;
+            int pageNum = 0;
             int pageSize = 1000;
             boolean hasMoreData = true;
             int maxRetries = 3;   // 单页请求最大重试次数
