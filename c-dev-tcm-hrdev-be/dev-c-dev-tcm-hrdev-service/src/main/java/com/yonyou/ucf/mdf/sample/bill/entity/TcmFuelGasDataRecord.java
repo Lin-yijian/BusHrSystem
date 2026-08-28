@@ -17,7 +17,7 @@ public class TcmFuelGasDataRecord extends SuperDO implements ICode,ILogicDelete 
     public static final String ENTITY_NAME = "TCMCaptainAttendance.CJ26030001.tcmFuelGasDataRecord";
     public static final String REFUEL_COUNT = "refuel_count";
     public static final String GAS_COUNT = "gas_count";
-    public static final String DRIVER_NO = "driver_no";
+//    public static final String DRIVER_NO = "driver_no";
     public static final String REMARK = "remark";
     public static final String ATTENDANCE_DATE = "attendance_date";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
@@ -37,8 +37,8 @@ public class TcmFuelGasDataRecord extends SuperDO implements ICode,ILogicDelete 
     private Integer refuel_count;
     /* 加氣次數 */
     private Integer gas_count;
-    /* 車長編號 */
-    private String driver_no;
+//    /* 車長編號 */
+//    private String driver_no;
     /* 備註 */
     private String remark;
     /* 考勤日期 */
@@ -76,9 +76,9 @@ public class TcmFuelGasDataRecord extends SuperDO implements ICode,ILogicDelete 
         this.gas_count = gas_count;
     }
 
-    public void setDriver_no(String driver_no) {
-        this.driver_no = driver_no;
-    }
+//    public void setDriver_no(String driver_no) {
+//        this.driver_no = driver_no;
+//    }
 
     public void setRemark(String remark) {
         this.remark = remark;
@@ -144,9 +144,9 @@ public class TcmFuelGasDataRecord extends SuperDO implements ICode,ILogicDelete 
         return gas_count;
     }
 
-    public String getDriver_no() {
-        return driver_no;
-    }
+//    public String getDriver_no() {
+//        return driver_no;
+//    }
 
     public String getRemark() {
         return remark;

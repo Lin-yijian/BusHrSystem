@@ -40,8 +40,7 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
     private String date;
     /* 工號 */
     private String employee_id;
-    /* 澳巴工號 */
-    private String driver_no;
+
     /* 澳巴工號 */
     private String waybill_employee_id;
     /* 姓名 */
@@ -87,9 +86,6 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
         this.employee_id = employee_id;
     }
 
-    public void setDriver_no(String driver_no) {
-        this.driver_no = driver_no;
-    }
 
     public void setDriver_name(String driver_name) {
         this.driver_name = driver_name;
@@ -159,12 +155,13 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
         this.ytenantId = ytenantId;
     }
 
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
+    }
 
-
-    //新增澳巴工號set get 方法
-    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
-    public String getWaybillEmployeeId(){return waybill_employee_id;}
-
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
+    }
 
     public String getDate() {
         return date;
@@ -172,10 +169,6 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
 
     public String getEmployee_id() {
         return employee_id;
-    }
-
-    public String getDriver_no() {
-        return driver_no;
     }
 
     public String getDriver_name() {
@@ -252,7 +245,6 @@ public class TcmDriverHolidayWorkRecord extends SuperDO implements ICode,ILogicD
         } else {
             return ENTITY_NAME;
         }
-
     }
 }
 

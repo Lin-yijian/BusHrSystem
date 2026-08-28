@@ -35,37 +35,37 @@ public class TCMcztrainingPlugin extends AbstractBillPlugin {
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 
-//        if (dataList == null || dataList.isEmpty()) {
-//            throw new RuntimeException("导入数据为空");
-//        }
+        if (dataList == null || dataList.isEmpty()) {
+            throw new RuntimeException("导入数据为空");
+        }
 
 
          List<String> wayBillIds  = new ArrayList<>();
-//         List<String> codeList = new ArrayList<>();
+         List<String> codeList = new ArrayList<>();
 
 
 
         for (ImportSingleData data : dataList) {
             wayBillIds.add((String) data.getData().get("waybill_employee_id"));
-
-//            codeList.add((String) data.getData().get("cz01_code"));
+            codeList.add((String) data.getData().get("cz01_code"));
         }
 
 
         Map<String, String> staffByCardIds = util.getStaffByCardIds(wayBillIds, tenantId);
-//        Map<String, String> staffByCodes = util.getStaffByCodes(codeList,tenantId);
+        Map<String, String> staffByCodes = util.getStaffByCodes(codeList,tenantId);
 
         for (ImportSingleData data : dataList) {
 
             String waybillEmployeeId = (String) data.getData().get("waybill_employee_id");
-//            String cz01Code = (String) data.getData().get("cz01_code");
+            String cz01Code = (String) data.getData().get("cz01_code");
             String employeeId = staffByCardIds.get(waybillEmployeeId);
-//
-//            if (StringUtils.isEmpty(employeeId)){
-//                employeeId = staffByCodes.get(cz01Code);
-//            }
+
             if (StringUtils.isEmpty(employeeId)){
-              throw new RuntimeException("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
+                employeeId = staffByCodes.get(cz01Code);
+            }
+            if (StringUtils.isEmpty(employeeId)){
+                data.addImportError("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
+//              throw new RuntimeException("員工不存在，澳巴工號：【"+waybillEmployeeId+"】");
 
             }
 

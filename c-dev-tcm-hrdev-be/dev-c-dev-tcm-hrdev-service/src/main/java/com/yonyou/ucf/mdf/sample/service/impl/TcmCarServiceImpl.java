@@ -6,13 +6,11 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import io.edap.util.StringUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -26,7 +24,7 @@ public class TcmCarServiceImpl implements TcmCarService {
 
 
     @Override
-    public Map<String, TCMCar> groupCarMapByPlateNumber(List<String> busPlateNumberList) {
+    public Map<String, TCMCar> groupCarMapByPlateNumber(Collection<String> busPlateNumberList) {
         return groupCarMapByField(
                 busPlateNumberList,
                 TCMCar::getPlate_number,
@@ -36,7 +34,7 @@ public class TcmCarServiceImpl implements TcmCarService {
     }
 
     @Override
-    public Map<String, TCMCar> groupCarMapByInternalNo(List<String> busInternalNoList) {
+    public Map<String, TCMCar> groupCarMapByInternalNo(Collection<String> busInternalNoList) {
         return groupCarMapByField(
                 busInternalNoList,
                 TCMCar::getInternal_no,
@@ -54,10 +52,10 @@ public class TcmCarServiceImpl implements TcmCarService {
      * @return 字段值->车辆实体 的Map
      */
     private Map<String, TCMCar> groupCarMapByField(
-            List<String> valueList,
+            Collection<String> valueList,
             Function<TCMCar, String> fieldGetter,
             String fieldName,
-            BiConsumer<LambdaQueryCondition<TCMCar>, List<String>> conditionBuilder) {
+            BiConsumer<LambdaQueryCondition<TCMCar>, Collection<String>> conditionBuilder) {
 
         if (valueList == null || valueList.isEmpty()) {
             return new HashMap<>();
@@ -73,6 +71,9 @@ public class TcmCarServiceImpl implements TcmCarService {
         List<TCMCar> list = billRepository.queryByClause(carCondition);
 
         if (list.isEmpty()) {
+            if (StringUtil.isEmpty(fieldName)){
+                return new HashMap<>();
+            }
             throw new RuntimeException(String.format("车辆信息档案缺失，请先完善档案内容，%s：%s",
                     fieldName, String.join(", ", valueList)));
         }

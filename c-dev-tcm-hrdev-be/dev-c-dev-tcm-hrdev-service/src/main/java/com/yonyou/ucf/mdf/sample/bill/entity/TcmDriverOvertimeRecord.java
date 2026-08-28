@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 車長超時工作記錄(tcmDriverOvertimeRecord)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -19,10 +20,8 @@ public class TcmDriverOvertimeRecord extends SuperDO implements ICode,ILogicDele
     public static final String OVERTIME_DATE = "overtime_date";
     public static final String TASK_NO = "task_no";
     public static final String OVERTIME_HOURS = "overtime_hours";
-    public static final String DRIVER_NO = "driver_no";
     public static final String EMPLOYEE_ID = "employee_id";
     public static final String BUS_PLATE_NO = "bus_plate_no";
-    public static final String DRIVER_NAME = "driver_name";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String SCHEDULE_END_TIME = "schedule_end_time";
     public static final String ACTUAL_END_TIME = "actual_end_time";
@@ -52,13 +51,9 @@ public class TcmDriverOvertimeRecord extends SuperDO implements ICode,ILogicDele
     /* 加班時間 */
     private String overtime_hours;
     /* 車長工號 */
-    private String driver_no;
-    /* 車長工號 */
     private String employee_id;
     /* 巴士車號 */
     private String bus_plate_no;
-    /* 車長姓名 */
-    private String driver_name;
     /* 澳巴工号 */
     private String waybill_employee_id;
     /* 編定下班時間 */
@@ -114,20 +109,12 @@ public class TcmDriverOvertimeRecord extends SuperDO implements ICode,ILogicDele
         this.overtime_hours = overtime_hours;
     }
 
-    public void setDriver_no(String driver_no) {
-        this.driver_no = driver_no;
-    }
-
     public void setEmployee_id(String employee_id) {
         this.employee_id = employee_id;
     }
 
     public void setBus_plate_no(String bus_plate_no) {
         this.bus_plate_no = bus_plate_no;
-    }
-
-    public void setDriver_name(String driver_name) {
-        this.driver_name = driver_name;
     }
 
     public void setWaybill_employee_id(String waybill_employee_id) {
@@ -222,20 +209,12 @@ public class TcmDriverOvertimeRecord extends SuperDO implements ICode,ILogicDele
         return overtime_hours;
     }
 
-    public String getDriver_no() {
-        return driver_no;
-    }
-
     public String getEmployee_id() {
         return employee_id;
     }
 
     public String getBus_plate_no() {
         return bus_plate_no;
-    }
-
-    public String getDriver_name() {
-        return driver_name;
     }
 
     public String getWaybill_employee_id() {

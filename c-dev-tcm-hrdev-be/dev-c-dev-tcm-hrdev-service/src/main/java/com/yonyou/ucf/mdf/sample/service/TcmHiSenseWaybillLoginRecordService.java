@@ -23,6 +23,15 @@ public interface TcmHiSenseWaybillLoginRecordService {
      * @param actDate 业务日期
      */
     void removeByActDate(String actDate);
-    
+
+
+
+    /**
+     * 根据日期查询数据是否存在
+     * @param actDate 日期 yyyy-MM-dd
+     * @return true 存在
+     * @throws Exception .
+     */
+    boolean checkDataByDate(String actDate);
     
 }

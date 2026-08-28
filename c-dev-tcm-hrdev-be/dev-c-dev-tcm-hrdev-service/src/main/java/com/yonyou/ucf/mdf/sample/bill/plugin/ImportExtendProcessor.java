@@ -22,7 +22,7 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
     private final Map<String, BiConsumer<ImportBatchData, ImportEventBO>> strategyMap = new HashMap<>();
 
     @Autowired
-    public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecord p2, DriverOvertimeRecordPlugin p3,
+    public void initStrategies(TCMDriverServicePlugin p1, BusFaultDataRecordPlugin p2, DriverOvertimeRecordPlugin p3,
                                TcmAbsenceDataRecordPlugin p4, TcmControlCenterLogPlugin p5, TCMDriverSafePlugin p6,
                                TCMTrafficAccidentPlugin p7,
                                TCMgsPlugin p8,
@@ -33,7 +33,10 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
                                TcmVehicleDutyRecordPlugin p13,
                                TCMcztrainingPlugin p14,
                                TcmFuelGasDataRecordPlugin p15,
-                               TcmDriverHolidayWorkRecordPlugin p16) {
+                               TcmReserveCaptainAttendanceRecordPlugin p16,
+                               TcmLeaveRecordPlugin p17,
+                               TcmScheduleGeneratePlugin p18,
+                               TcmDriverHolidayWorkRecordPlugin p19) {
         strategyMap.put("TCMDriverService", p1::beforeTranslate);
         strategyMap.put("tcmBusFaultDataRecord", p2::beforeTranslate);
         strategyMap.put("tcmDriverOvertimeRecord", p3::beforeTranslate);
@@ -50,8 +53,14 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
         strategyMap.put("tcmVehicleDutyRecord", p13::beforeTranslate);
         strategyMap.put("TCMcztraining", p14::beforeTranslate);
 
-        strategyMap.put("tcmFuelGasDataRecord",p15::beforeTranslate);
-        strategyMap.put("tcmDriverHolidayWorkRecord",p16::beforeTranslate);
+        strategyMap.put("tcmFuelGasDataRecord", p15::beforeTranslate);
+
+        strategyMap.put("tcmReserveCaptainAttendanceRecord", p16::beforeTranslate);
+        strategyMap.put("tcmLeaveRecord", p17::beforeTranslate);
+
+        // 需触发考勤计算的导入
+        strategyMap.put("tcmSheduleShiftsData", p18::beforeTranslate);
+        strategyMap.put("tcmDriverHolidayWorkRecord", p19::beforeTranslate);
     }
 
     @Override

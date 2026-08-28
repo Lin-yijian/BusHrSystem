@@ -29,6 +29,22 @@ public class TcmHiSenseAttendanceController {
     }
 
 
+    @GetMapping("/syncBaType")
+    public ResponseEntity<?> syncBaType(@RequestParam(defaultValue = "",value = "runDate") String runDate) {
+
+        service.syncBaType(runDate);
+        return ResponseUtil.success("成功获取海信数据");
+    }
+
+
+    @GetMapping("/generate")
+    public ResponseEntity<?> generate(@RequestParam(defaultValue = "",value = "runDate") String runDate) {
+
+        service.generate(runDate);
+        return ResponseUtil.success("成功生成本地考勤");
+    }
+
+
     @GetMapping("/count")
     public ResponseEntity<?> count(@RequestParam String runDate) {
 

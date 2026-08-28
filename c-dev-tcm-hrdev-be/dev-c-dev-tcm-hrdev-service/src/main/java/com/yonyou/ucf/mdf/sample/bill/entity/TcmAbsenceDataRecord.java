@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 缺勤數據記錄(tcmAbsenceDataRecord)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -16,24 +17,23 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete {
     public static final String ENTITY_NAME = "TCMCaptainAttendance.CJ26030001.tcmAbsenceDataRecord";
     public static final String DATE = "date";
-    public static final String AIRCRAFT_POSITION = "aircraft_position";
-    public static final String ACTUAL_HANDOVER_STATUS = "actual_handover_status";
-    public static final String REASON = "reason";
-    public static final String SCHEDULED_HANDOVER_STATUS = "scheduled_handover_status";
-    public static final String IS_NOTIFIED = "is_notified";
-    public static final String OCC_LEADER = "occ_leader";
-    public static final String DRIVER_NO = "driver_no";
+    public static final String TIME = "time";
     public static final String EMPLOYEE_ID = "employee_id";
-    public static final String AFFECTED_DRIVER_NO = "affected_driver_no";
-    public static final String REPLACEMENT_DRIVER = "replacement_driver";
-    public static final String AFFECTED_DRIVER_NAME = "affected_driver_name";
     public static final String DRIVER_NAME = "driver_name";
     public static final String POSITION_NO = "position_no";
-    public static final String TIME = "time";
-    public static final String AFFECTED_DRIVER_PHONE = "affected_driver_phone";
     public static final String ABSENCE_CATEGORY = "absence_category";
     public static final String IS_REST_DAY = "is_rest_day";
+    public static final String AIRCRAFT_POSITION = "aircraft_position";
+    public static final String REASON = "reason";
+    public static final String REPLACEMENT_DRIVER = "replacement_driver";
+    public static final String AFFECTED_DRIVER_NO = "affected_driver_no";
+    public static final String AFFECTED_DRIVER_NAME = "affected_driver_name";
+    public static final String SCHEDULED_HANDOVER_STATUS = "scheduled_handover_status";
+    public static final String ACTUAL_HANDOVER_STATUS = "actual_handover_status";
     public static final String NIGHT_SHIFT_ALLOWANCE = "night_shift_allowance";
+    public static final String IS_NOTIFIED = "is_notified";
+    public static final String OCC_LEADER = "occ_leader";
+    public static final String AFFECTED_DRIVER_PHONE = "affected_driver_phone";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
@@ -47,42 +47,40 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
 
     /* 日期 */
     private String date;
-    /* 飛機位 */
-    private String aircraft_position;
-    /* 實際交接情況 */
-    private String actual_handover_status;
-    /* 原因 */
-    private String reason;
-    /* 編定交接情況 */
-    private String scheduled_handover_status;
-    /* 已通知 */
-    private Boolean is_notified;
-    /* OCC組長 */
-    private String occ_leader;
-    /* 車長編號 */
-    private String driver_no;
+    /* 時間 */
+    private String time;
     /* 車長工號 */
     private String employee_id;
-    /* 交接車受影響車長編號 */
-    private String affected_driver_no;
-    /* 頂替車長 */
-    private String replacement_driver;
-    /* 交接車受影響車長姓名 */
-    private String affected_driver_name;
     /* 車長姓名 */
     private String driver_name;
     /* 職務編號 */
     private String position_no;
-    /* 時間 */
-    private String time;
-    /* 受影響車長電話 */
-    private String affected_driver_phone;
     /* 缺勤類別 */
     private String absence_category;
     /* 是否休息日 */
     private Boolean is_rest_day;
+    /* 飛機位 */
+    private String aircraft_position;
+    /* 原因 */
+    private String reason;
+    /* 頂替車長 */
+    private String replacement_driver;
+    /* 交接車受影響車長編號 */
+    private String affected_driver_no;
+    /* 交接車受影響車長姓名 */
+    private String affected_driver_name;
+    /* 編定交接情況 */
+    private String scheduled_handover_status;
+    /* 實際交接情況 */
+    private String actual_handover_status;
     /* 夜更津貼 */
     private BigDecimal night_shift_allowance;
+    /* 已通知 */
+    private Boolean is_notified;
+    /* OCC組長 */
+    private String occ_leader;
+    /* 受影響車長電話 */
+    private String affected_driver_phone;
     /* 海信工號 */
     private String waybill_employee_id;
     /* 编码 */
@@ -108,48 +106,12 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
         this.date = date;
     }
 
-    public void setAircraft_position(String aircraft_position) {
-        this.aircraft_position = aircraft_position;
-    }
-
-    public void setActual_handover_status(String actual_handover_status) {
-        this.actual_handover_status = actual_handover_status;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
-
-    public void setScheduled_handover_status(String scheduled_handover_status) {
-        this.scheduled_handover_status = scheduled_handover_status;
-    }
-
-    public void setIs_notified(Boolean is_notified) {
-        this.is_notified = is_notified;
-    }
-
-    public void setOcc_leader(String occ_leader) {
-        this.occ_leader = occ_leader;
-    }
-
-    public void setDriver_no(String driver_no) {
-        this.driver_no = driver_no;
+    public void setTime(String time) {
+        this.time = time;
     }
 
     public void setEmployee_id(String employee_id) {
         this.employee_id = employee_id;
-    }
-
-    public void setAffected_driver_no(String affected_driver_no) {
-        this.affected_driver_no = affected_driver_no;
-    }
-
-    public void setReplacement_driver(String replacement_driver) {
-        this.replacement_driver = replacement_driver;
-    }
-
-    public void setAffected_driver_name(String affected_driver_name) {
-        this.affected_driver_name = affected_driver_name;
     }
 
     public void setDriver_name(String driver_name) {
@@ -160,14 +122,6 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
         this.position_no = position_no;
     }
 
-    public void setTime(String time) {
-        this.time = time;
-    }
-
-    public void setAffected_driver_phone(String affected_driver_phone) {
-        this.affected_driver_phone = affected_driver_phone;
-    }
-
     public void setAbsence_category(String absence_category) {
         this.absence_category = absence_category;
     }
@@ -176,8 +130,48 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
         this.is_rest_day = is_rest_day;
     }
 
+    public void setAircraft_position(String aircraft_position) {
+        this.aircraft_position = aircraft_position;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public void setReplacement_driver(String replacement_driver) {
+        this.replacement_driver = replacement_driver;
+    }
+
+    public void setAffected_driver_no(String affected_driver_no) {
+        this.affected_driver_no = affected_driver_no;
+    }
+
+    public void setAffected_driver_name(String affected_driver_name) {
+        this.affected_driver_name = affected_driver_name;
+    }
+
+    public void setScheduled_handover_status(String scheduled_handover_status) {
+        this.scheduled_handover_status = scheduled_handover_status;
+    }
+
+    public void setActual_handover_status(String actual_handover_status) {
+        this.actual_handover_status = actual_handover_status;
+    }
+
     public void setNight_shift_allowance(BigDecimal night_shift_allowance) {
         this.night_shift_allowance = night_shift_allowance;
+    }
+
+    public void setIs_notified(Boolean is_notified) {
+        this.is_notified = is_notified;
+    }
+
+    public void setOcc_leader(String occ_leader) {
+        this.occ_leader = occ_leader;
+    }
+
+    public void setAffected_driver_phone(String affected_driver_phone) {
+        this.affected_driver_phone = affected_driver_phone;
     }
 
     public void setWaybill_employee_id(String waybill_employee_id) {
@@ -224,48 +218,12 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
         return date;
     }
 
-    public String getAircraft_position() {
-        return aircraft_position;
-    }
-
-    public String getActual_handover_status() {
-        return actual_handover_status;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public String getScheduled_handover_status() {
-        return scheduled_handover_status;
-    }
-
-    public Boolean getIs_notified() {
-        return is_notified;
-    }
-
-    public String getOcc_leader() {
-        return occ_leader;
-    }
-
-    public String getDriver_no() {
-        return driver_no;
+    public String getTime() {
+        return time;
     }
 
     public String getEmployee_id() {
         return employee_id;
-    }
-
-    public String getAffected_driver_no() {
-        return affected_driver_no;
-    }
-
-    public String getReplacement_driver() {
-        return replacement_driver;
-    }
-
-    public String getAffected_driver_name() {
-        return affected_driver_name;
     }
 
     public String getDriver_name() {
@@ -276,14 +234,6 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
         return position_no;
     }
 
-    public String getTime() {
-        return time;
-    }
-
-    public String getAffected_driver_phone() {
-        return affected_driver_phone;
-    }
-
     public String getAbsence_category() {
         return absence_category;
     }
@@ -292,8 +242,48 @@ public class TcmAbsenceDataRecord extends SuperDO implements ICode,ILogicDelete 
         return is_rest_day;
     }
 
+    public String getAircraft_position() {
+        return aircraft_position;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public String getReplacement_driver() {
+        return replacement_driver;
+    }
+
+    public String getAffected_driver_no() {
+        return affected_driver_no;
+    }
+
+    public String getAffected_driver_name() {
+        return affected_driver_name;
+    }
+
+    public String getScheduled_handover_status() {
+        return scheduled_handover_status;
+    }
+
+    public String getActual_handover_status() {
+        return actual_handover_status;
+    }
+
     public BigDecimal getNight_shift_allowance() {
         return night_shift_allowance;
+    }
+
+    public Boolean getIs_notified() {
+        return is_notified;
+    }
+
+    public String getOcc_leader() {
+        return occ_leader;
+    }
+
+    public String getAffected_driver_phone() {
+        return affected_driver_phone;
     }
 
     public String getWaybill_employee_id() {

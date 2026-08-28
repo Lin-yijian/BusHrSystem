@@ -16,7 +16,6 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
     public static final String ENTITY_NAME = "TCMCaptainAttendance.CJ26030001.tcmHisenseWaybillLoginRecord";
     public static final String DATE = "date";
     public static final String DRIVER_NAME = "driver_name";
-    public static final String HISENSE_WAYBILL_NO = "hisense_waybill_no";
     public static final String WAYBILL_EMPLOYEE_ID = "waybill_employee_id";
     public static final String CAR = "car";
     public static final String VEHICLE_NO = "vehicle_no";
@@ -37,8 +36,6 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
     private String date;
     /* 姓名 */
     private String driver_name;
-    /* 海信/Waybill工號 */
-    private String hisense_waybill_no;
     /* 海信/Waybill工號 */
     private String waybill_employee_id;
     /* 車輛 */
@@ -78,9 +75,6 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
         this.driver_name = driver_name;
     }
 
-    public void setHisense_waybill_no(String hisense_waybill_no) {
-        this.hisense_waybill_no = hisense_waybill_no;
-    }
 
     public void setCar(String car) {
         this.car = car;
@@ -138,11 +132,13 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
         this.ytenantId = ytenantId;
     }
 
-    //新增澳巴工號set get 方法
-    public void setWaybillEmployeeId(String waybillEmployeeId){this.waybill_employee_id = waybillEmployeeId;}
-    public String getWaybillEmployeeId(){return waybill_employee_id;}
+    public String getWaybill_employee_id() {
+        return waybill_employee_id;
+    }
 
-
+    public void setWaybill_employee_id(String waybill_employee_id) {
+        this.waybill_employee_id = waybill_employee_id;
+    }
 
     public String getDate() {
         return date;
@@ -150,10 +146,6 @@ public class TcmHisenseWaybillLoginRecord extends SuperDO implements ICode,ILogi
 
     public String getDriver_name() {
         return driver_name;
-    }
-
-    public String getHisense_waybill_no() {
-        return hisense_waybill_no;
     }
 
     public String getCar() {
