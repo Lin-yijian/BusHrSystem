@@ -11,10 +11,12 @@ import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
+import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
+@Slf4j
 public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateService {
 
     @Autowired
@@ -45,11 +48,47 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     @Autowired
     private TcmAttendanceCalculationService calculationService;
 
+    @Autowired
+    private TcmSyncLogService tcmSyncLogService;
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     @SyncLog(model = TaskTypeEnum.HXPG_MAKE)
     public void generateLeaveR(String ruleId,String date) {
+        doGenerateLeaveRInternal(ruleId, date);
+    }
+
+    /**
+     *【两阶段日志】使用预创建的 syncLogId 执行生成休假记录，完成后回填结束时间和状态。
+     * <p>不使用 @SyncLog 注解，避免 AOP 再插一条日志。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void generateLeaveR(String ruleId, String date, String syncLogId) {
+        if (StringUtils.isEmpty(syncLogId)) {
+            doGenerateLeaveRInternal(ruleId, date);
+            return;
+        }
+        Throwable captured = null;
+        try {
+            doGenerateLeaveRInternal(ruleId, date);
+        } catch (RuntimeException | Error e) {
+            captured = e;
+            throw e;
+        } finally {
+            try {
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+            } catch (Exception finishEx) {
+                log.error("[generateLeaveR(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+            }
+        }
+    }
+
+    /**
+     * 生成休假记录（主逻辑）。内部调用不触发 AOP。
+     */
+    private void doGenerateLeaveRInternal(String ruleId, String date) {
         TcmLeaveRule rule = queryService.findById(TcmLeaveRule.ENTITY_NAME, ruleId);
         if (rule == null) {
             throw new RuntimeException("请至少选择一条规则进行匹配");

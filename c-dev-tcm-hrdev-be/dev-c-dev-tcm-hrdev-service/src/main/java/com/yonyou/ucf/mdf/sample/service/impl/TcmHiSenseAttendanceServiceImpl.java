@@ -91,6 +91,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Autowired
     private TcmAttendanceCalculationService calculationService;
 
+    @Autowired
+    private TcmSyncLogService tcmSyncLogService;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -192,6 +195,42 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @Transactional(rollbackFor = RuntimeException.class)
     @Override
     public void syncData(String runDate) {
+        doSyncDataInternal(runDate);
+    }
+
+    /**
+     *【两阶段日志】使用预创建的 syncLogId 执行同步，执行完成后回填结束时间和状态。
+     * <p>不使用 @SyncLog 注解，避免 AOP 再插一条日志。
+     */
+    @Transactional(rollbackFor = RuntimeException.class)
+    @Override
+    public void syncData(String runDate, String syncLogId) {
+        if (StringUtil.isEmpty(syncLogId)) {
+            // 无 logId 时，降级：直接执行内部实现（不写AOP日志，调用方在Controller也会同步调用finishSyncLog）
+            doSyncDataInternal(runDate);
+            return;
+        }
+        Throwable captured = null;
+        try {
+            doSyncDataInternal(runDate);
+        } catch (RuntimeException | Error e) {
+            captured = e;
+            throw e;
+        } finally {
+            // REQUIRES_NEW 独立事务回填日志，即使主事务回滚也保留记录
+            try {
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+            } catch (Exception finishEx) {
+                log.error("[syncData(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+            }
+        }
+    }
+
+    /**
+     * 同步海信考勤数据的真正内部实现（抽离后避免 syncData(String) 与 syncData(String,String) 代码重复）。
+     * 内部方法直接调用不会触发 AOP（基于 Spring 代理机制，需走代理才会切入）。
+     */
+    private void doSyncDataInternal(String runDate) {
         List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
         if (hiSenseDTOList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
@@ -329,6 +368,39 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @SyncLog(model = TaskTypeEnum.HXKQ_MAKE,dateParam = "runDate")
     @Override
     public void generate(String runDate) {
+        doGenerateInternal(runDate);
+    }
+
+    /**
+     *【两阶段日志】使用预创建的 syncLogId 执行生成本地考勤，完成后回填结束时间和状态。
+     * <p>不使用 @SyncLog 注解，避免 AOP 再插一条日志。
+     */
+    @Transactional(rollbackFor = RuntimeException.class)
+    @Override
+    public void generate(String runDate, String syncLogId) {
+        if (StringUtil.isEmpty(syncLogId)) {
+            doGenerateInternal(runDate);
+            return;
+        }
+        Throwable captured = null;
+        try {
+            doGenerateInternal(runDate);
+        } catch (RuntimeException | Error e) {
+            captured = e;
+            throw e;
+        } finally {
+            try {
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+            } catch (Exception finishEx) {
+                log.error("[generate(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+            }
+        }
+    }
+
+    /**
+     * 生成本地考勤（考勤修正装配+更新计数）的真正实现，不携带 @SyncLog。
+     */
+    private void doGenerateInternal(String runDate) {
         if (StringUtil.isEmpty(runDate)) {
             return;
         }
@@ -385,6 +457,39 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     @SyncLog(model = TaskTypeEnum.BXZS_SYNC,dateParam = "runDate")
     @Override
     public void syncBaType(String runDate) {
+        doSyncBaTypeInternal(runDate);
+    }
+
+    /**
+     *【两阶段日志】使用预创建的 syncLogId 执行同步巴型转数，完成后回填结束时间和状态。
+     * <p>不使用 @SyncLog 注解，避免 AOP 再插一条日志。
+     */
+    @Transactional(rollbackFor = RuntimeException.class)
+    @Override
+    public void syncBaType(String runDate, String syncLogId) {
+        if (StringUtil.isEmpty(syncLogId)) {
+            doSyncBaTypeInternal(runDate);
+            return;
+        }
+        Throwable captured = null;
+        try {
+            doSyncBaTypeInternal(runDate);
+        } catch (RuntimeException | Error e) {
+            captured = e;
+            throw e;
+        } finally {
+            try {
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+            } catch (Exception finishEx) {
+                log.error("[syncBaType(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+            }
+        }
+    }
+
+    /**
+     * 同步巴型转数并更新考勤修正的真正实现（不携带 @SyncLog）。
+     */
+    private void doSyncBaTypeInternal(String runDate) {
         List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
         if (hiSenseDTOList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");

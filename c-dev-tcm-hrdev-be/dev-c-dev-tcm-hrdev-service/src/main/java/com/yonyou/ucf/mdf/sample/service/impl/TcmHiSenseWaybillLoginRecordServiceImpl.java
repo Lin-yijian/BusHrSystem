@@ -18,6 +18,7 @@ import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmCarService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseWaybillLoginRecordService;
+import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -67,6 +68,9 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     @Autowired
     private TcmAttendanceCheckRecordService checkRecordService;
 
+    @Autowired
+    private TcmSyncLogService tcmSyncLogService;
+
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
      */
@@ -81,6 +85,39 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void syncByActDate(String actDate) {
+        doSyncByActDateInternal(actDate);
+    }
+
+    /**
+     *【两阶段日志】使用预创建的 syncLogId 执行海信车载机登入记录同步，完成后回填日志。
+     * <p>不使用 @SyncLog 注解，避免 AOP 再插一条日志。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void syncByActDate(String actDate, String syncLogId) {
+        if (StringUtil.isEmpty(syncLogId)) {
+            doSyncByActDateInternal(actDate);
+            return;
+        }
+        Throwable captured = null;
+        try {
+            doSyncByActDateInternal(actDate);
+        } catch (RuntimeException | Error e) {
+            captured = e;
+            throw e;
+        } finally {
+            try {
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+            } catch (Exception finishEx) {
+                log.error("[syncByActDate(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+            }
+        }
+    }
+
+    /**
+     * 车载机登入记录同步主逻辑（内部私有，不携带 @SyncLog 避免 AOP 切入）。
+     */
+    private void doSyncByActDateInternal(String actDate) {
         List<HiSenseLoginRecordDataDTO> hiSenseDataList = getHiSenseDataByActDate(actDate);
         if (hiSenseDataList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
