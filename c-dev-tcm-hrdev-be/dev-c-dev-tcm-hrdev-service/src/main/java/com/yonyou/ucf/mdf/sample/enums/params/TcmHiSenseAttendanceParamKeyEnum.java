@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmHiSenseAttendanceParamKeyEnum implements ParamKey {
 
-    /** 示例：合并间隔阈值（分钟） */
-    MERGE_GAP_MINUTES("MERGE_GAP_MINUTES", "合併間隔閾值(分鐘)"),
-    /** 示例：最少有效考勤小时数 */
+    /** 合并间隔阈值（HH:mm 时长格式，例如 01:00 表示 1 小时内允许合并） */
+    MERGE_GAP_DURATION("MERGE_GAP_DURATION", "合併間隔閾值(HH:mm)"),
+    /** 最少有效考勤小时数 */
     MIN_VALID_ATTENDANCE_HOURS("MIN_VALID_ATTENDANCE_HOURS", "最少有效考勤時數");
 
     private final String code;

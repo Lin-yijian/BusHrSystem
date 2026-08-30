@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmAbsenceDataRecordParamKeyEnum implements ParamKey {
 
-    /** 示例：迟到判定阈值（分钟） */
+    /** 迟到判定阈值（分钟） */
     LATE_THRESHOLD_MINUTES("LATE_THRESHOLD_MINUTES", "遲到判定閾值(分鐘)"),
-    /** 示例：早退判定阈值（分钟） */
+    /** 早退判定阈值（分钟） */
     EARLY_LEAVE_THRESHOLD_MINUTES("EARLY_LEAVE_THRESHOLD_MINUTES", "早退判定閾值(分鐘)");
 
     private final String code;

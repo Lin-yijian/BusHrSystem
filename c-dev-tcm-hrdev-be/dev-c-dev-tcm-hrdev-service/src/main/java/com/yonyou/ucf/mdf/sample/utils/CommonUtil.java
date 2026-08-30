@@ -3,7 +3,10 @@ package com.yonyou.ucf.mdf.sample.utils;
 import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.enums.params.TcmRosteringParamKeyEnum;
+import com.yonyou.ucf.mdf.sample.service.TcmParamManageService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,9 @@ public class CommonUtil {
     @Autowired
     protected IBillRepository billRepository;
 
+    @Autowired
+    private TcmParamManageService tcmParamManageService;
+
     public final String FIELD_CODE_WAYBILL_EMPLOYEE_ID = "waybill_employeeId";
     public final String FIELD_CODE_EMPLOYEE_ID = "code";
     public final String FIELD_CODE_POST_CODE = "postCode";
@@ -33,17 +39,64 @@ public class CommonUtil {
     public final String FIELD_CODE_STAFF_AB_09 = "diverType";
 
 
-    /** 兼职司机岗位编码 */
-    public final String PART_TIME_JOB_CODE = "P0020103_NC07";
+    /** 懒加载缓存 */
+    private volatile Map<String, String> rosterParamCache;
 
-    /** 深宵司机枚举编号 */
-    public final String NIGHT_DIVER_TYPE = "4";
+    private Map<String, String> getRosterParamCache() {
+        Map<String, String> cache = rosterParamCache;
+        if (cache != null) return cache;
+        synchronized (this) {
+            cache = rosterParamCache;
+            if (cache == null) {
+                Map<String, String> m = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
+                rosterParamCache = cache = (m != null) ? new HashMap<>(m) : new HashMap<>();
+            }
+        }
+        return cache;
+    }
 
-    /** 非深宵司机标准工时 */
-    public static final String WORK_TIME = "08:00";
+    /**
+     * 要求缓存中必须存在指定的参数 key，否则抛 RuntimeException（提示到参数管理补录）。
+     *
+     * @param keyEnum 参数键枚举（含 name、code）
+     * @return 非空 value
+     */
+    private String requireRosterParam(TcmRosteringParamKeyEnum keyEnum) {
+        String code = keyEnum.getCode();
+        String displayName = keyEnum.getName();
+        String value = getRosterParamCache().get(code);
+        if (StringUtils.isBlank(value)) {
+            throw new RuntimeException(
+                    "配置缺失：" + displayName + "[" + code + "]，請至【參數管理】菜單補錄");
+        }
+        return value;
+    }
 
-    /** 深宵司机标准工时 */
-    public static final String NIGHT_WORK_TIME = "06:30";
+    /** @return 兼职司机岗位编码 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#PART_TIME_JOB_CODE} */
+    public String getPartTimeJobCode() {
+        return requireRosterParam(TcmRosteringParamKeyEnum.PART_TIME_JOB_CODE);
+    }
+
+    /** @return 深宵司机枚举编号 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#NIGHT_DIVER_TYPE} */
+    public String getNightDriverType() {
+        return requireRosterParam(TcmRosteringParamKeyEnum.NIGHT_DIVER_TYPE);
+    }
+
+    /** @return 非深宵司机标准工时 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#WORK_TIME} */
+    public String getWorkTime() {
+        return requireRosterParam(TcmRosteringParamKeyEnum.WORK_TIME);
+    }
+
+    /** @return 深宵司机标准工时 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#NIGHT_WORK_TIME} */
+    public String getNightWorkTime() {
+        return requireRosterParam(TcmRosteringParamKeyEnum.NIGHT_WORK_TIME);
+    }
+
+
+    /** @return 遲到判定閾值 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#NIGHT_WORK_TIME} */
+    public String getLateMin() {
+        return requireRosterParam(TcmRosteringParamKeyEnum.LATE_THRESHOLD_MINUTES);
+    }
 
 
     /**
@@ -305,7 +358,7 @@ public class CommonUtil {
      * 判断迟到是否超过阈值（10分钟）
      */
     private boolean isLateExceedsThreshold(TcmAttendanceCorrection entity) {
-        String threshold = "00:10"; // TODO: 待转参数配置
+        String threshold = getLateMin();
         String oneLateDuration = entity.getOne_late_duration();
         String twoLateDuration = entity.getTwo_late_duration();
 
@@ -378,14 +431,14 @@ public class CommonUtil {
         String staffType = (String) staff.get(FIELD_CODE_STAFF_AB_09);
 
         // 兼职司机：标准工时不足标记为false，加班时长为0
-        if (PART_TIME_JOB_CODE.equals(postCode)) {
+        if (getPartTimeJobCode().equals(postCode)) {
             entity.setIs_less_than_8_hours(false);
             entity.setOvertime_time(DateUtil.HH_MM_ZERO);
             return;
         }
 
-        // 确定标准工时 todo 待转参数
-        String standardWorkTime = NIGHT_DIVER_TYPE.equals(staffType) ? NIGHT_WORK_TIME : WORK_TIME;
+        // 确定标准工时（按员工类型：深宵司机 / 非深宵司机，从参数管理动态取）
+        String standardWorkTime = getNightDriverType().equals(staffType) ? getNightWorkTime() : getWorkTime();
 
         // 计算加班时长
         if (DateUtil.isTimeLessOrEqual(validTime, standardWorkTime)) {

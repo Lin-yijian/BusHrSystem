@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmControlCenterLogParamKeyEnum implements ParamKey {
 
-    /** 示例：日志保留天数 */
+    /** 日志保留天数 */
     LOG_RETENTION_DAYS("LOG_RETENTION_DAYS", "日誌保留天數"),
-    /** 示例：告警通知方式 */
+    /** 告警通知方式 */
     ALERT_NOTIFY_CHANNEL("ALERT_NOTIFY_CHANNEL", "告警通知方式");
 
     private final String code;

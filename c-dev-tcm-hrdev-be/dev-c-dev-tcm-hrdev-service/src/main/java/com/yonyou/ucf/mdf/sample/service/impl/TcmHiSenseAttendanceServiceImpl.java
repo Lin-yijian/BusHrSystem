@@ -15,6 +15,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.enums.params.TcmHiSenseAttendanceParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
@@ -35,7 +36,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 海信考勤数据同步服务实现类
@@ -50,11 +53,18 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      */
     public static final String HI_SENSE_ATTENDANCE_URL = "http://10.102.128.7:8080/sdata/rest/service/dataapi/rest/6903218280134273";
 
-    /**
-     * 一小时的毫秒数，用于判断两趟车是否需要合并
-     */
-    private static final long ONE_HOUR_IN_MILLIS = 60 * 60 * 1000L;
+    // ====================== 参数管理：海信考勤模块(TCM_HI_SENSE_ATTENDANCE) ======================
+    // 所属 module = ModuleEnum.TCM_HI_SENSE_ATTENDANCE.getCode()
+    // 参数 key 枚举见 TcmHiSenseAttendanceParamKeyEnum
 
+    /** HH:mm 时长格式正则 */
+    private static final Pattern HH_MM_PATTERN = Pattern.compile("^\\d{1,2}:[0-5]\\d$");
+
+    /** 懒加载缓存：TCM_HI_SENSE_ATTENDANCE 模块下全部 key → value */
+    private volatile Map<String, String> hiSenseParamCache;
+
+    @Autowired
+    private TcmParamManageService tcmParamManageService;
 
     private final ObjectMapper objectMapper;
 
@@ -1201,9 +1211,79 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         return mergedList;
     }
 
+    // =============================================================================================
+    // 参数管理工具：TCM_HI_SENSE_ATTENDANCE 模块 — 懒加载 + 强制校验（不允许默认值兜底）
+    // =============================================================================================
+
+    private Map<String, String> getHiSenseParamCache() {
+        Map<String, String> cache = hiSenseParamCache;
+        if (cache != null) return cache;
+        synchronized (this) {
+            cache = hiSenseParamCache;
+            if (cache == null) {
+                Map<String, String> m = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_HI_SENSE_ATTENDANCE);
+                hiSenseParamCache = cache = (m != null) ? new HashMap<>(m) : new HashMap<>();
+            }
+        }
+        return cache;
+    }
+
+    /**
+     * 要求缓存中必须存在指定的参数 key 且 value 非空白，否则抛异常。
+     * 消息格式与 CommonUtil 保持一致："配置缺失：name[code]，請至【參數管理】菜單補錄"
+     */
+    private String requireHiSenseParam(TcmHiSenseAttendanceParamKeyEnum keyEnum) {
+        String code = keyEnum.getCode();
+        String name = keyEnum.getName();
+        String value = getHiSenseParamCache().get(code);
+        if (StringUtils.isBlank(value)) {
+            throw new RuntimeException("配置缺失：" + name + "[" + code + "]，請至【參數管理】菜單補錄");
+        }
+        return value;
+    }
+
+    /**
+     * 将 HH:mm 时长格式字符串解析为毫秒。
+     * <p>示例：
+     *   "00:30" -> 1,800,000 ms
+     *   "01:00" -> 3,600,000 ms
+     *   "120:00" -> 432,000,000 ms
+     *
+     * @param hhmm   原始字符串
+     * @param keyEnum 对应参数（用于异常提示的 name/code）
+     * @return 非负毫秒
+     */
+    private long parseHhmmToMillis(String hhmm, TcmHiSenseAttendanceParamKeyEnum keyEnum) {
+        String displayName = keyEnum.getName();
+        String code = keyEnum.getCode();
+        String trimmed = StringUtils.trimToEmpty(hhmm);
+        if (!HH_MM_PATTERN.matcher(trimmed).matches()) {
+            throw new RuntimeException(
+                    "配置非法：" + displayName + "[" + code + "]=" + hhmm
+                            + "，請按 HH:mm 格式維護（例如 01:00），請至【參數管理】菜單修正");
+        }
+        String[] parts = trimmed.split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int mins = Integer.parseInt(parts[1]);
+        // hours 允许 >=24（例如 48:00 表示 2 天），但不允许 <0 / mins>59（正则已校验）
+        return hours * 3600_000L + mins * 60_000L;
+    }
+
+    /**
+     * 考勤合并间隔阈值（毫秒）。
+     * <p>来自参数管理 key = {@link TcmHiSenseAttendanceParamKeyEnum#MERGE_GAP_DURATION}，
+     * DB 中 value 维护为 HH:mm 字符串（例如 01:00 表示 1 小时）。
+     *
+     * @return 合并阈值，毫秒；若不存在/非法直接抛 RuntimeException
+     */
+    private long getMergeGapMillis() {
+        String hhmm = requireHiSenseParam(TcmHiSenseAttendanceParamKeyEnum.MERGE_GAP_DURATION);
+        return parseHhmmToMillis(hhmm, TcmHiSenseAttendanceParamKeyEnum.MERGE_GAP_DURATION);
+    }
+
     /**
      * 判断两条记录是否需要合并
-     * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔不超过1小时，且时间顺序正确（非负数）
+     * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔不超过参数配置的合并阈值（格式 HH:mm），且时间顺序正确（非负数）
      *
      * @param prev 上一条记录
      * @param curr 当前记录
@@ -1220,8 +1300,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 计算时间间隔（毫秒）
         long gap = currLeave.getTime() - prevArrive.getTime();
-        // 间隔 >= 0（时间顺序正确）且 <= 1小时（60*60*1000毫秒）则合并
-        return gap >= 0 && gap <= ONE_HOUR_IN_MILLIS;
+        // 间隔 >= 0（时间顺序正确）且 <= 参数配置的合并间隔（HH:mm 解析得到的毫秒数）则合并
+        return gap >= 0 && gap <= getMergeGapMillis();
     }
 
     /**

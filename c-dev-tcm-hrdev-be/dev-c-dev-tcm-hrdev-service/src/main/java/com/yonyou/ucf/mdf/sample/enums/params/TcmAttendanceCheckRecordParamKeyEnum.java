@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmAttendanceCheckRecordParamKeyEnum implements ParamKey {
 
-    /** 示例：离线超时阈值（分钟） */
+    /** 离线超时阈值（分钟） */
     OFFLINE_TIMEOUT_MINUTES("OFFLINE_TIMEOUT_MINUTES", "離線超時閾值(分鐘)"),
-    /** 示例：非法登入门禁告警开关 */
+    /** 非法登入门禁告警开关 */
     ILLEGAL_LOGIN_ALERT_ENABLE("ILLEGAL_LOGIN_ALERT_ENABLE", "非法登入告警開關");
 
     private final String code;

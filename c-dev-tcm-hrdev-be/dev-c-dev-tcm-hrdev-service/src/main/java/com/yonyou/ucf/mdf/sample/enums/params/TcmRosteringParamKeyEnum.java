@@ -12,12 +12,24 @@ import java.util.Arrays;
 @Getter
 public enum TcmRosteringParamKeyEnum implements ParamKey {
 
-    /** 示例：默认早班时间 HH:mm */
+    /** 默认早班时间 HH:mm */
     DEFAULT_SHIFT_MORNING("DEFAULT_SHIFT_MORNING", "默認早班時間"),
-    /** 示例：默认晚班时间 HH:mm */
+    /** 默认晚班时间 HH:mm */
     DEFAULT_SHIFT_EVENING("DEFAULT_SHIFT_EVENING", "默認晚班時間"),
-    /** 示例：排更周期（天） */
-    ROSTERING_CYCLE_DAYS("ROSTERING_CYCLE_DAYS", "排更週期(天)");
+    /** 排更周期（天） */
+    ROSTERING_CYCLE_DAYS("ROSTERING_CYCLE_DAYS", "排更週期(天)"),
+
+    WORK_TIME("WORK_TIME", "標準工時"),
+
+    NIGHT_WORK_TIME("NIGHT_WORK_TIME", "深宵司機標準工時"),
+    /** 迟到判定阈值（HH:mm） */
+    LATE_THRESHOLD_MINUTES("LATE_THRESHOLD_MINUTES", "遲到判定閾值(HH:mm)"),
+    /** 早退判定阈值（HH:mm） */
+    EARLY_LEAVE_THRESHOLD_MINUTES("EARLY_LEAVE_THRESHOLD_MINUTES", "早退判定閾值(HH:mm)"),
+    /** 兼职司机岗位编码 — 对应原 CommonUtil.PART_TIME_JOB_CODE（默认值 P0020103_NC07） */
+    PART_TIME_JOB_CODE("PART_TIME_JOB_CODE", "兼職司機崗位編碼"),
+    /** 深宵司机枚举编号 — 对应原 CommonUtil.NIGHT_DIVER_TYPE（默认值 4） */
+    NIGHT_DIVER_TYPE("NIGHT_DIVER_TYPE", "深宵司機枚舉編號");
 
     private final String code;
     private final String name;

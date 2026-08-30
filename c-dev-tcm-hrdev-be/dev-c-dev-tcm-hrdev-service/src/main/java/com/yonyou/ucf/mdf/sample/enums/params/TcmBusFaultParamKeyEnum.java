@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmBusFaultParamKeyEnum implements ParamKey {
 
-    /** 示例：故障自动上报启用 */
+    /** 故障自动上报启用 */
     AUTO_REPORT_ENABLE("AUTO_REPORT_ENABLE", "故障自動上報啟用"),
-    /** 示例：严重故障码列表（逗号分隔） */
+    /** 严重故障码列表（逗号分隔） */
     SERIOUS_FAULT_CODES("SERIOUS_FAULT_CODES", "嚴重故障碼列表");
 
     private final String code;

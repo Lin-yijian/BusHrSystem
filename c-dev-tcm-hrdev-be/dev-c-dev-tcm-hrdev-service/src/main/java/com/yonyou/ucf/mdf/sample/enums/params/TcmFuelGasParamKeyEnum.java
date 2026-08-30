@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmFuelGasParamKeyEnum implements ParamKey {
 
-    /** 示例：异常油耗阈值（升/百公里） */
+    /** 异常油耗阈值（升/百公里） */
     ABNORMAL_FUEL_CONSUMPTION("ABNORMAL_FUEL_CONSUMPTION", "異常油耗閾值(升/百公里)"),
-    /** 示例：LNG 气压阈值（MPa） */
+    /** LNG 气压阈值（MPa） */
     LNG_PRESSURE_THRESHOLD("LNG_PRESSURE_THRESHOLD", "LNG氣壓閾值(MPa)");
 
     private final String code;

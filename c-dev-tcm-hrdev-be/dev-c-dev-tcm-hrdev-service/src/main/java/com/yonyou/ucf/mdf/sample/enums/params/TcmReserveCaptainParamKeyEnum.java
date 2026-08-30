@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmReserveCaptainParamKeyEnum implements ParamKey {
 
-    /** 示例：后备车长到岗提前量（分钟） */
+    /** 后备车长到岗提前量（分钟） */
     RESERVE_ARRIVE_AHEAD_MINUTES("RESERVE_ARRIVE_AHEAD_MINUTES", "後備車長到崗提前量(分鐘)"),
-    /** 示例：最大后备待命时长（小时） */
+    /** 最大后备待命时长（小时） */
     RESERVE_MAX_WAIT_HOURS("RESERVE_MAX_WAIT_HOURS", "最大後備待命時長(小時)");
 
     private final String code;

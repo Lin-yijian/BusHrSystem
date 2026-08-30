@@ -12,9 +12,9 @@ import java.util.Arrays;
 @Getter
 public enum TcmDriverOvertimeParamKeyEnum implements ParamKey {
 
-    /** 示例：超时阈值（小时） */
+    /** 超时阈值（小时） */
     OVERTIME_THRESHOLD_HOURS("OVERTIME_THRESHOLD_HOURS", "超時閾值(小時)"),
-    /** 示例：加班费倍率 */
+    /** 加班费倍率 */
     OVERTIME_PAY_RATE("OVERTIME_PAY_RATE", "加班費倍率");
 
     /** 对应 TCMParamManage.key */
