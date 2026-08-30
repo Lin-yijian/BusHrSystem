@@ -2,6 +2,7 @@ package com.yonyou.ucf.mdf.sample.controller;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSyncLog;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
 import com.yonyou.ucf.mdf.sample.utils.ResponseUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +50,7 @@ public class TcmSyncLogController {
             payload.put("syncLogId", syncLog.getId());
             payload.put("date", syncLog.getDate());
             payload.put("model", syncLog.getModel());
-            payload.put("modelName", ModuleEnum.getNameByCode(syncLog.getModel()));
+            payload.put("modelName", TaskTypeEnum.getDescByCode(model));
             payload.put("queueStartTime", syncLog.getQueue_start_time());
             payload.put("syncStatus", syncLog.getSync_status());
             payload.put("taskStatus", syncLog.getTask_status());

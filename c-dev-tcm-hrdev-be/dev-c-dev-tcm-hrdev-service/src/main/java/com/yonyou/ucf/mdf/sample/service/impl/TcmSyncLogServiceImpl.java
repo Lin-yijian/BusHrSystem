@@ -5,7 +5,7 @@ import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSyncLog;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
-import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
 import com.yonyou.ucf.mdf.sample.utils.ResponseUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -32,13 +32,19 @@ import java.util.List;
  *   <li>AOP 方式：{@code @SyncLog} 注解，见 {@code TcmSyncLogAspect}</li>
  * </ol>
  *
+ * <p><b>字段拆分规则（异常场景）：</b>
+ * <ul>
+ *   <li>remark：面向用户/列表展示的简短描述 — "同步失败：{异常类名}: {异常消息}"</li>
+ *   <li>error_info：面向开发定位问题的完整堆栈（含 cause 链路，截断 8000 字符）</li>
+ * </ul>
+ *
  * @author root
  */
 @Service
 @Slf4j
 public class TcmSyncLogServiceImpl implements TcmSyncLogService {
 
-    // =================== 状态常量 ===================
+    // =================== 状态常量（与 AOP / 前端约定保持一致） ===================
     /** 同步状态 - 未同步 */
     public static final String SYNC_STATUS_NOT_SYNCED = "0";
     /** 同步状态 - 已同步(成功) */
@@ -55,8 +61,12 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
     private static final String REMARK_INIT = "正在开始同步...";
     /** 成功备注 */
     private static final String REMARK_SUCCESS = "同步成功";
-    /** 备注最大长度（避免DB字段超长） */
+    /** 失败备注前缀 */
+    private static final String REMARK_FAIL_PREFIX = "同步失败";
+    /** remark 最大长度（避免 DB VARCHAR 字段超长） */
     private static final int REMARK_MAX_LEN = 2000;
+    /** error_info 完整堆栈最大长度（DB字段建议 TEXT/LONGTEXT；此处截断防极端OOM） */
+    private static final int ERROR_INFO_MAX_LEN = 8000;
 
     @Autowired
     private IBillRepository billRepository;
@@ -68,6 +78,7 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
 
     /**
      * 以 REQUIRES_NEW 独立事务创建日志，确保 syncData 主事务回滚不影响日志记录。
+     * 默认：sync_status=未同步(0), task_status=异常(2), remark=正在开始同步..., error_info 清空
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
@@ -80,7 +91,7 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
             throw new IllegalArgumentException("同步日志初始化失败：所属模块不能为空");
         }
 
-        if (ModuleEnum.getByCode(model) == null) {
+        if (TaskTypeEnum.getByCode(model) == null) {
             throw new IllegalArgumentException("模块编码无效：" + model + "，可选值：" + buildModuleOptions());
         }
 
@@ -96,6 +107,7 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
         syncLog.setTask_status(TASK_STATUS_ABNORMAL);
         syncLog.setQueue_start_time(now);
         syncLog.setRemark(REMARK_INIT);
+        syncLog.setError_info(null);
         syncLog.setDr(BaseEnum.IS_NOT_DELETED.getIntCode().shortValue());
         syncLog.setYtenantId(tenantId);
         syncLog.setCreator(userId);
@@ -111,6 +123,12 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
 
     /**
      * 以 REQUIRES_NEW 独立事务回填日志结束信息，确保 syncData 主事务回滚不影响日志记录。
+     *
+     * <p><b>异常字段拆分：</b>
+     * <ul>
+     *   <li>remark = 简短失败描述（列表直接展示）</li>
+     *   <li>error_info = 完整堆栈（点进去再看）</li>
+     * </ul>
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
@@ -133,17 +151,18 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
         syncLog.setModifyTime(now);
 
         if (throwable == null) {
-            // 正常结束
+            // ========== 正常结束 ==========
             syncLog.setSync_status(SYNC_STATUS_SYNCED_SUCCESS);
             syncLog.setTask_status(TASK_STATUS_NORMAL);
             String remark = StringUtils.isBlank(remarkEx) ? REMARK_SUCCESS : remarkEx;
-            syncLog.setRemark(truncate(remark));
+            syncLog.setRemark(truncate(remark, REMARK_MAX_LEN));
+            syncLog.setError_info(null);
         } else {
-            // 异常结束
+            // ========== 异常结束：拆分 简述(remark) + 堆栈(error_info) ==========
             syncLog.setSync_status(SYNC_STATUS_SYNCED_FAIL);
             syncLog.setTask_status(TASK_STATUS_ABNORMAL);
-            String mergedRemark = mergeRemark(throwable, remarkEx);
-            syncLog.setRemark(truncate(mergedRemark));
+            syncLog.setRemark(buildErrorRemark(throwable, remarkEx));
+            syncLog.setError_info(buildFullStackTrace(throwable));
         }
 
         billRepository.update(Collections.singletonList(syncLog));
@@ -163,39 +182,100 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
     @Transactional(rollbackFor = Exception.class)
     public TcmSyncLog recordSyncLog(String date, String model) {
         Date startTime = new Date();
+        Date now = new Date();
+        String userId = InvocationInfoProxy.getUserid();
+        String tenantId = InvocationInfoProxy.getTenantid();
 
         TcmSyncLog syncLog = new TcmSyncLog();
         syncLog.setId(ymsOidGenerator.nextStrId());
         syncLog.setDate(date);
         syncLog.setModel(model);
         syncLog.setQueue_start_time(startTime);
-        syncLog.setYtenantId(InvocationInfoProxy.getTenantid());
+        syncLog.setYtenantId(tenantId);
         syncLog.setSync_status(SYNC_STATUS_NOT_SYNCED);
 
         try {
-            // 方法入参未提供实际同步动作执行点，调用方若使用此方法需自行在调用前/后完成事务状态
             syncLog.setQueue_end_time(new Date());
             syncLog.setSync_status(SYNC_STATUS_SYNCED_SUCCESS);
             syncLog.setTask_status(TASK_STATUS_NORMAL);
             syncLog.setRemark(REMARK_SUCCESS);
+            syncLog.setError_info(null);
         } catch (Exception e) {
             syncLog.setQueue_end_time(new Date());
             syncLog.setSync_status(SYNC_STATUS_SYNCED_FAIL);
             syncLog.setTask_status(TASK_STATUS_ABNORMAL);
-            syncLog.setRemark(truncate(e.getMessage()));
+            syncLog.setRemark(buildErrorRemark(e, null));
+            syncLog.setError_info(buildFullStackTrace(e));
             throw new RuntimeException(e);
         } finally {
             syncLog.setDr(BaseEnum.IS_NOT_DELETED.getIntCode().shortValue());
-            syncLog.setCreator(InvocationInfoProxy.getUserid());
-            syncLog.setCreateTime(new Date());
-            syncLog.setModifier(InvocationInfoProxy.getUserid());
-            syncLog.setModifyTime(new Date());
+            syncLog.setCreator(userId);
+            syncLog.setCreateTime(now);
+            syncLog.setModifier(userId);
+            syncLog.setModifyTime(now);
         }
         billRepository.insert(Collections.singletonList(syncLog));
         return syncLog;
     }
 
-    // =================== 内部工具 ===================
+    // =================== 内部工具：异常信息拆分 ===================
+
+    /**
+     * 构造简短失败描述（放到 remark 字段，给列表展示）。
+     * 格式：{remarkEx前缀 | }同步失败：{异常类名}: {异常message}
+     * <p>该方法已 public static，AOP 等其它组件可直接复用，保证异常描述格式一致。
+     */
+    public static String buildErrorRemark(Throwable throwable, String remarkEx) {
+        StringBuilder sb = new StringBuilder();
+        if (StringUtils.isNotBlank(remarkEx)) {
+            sb.append(remarkEx).append(" | ");
+        }
+        sb.append(REMARK_FAIL_PREFIX);
+        if (throwable != null) {
+            String msg = throwable.getMessage();
+            String simpleName = throwable.getClass().getSimpleName();
+            if (StringUtils.isBlank(msg)) {
+                sb.append("：").append(simpleName);
+            } else {
+                sb.append("：").append(simpleName).append(": ").append(firstLineOf(msg));
+            }
+        }
+        return truncate(sb.toString(), REMARK_MAX_LEN);
+    }
+
+    /**
+     * 构造完整堆栈信息（放到 error_info 字段，便于排查；含 cause 链路）。
+     * <p>public static，供 AOP 等跨包调用复用。
+     */
+    public static String buildFullStackTrace(Throwable throwable) {
+        if (throwable == null) return null;
+        StringWriter sw = new StringWriter(512);
+        try (PrintWriter pw = new PrintWriter(sw)) {
+            throwable.printStackTrace(pw);
+        }
+        return truncate(sw.toString(), ERROR_INFO_MAX_LEN);
+    }
+
+    // =================== 内部工具：杂项 ===================
+
+    private static String firstLineOf(String msg) {
+        if (msg == null) return null;
+        int idx = msg.indexOf('\n');
+        if (idx < 0) idx = msg.indexOf('\r');
+        return idx < 0 ? msg : msg.substring(0, idx);
+    }
+
+    private static String truncate(String str, int maxLen) {
+        if (str == null) return null;
+        return str.length() <= maxLen ? str : str.substring(0, maxLen) + "...";
+    }
+
+    /** remark 字段长度限制（public 供跨包共享） */
+    public static int remarkMaxLen() { return REMARK_MAX_LEN; }
+    /** error_info 字段长度限制（public 供跨包共享） */
+    public static int errorInfoMaxLen() { return ERROR_INFO_MAX_LEN; }
+    /** 成功备注（public 供跨包共享） */
+    public static String remarkSuccess() { return REMARK_SUCCESS; }
 
     private TcmSyncLog findById(String id, String tenantId) {
         LambdaQueryCondition<TcmSyncLog> cond = new LambdaQueryCondition<>(new TcmSyncLog());
@@ -206,42 +286,11 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
         return list.isEmpty() ? null : list.get(0);
     }
 
-    private String mergeRemark(Throwable throwable, String remarkEx) {
-        StringBuilder sb = new StringBuilder();
-        if (StringUtils.isNotBlank(remarkEx)) {
-            sb.append(remarkEx);
-        }
-        if (throwable != null) {
-            String msg = throwable.getMessage();
-            if (StringUtils.isBlank(msg)) {
-                msg = throwable.getClass().getSimpleName();
-            }
-            if (sb.length() > 0) sb.append(" | ");
-            sb.append(msg);
-
-            // 附加第一行堆栈，方便排查
-            StackTraceElement[] stes = throwable.getStackTrace();
-            if (stes != null && stes.length > 0) {
-                sb.append(" @ ").append(stes[0].toString());
-            }
-        }
-        if (sb.length() == 0) {
-            sb.append("同步失败");
-        }
-        return sb.toString();
-    }
-
-    private String truncate(String str) {
-        if (str == null) return null;
-        return str.length() <= REMARK_MAX_LEN ? str : str.substring(0, REMARK_MAX_LEN) + "...";
-    }
-
-
     private String buildModuleOptions() {
         StringBuilder sb = new StringBuilder();
-        for (ModuleEnum e : ModuleEnum.values()) {
+        for (TaskTypeEnum e : TaskTypeEnum.values()) {
             if (sb.length() > 0) sb.append(" / ");
-            sb.append(e.getCode()).append("(").append(e.getName()).append(")");
+            sb.append(e.getCode()).append("(").append(e.getDesc()).append(")");
         }
         return sb.toString();
     }
