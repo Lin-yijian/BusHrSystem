@@ -49,7 +49,7 @@ public class TcmHisenseAttendanceDataPlugin extends AbstractBillPlugin {
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, false);
         }
-        service.refreshCorrectionFromLocalData(date, data.getEmployee_id());
-        calcTrigger.afterDataChanged(date, data.getEmployee_id());
+//        service.refreshCorrectionFromLocalData(date, data.getEmployee_id());
+//        calcTrigger.afterDataChanged(date, data.getEmployee_id());
     }
 }
