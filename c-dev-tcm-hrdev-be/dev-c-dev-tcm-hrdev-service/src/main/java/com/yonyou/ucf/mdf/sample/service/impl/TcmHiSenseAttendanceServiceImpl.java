@@ -37,7 +37,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 
@@ -58,9 +57,6 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     // 所属 module = ModuleEnum.TCM_HI_SENSE_ATTENDANCE.getCode()
     // 参数 key 枚举见 TcmHiSenseAttendanceParamKeyEnum
     // 实时查询（不缓存），保证 TCMParamManage 更新后立即生效
-
-    /** HH:mm 时长格式正则 */
-    private static final Pattern HH_MM_PATTERN = Pattern.compile("^\\d{1,2}:[0-5]\\d$");
 
     @Autowired
     private TcmParamManageService tcmParamManageService;
@@ -1300,44 +1296,20 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     // =============================================================================================
 
     /**
-     * 实时查询指定参数 key 的 value（每次走 DB，不缓存），若不存在或空白则抛异常。
-     * 消息格式与 CommonUtil 保持一致："配置缺失：name[code]，請至【參數管理】菜單補錄"
-     */
-    private String requireHiSenseParam(TcmHiSenseAttendanceParamKeyEnum keyEnum) {
-        String code = keyEnum.getCode();
-        String name = keyEnum.getName();
-        String value = tcmParamManageService.queryModuleParamValueNullable(
-                ModuleEnum.TCM_HI_SENSE_ATTENDANCE, code);
-        if (StringUtils.isBlank(value)) {
-            throw new RuntimeException("配置缺失：" + name + "[" + code + "]，請至【參數管理】菜單補錄");
-        }
-        return value;
-    }
-
-    /**
-     * 将 HH:mm 时长格式字符串解析为毫秒。
+     * 将 HH:mm 时长格式字符串解析为毫秒（格式已由 checkType=TIME_HH_MM 在 queryParamValue 中校验）。
      * <p>示例：
      *   "00:30" -> 1,800,000 ms
      *   "01:00" -> 3,600,000 ms
      *   "120:00" -> 432,000,000 ms
      *
-     * @param hhmm   原始字符串
-     * @param keyEnum 对应参数（用于异常提示的 name/code）
+     * @param hhmm 已通过格式校验的 HH:mm 字符串
      * @return 非负毫秒
      */
-    private long parseHhmmToMillis(String hhmm, TcmHiSenseAttendanceParamKeyEnum keyEnum) {
-        String displayName = keyEnum.getName();
-        String code = keyEnum.getCode();
-        String trimmed = StringUtils.trimToEmpty(hhmm);
-        if (!HH_MM_PATTERN.matcher(trimmed).matches()) {
-            throw new RuntimeException(
-                    "配置非法：" + displayName + "[" + code + "]=" + hhmm
-                            + "，請按 HH:mm 格式維護（例如 01:00），請至【參數管理】菜單修正");
-        }
-        String[] parts = trimmed.split(":");
+    private long parseHhmmToMillis(String hhmm) {
+        String[] parts = hhmm.split(":");
         int hours = Integer.parseInt(parts[0]);
         int mins = Integer.parseInt(parts[1]);
-        // hours 允许 >=24（例如 48:00 表示 2 天），但不允许 <0 / mins>59（正则已校验）
+        // hours 允许 >=24（例如 48:00 表示 2 天），但不允许 <0 / mins>59（checkType 已校验）
         return hours * 3600_000L + mins * 60_000L;
     }
 
@@ -1346,11 +1318,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * <p>来自参数管理 key = {@link TcmHiSenseAttendanceParamKeyEnum#MERGE_GAP_DURATION}，
      * DB 中 value 维护为 HH:mm 字符串（例如 01:00 表示 1 小时）。
      *
-     * @return 合并阈值，毫秒；若不存在/非法直接抛 RuntimeException
+     * @return 合并阈值，毫秒；若不存在/格式非法直接抛 RuntimeException
      */
     private long getMergeGapMillis() {
-        String hhmm = requireHiSenseParam(TcmHiSenseAttendanceParamKeyEnum.MERGE_GAP_DURATION);
-        return parseHhmmToMillis(hhmm, TcmHiSenseAttendanceParamKeyEnum.MERGE_GAP_DURATION);
+        String hhmm = tcmParamManageService.queryParamValue(
+                ModuleEnum.TCM_HI_SENSE_ATTENDANCE, TcmHiSenseAttendanceParamKeyEnum.MERGE_GAP_DURATION);
+        return parseHhmmToMillis(hhmm);
     }
 
     /**

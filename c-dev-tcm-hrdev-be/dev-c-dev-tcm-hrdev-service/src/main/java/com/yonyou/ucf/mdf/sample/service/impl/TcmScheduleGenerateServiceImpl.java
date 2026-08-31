@@ -8,6 +8,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
+import com.yonyou.ucf.mdf.sample.enums.params.ParamKey;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmRosteringParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
@@ -716,31 +717,28 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     }
 
     /**
-     * 循环外一次性解析培训参数配置；缺配置直接抛错（fail-fast，避免写一半数据）。
+     * 循环外一次性解析培训参数配置；缺配置/格式非法直接抛错（fail-fast，避免写一半数据）。
      */
     private TrainingParamConfig buildTrainingParamConfig(Map<String, String> params) {
         String departureTime = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_DEPARTURE_TIME);
         String returnTime = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_RETURN_TIME);
-        String mealCountStr = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_COUNT);
+        // checkType=INT:0-99 已保证是范围内整数，直接解析
+        int mealCount = Integer.parseInt(requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_COUNT));
         String mealDuration = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_DURATION);
-        int mealCount;
-        try {
-            mealCount = Integer.parseInt(mealCountStr.trim());
-        } catch (NumberFormatException e) {
-            throw new RuntimeException("配置非法：培訓任務用膳次數[TRAINING_MEAL_COUNT]=" + mealCountStr
-                    + "，請至【參數管理】菜單修正");
-        }
         return new TrainingParamConfig(departureTime, returnTime, mealCount, mealDuration);
     }
 
-    /** 从模块参数Map中取值；缺失抛出统一提示 */
+    /**
+     * 从模块参数Map中取值；缺失抛出统一提示，并按枚举 checkType 做格式校验
+     */
     private String requireRosterParam(Map<String, String> params, TcmRosteringParamKeyEnum keyEnum) {
         String code = keyEnum.getCode();
         String value = params == null ? null : params.get(code);
         if (StringUtils.isBlank(value)) {
             throw new RuntimeException("配置缺失：" + keyEnum.getName() + "[" + code + "]，請至【參數管理】菜單補錄");
         }
-        return value.trim();
+        // 按枚举 checkType 做格式校验（非法抛"配置非法：..."）
+        return ParamKey.checkValue(keyEnum, value);
     }
 
     /** 将日期(yyyy-MM-dd)与时间(HH:mm)合并为 Date；解析失败返回 null */

@@ -16,10 +16,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 /**
  * 参数管理(TCMParamManage) 服务实现
+ * <p>
+ * 统一查询入口 {@link #queryParamValue}：查询 + 缺失抛错 + checkType 格式校验一条龙。
  *
  * @author root
  */
@@ -29,11 +30,6 @@ public class TcmParamManageServiceImpl implements TcmParamManageService {
 
     /** 逻辑删除标识：0 = 未删除 */
     private static final Short DR_NOT_DELETED = (short) 0;
-
-    /** Function 入参标记：提取 "code"（对应 TCMParamManage.key） */
-    public static final String FK_CODE = "code";
-    /** Function 入参标记：提取 "name"（对应 参数中文名称，用于错误提示） */
-    public static final String FK_NAME = "name";
 
     @Autowired
     private IBillRepository billRepository;
@@ -72,53 +68,31 @@ public class TcmParamManageServiceImpl implements TcmParamManageService {
     }
 
     @Override
-    public String queryModuleParamValue(ModuleEnum module, Function<String, String> paramKeyProvider) {
-        if (paramKeyProvider == null) {
-            throw new IllegalArgumentException("参数paramKeyProvider(Function<String,String>)不能为空");
-        }
-        String code = paramKeyProvider.apply(FK_CODE);
-        String name = paramKeyProvider.apply(FK_NAME);
-
-        if (module == null || StringUtils.isBlank(module.getCode())) {
-            throw new RuntimeException("参数模块(ModuleEnum)不能为空");
-        }
-        if (StringUtils.isBlank(code)) {
-            String displayName = StringUtils.defaultIfBlank(name, "UNKNOWN");
-            String displayCode = StringUtils.defaultIfBlank(code, "");
-            throw new RuntimeException("配置缺失：" + displayName + "[" + displayCode + "]，請至【參數管理】菜單補錄");
-        }
-
-        // 查询
-        String value = queryNullableByCode(module.getCode(), code);
-
-        if (StringUtils.isBlank(value)) {
-            // 不存在或空值：统一按用户指定格式抛错
-            String displayName = StringUtils.defaultIfBlank(name, code);
-            throw new RuntimeException("配置缺失：" + displayName + "[" + code + "]，請至【參數管理】帶單補錄");
-        }
-        return value;
-    }
-
-    @Override
-    public String queryModuleParamValue(ModuleEnum module, ParamKey paramKey) {
+    public String queryParamValue(ModuleEnum module, ParamKey paramKey) {
         if (paramKey == null) {
             throw new IllegalArgumentException("参数paramKey(ParamKey)不能为空");
         }
-        // 统一包装成 Function，复用"主版"的校验与异常格式（避免两套逻辑漂移）
-        Function<String, String> provider = field -> {
-            if (FK_CODE.equals(field)) return paramKey.getCode();
-            if (FK_NAME.equals(field)) return paramKey.getName();
-            return null;
-        };
-        return queryModuleParamValue(module, provider);
-    }
-
-    @Override
-    public String queryModuleParamValueNullable(ModuleEnum module, String paramKey) {
-        if (module == null || StringUtils.isBlank(module.getCode()) || StringUtils.isBlank(paramKey)) {
-            return null;
+        if (module == null || StringUtils.isBlank(module.getCode())) {
+            throw new RuntimeException("参数模块(ModuleEnum)不能为空");
         }
-        return queryNullableByCode(module.getCode(), paramKey);
+        String code = paramKey.getCode();
+        String name = paramKey.getName();
+        if (StringUtils.isBlank(code)) {
+            throw new RuntimeException("配置缺失：" + StringUtils.defaultIfBlank(name, "UNKNOWN") + "[" + code
+                    + "]，請至【參數管理】菜單補錄");
+        }
+
+        // 1. 查询（实时走 DB，不缓存）
+        String value = queryNullableByCode(module.getCode(), code);
+
+        // 2. 缺失/空白 → 统一抛错
+        if (StringUtils.isBlank(value)) {
+            throw new RuntimeException("配置缺失：" + StringUtils.defaultIfBlank(name, code) + "[" + code
+                    + "]，請至【參數管理】菜單補錄");
+        }
+
+        // 3. 按枚举 checkType 做格式校验（非法直接抛错）
+        return ParamKey.checkValue(paramKey, value);
     }
 
     private String queryNullableByCode(String moduleCode, String paramKey) {

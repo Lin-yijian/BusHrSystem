@@ -13,16 +13,19 @@ import java.util.Arrays;
 public enum TcmAbsenceDataRecordParamKeyEnum implements ParamKey {
 
     /** 迟到判定阈值（分钟） */
-    LATE_THRESHOLD_MINUTES("LATE_THRESHOLD_MINUTES", "遲到判定閾值(分鐘)"),
+    LATE_THRESHOLD_MINUTES("LATE_THRESHOLD_MINUTES", "遲到判定閾值(分鐘)", ParamKey.CHECK_TYPE_INT + ":0-1440"),
     /** 早退判定阈值（分钟） */
-    EARLY_LEAVE_THRESHOLD_MINUTES("EARLY_LEAVE_THRESHOLD_MINUTES", "早退判定閾值(分鐘)");
+    EARLY_LEAVE_THRESHOLD_MINUTES("EARLY_LEAVE_THRESHOLD_MINUTES", "早退判定閾值(分鐘)", ParamKey.CHECK_TYPE_INT + ":0-1440");
 
     private final String code;
     private final String name;
+    /** 参数值格式校验类型（见 ParamKey CHECK_TYPE_* 常量） */
+    private final String checkType;
 
-    TcmAbsenceDataRecordParamKeyEnum(String code, String name) {
+    TcmAbsenceDataRecordParamKeyEnum(String code, String name, String checkType) {
         this.code = code;
         this.name = name;
+        this.checkType = checkType;
     }
 
     public static TcmAbsenceDataRecordParamKeyEnum ofCode(String code) {

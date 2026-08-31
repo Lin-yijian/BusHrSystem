@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.enums.params.ParamKey;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmRosteringParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmParamManageService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -121,26 +122,15 @@ public class CommonUtil {
     private final ThreadLocal<Map<String, String>> rosterParamSnapshot = new ThreadLocal<>();
 
     /**
-     * 读取排更模块参数。有事务时整表查一次后复用；无事务仍按 key 实时查库。
-     * 参数变更在下一次任务（新事务）生效，避免循环里 N+1。
+     * 读取排更模块参数（统一入口）。
+     * 有事务时整表查一次后复用（避免循环 N+1）；无事务走 {@link TcmParamManageService#queryParamValue}
+     * 实时单键查询（自带缺失抛错 + checkType 格式校验）。
+     * 参数变更在下一次任务（新事务）生效。
      */
     private String requireRosterParam(TcmRosteringParamKeyEnum keyEnum) {
-        String code = keyEnum.getCode();
-        String displayName = keyEnum.getName();
-        String value = resolveRosterParam(code);
-        if (StringUtils.isBlank(value)) {
-            throw new RuntimeException(
-                    "配置缺失：" + displayName + "[" + code + "]，請至【參數管理】菜單補錄");
-        }
-        return value;
-    }
-
-    private String resolveRosterParam(String code) {
+        // 1. 事务内快照：整表一次，循环复用
         Map<String, String> snapshot = rosterParamSnapshot.get();
-        if (snapshot != null) {
-            return snapshot.get(code);
-        }
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+        if (snapshot == null && TransactionSynchronizationManager.isSynchronizationActive()) {
             Map<String, String> loaded = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
             snapshot = (loaded != null) ? new HashMap<>(loaded) : new HashMap<>();
             rosterParamSnapshot.set(snapshot);
@@ -150,9 +140,18 @@ public class CommonUtil {
                     rosterParamSnapshot.remove();
                 }
             });
-            return snapshot.get(code);
         }
-        return tcmParamManageService.queryModuleParamValueNullable(ModuleEnum.TCM_SHEDULE_SHIFTS, code);
+        if (snapshot != null) {
+            String value = snapshot.get(keyEnum.getCode());
+            if (StringUtils.isBlank(value)) {
+                throw new RuntimeException(
+                        "配置缺失：" + keyEnum.getName() + "[" + keyEnum.getCode() + "]，請至【參數管理】菜單補錄");
+            }
+            // 按枚举 checkType 做格式校验（非法抛"配置非法：..."）
+            return ParamKey.checkValue(keyEnum, value);
+        }
+        // 2. 无事务：统一入口实时单键查询
+        return tcmParamManageService.queryParamValue(ModuleEnum.TCM_SHEDULE_SHIFTS, keyEnum);
     }
 
     /** @return 兼职司机岗位编码 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#PART_TIME_JOB_CODE} */
