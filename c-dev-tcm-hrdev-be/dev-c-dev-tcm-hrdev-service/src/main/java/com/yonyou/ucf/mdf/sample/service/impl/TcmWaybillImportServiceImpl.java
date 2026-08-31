@@ -161,6 +161,12 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         data.setBack_car_location(record.getBackCarLocation());
         data.setRemark(record.getRemark());
         data.setShift(record.getShift());
+        // 對應更位：早更取「對應下更」(toPM)，晚更取「對應上更」(toAM)
+        if ("PM".equals(record.getShift())) {
+            data.setParking_space(record.getToAM());
+        } else {
+            data.setParking_space(record.getToPM());
+        }
         return data;
     }
 

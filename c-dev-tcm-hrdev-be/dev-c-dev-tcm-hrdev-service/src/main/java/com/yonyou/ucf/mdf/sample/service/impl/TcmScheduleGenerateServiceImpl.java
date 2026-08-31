@@ -444,6 +444,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             entity.setDeparture_time(row.getDeparture_time());
             entity.setOne_early_line(row.getLine_str());
             entity.setOne_car(row.getCar_num());
+            entity.setDesignated_parking_bay(row.getParking_space());
         }else {
             entity.setOne_finish_time(entity.getFinish_time());
             entity.setTwo_departure_time(row.getDeparture_time());
