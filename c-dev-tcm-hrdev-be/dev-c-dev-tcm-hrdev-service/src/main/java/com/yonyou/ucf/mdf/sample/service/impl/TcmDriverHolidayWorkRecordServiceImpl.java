@@ -3,6 +3,7 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmDriverHolidayWorkRecordService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.SimpleCondition;
@@ -37,6 +38,7 @@ public class TcmDriverHolidayWorkRecordServiceImpl implements TcmDriverHolidayWo
         }
         Set<String> ids = list.stream().map(TcmDriverHolidayWorkRecord::getEmployee_id).collect(Collectors.toSet());
         removeByDateAndEmployeeIds(date, ids);
+        CommonUtil.fillInsertAudit(list);
         billRepository.insert(list);
     }
 

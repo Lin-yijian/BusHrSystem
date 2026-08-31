@@ -113,9 +113,11 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             }
         }
         if (!insertList.isEmpty()) {
+            CommonUtil.fillInsertAudit(insertList);
             billRepository.insert(insertList);
         }
         if (!updateList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateList);
             billRepository.update(updateList);
         }
     }
@@ -142,6 +144,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 c.setPg_two_return_time(null);
                 commonUtil.processDate(c,staffMap);
             }
+            CommonUtil.fillUpdateAudit(list);
             billRepository.update(list);
             return;
         }
@@ -208,9 +211,11 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             }
         }
         if (!insertList.isEmpty()) {
+            CommonUtil.fillInsertAudit(insertList);
             billRepository.insert(insertList);
         }
         if (!updateList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateList);
             billRepository.update(updateList);
         }
     }
@@ -264,6 +269,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             updateList.add(c);
         }
         if (!updateList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateList);
             billRepository.update(updateList);
         }
     }
@@ -286,6 +292,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             c.setRefuel_count(counts[0]);
             c.setGas_refill_count(counts[1]);
         }
+        CommonUtil.fillUpdateAudit(list);
         billRepository.update(list);
     }
 
@@ -316,6 +323,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             c.setAbsence_reason(absenceReason);
             c.setAbsence_record_count(absenceCount);
         }
+        CommonUtil.fillUpdateAudit(list);
         billRepository.update(list);
     }
 
@@ -351,6 +359,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         for (TcmAttendanceCorrection c : list) {
             commonUtil.processDate(c, staffMap);
         }
+        CommonUtil.fillUpdateAudit(list);
         billRepository.update(list);
         log.warn("[KQ_CALC] date={} step=refreshCorrectionsBeforeCalc size={} costMs={}",
                 dateStr, list.size(), System.currentTimeMillis() - t0);

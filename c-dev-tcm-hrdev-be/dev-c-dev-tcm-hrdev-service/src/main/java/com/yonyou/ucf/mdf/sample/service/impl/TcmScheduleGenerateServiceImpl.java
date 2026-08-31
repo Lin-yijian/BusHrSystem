@@ -167,9 +167,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             }
         }
         if (!insertList.isEmpty()) {
+            CommonUtil.fillInsertAudit(insertList);
             billRepository.insert(insertList);
         }
         if (!updateList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateList);
             billRepository.update(updateList);
         }
 
@@ -200,6 +202,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             }
         }
         if (!recordList.isEmpty()) {
+            CommonUtil.fillInsertAudit(recordList);
             billRepository.insert(recordList);
         }
         return list.size();
@@ -342,17 +345,21 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         }
 
         if (!scheduleInsertList.isEmpty()) {
+            CommonUtil.fillInsertAudit(scheduleInsertList);
             billRepository.insert(scheduleInsertList);
         }
         if (!scheduleUpdateList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(scheduleUpdateList);
             billRepository.update(scheduleUpdateList);
         }
         if (!correctionInsertList.isEmpty()) {
             processDate(correctionInsertList, staffMap);
+            CommonUtil.fillInsertAudit(correctionInsertList);
             billRepository.insert(correctionInsertList);
         }
         if (!correctionUpdateList.isEmpty()) {
             processDate(correctionUpdateList, staffMap);
+            CommonUtil.fillUpdateAudit(correctionUpdateList);
             billRepository.update(correctionUpdateList);
         }
 

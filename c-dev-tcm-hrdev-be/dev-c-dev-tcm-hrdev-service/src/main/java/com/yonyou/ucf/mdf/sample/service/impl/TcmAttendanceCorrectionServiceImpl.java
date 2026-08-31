@@ -129,6 +129,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
             }
         });
 
+        CommonUtil.fillUpdateAudit(list);
         billRepository.update(list);
     }
 
@@ -164,6 +165,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         for (TcmAttendanceAbsenceDataRecord record : list) {
             record.setYtenantId(tenantId);
         }
+        CommonUtil.fillInsertAudit(list);
         billRepository.insert(list);
     }
 

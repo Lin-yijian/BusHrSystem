@@ -117,9 +117,11 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         }
 
         if (!insertList.isEmpty()){
+            CommonUtil.fillInsertAudit(insertList);
             billRepository.insert(insertList);
         }
         if (!updateList.isEmpty()){
+            CommonUtil.fillUpdateAudit(updateList);
             billRepository.update(updateList);
         }
 

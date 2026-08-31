@@ -1,5 +1,6 @@
 package com.yonyou.ucf.mdf.sample.utils;
 
+import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,6 +36,80 @@ public class CommonUtil {
 
     @Autowired
     private TcmParamManageService tcmParamManageService;
+
+    // =========================================================================================
+    // 审计字段统一填充工具（creator/createTime/modifier/modifyTime）
+    // insert 前调用 fillInsertAudit：填充 创建人+创建时间+修改人+修改时间
+    // update 前调用 fillUpdateAudit：只填充 修改人+修改时间（不覆盖原创建人/创建时间）
+    // 兼容所有实体（实体各自声明审计字段与 setter，通过反射+缓存调用）
+    // =========================================================================================
+
+    /** setter 反射缓存：Class -> (字段名 -> Method) */
+    private static final Map<Class<?>, Map<String, Method>> AUDIT_SETTER_CACHE = new ConcurrentHashMap<>();
+
+    /** 为单个对象填充 insert 审计字段（creator/createTime/modifier/modifyTime） */
+    public static void fillInsertAudit(Object bean) {
+        fillAudit(bean, true);
+    }
+
+    /** 为集合中每个对象填充 insert 审计字段 */
+    public static void fillInsertAudit(Collection<?> beans) {
+        if (beans == null) {
+            return;
+        }
+        beans.forEach(b -> fillAudit(b, true));
+    }
+
+    /** 为单个对象填充 update 审计字段（modifier/modifyTime） */
+    public static void fillUpdateAudit(Object bean) {
+        fillAudit(bean, false);
+    }
+
+    /** 为集合中每个对象填充 update 审计字段 */
+    public static void fillUpdateAudit(Collection<?> beans) {
+        if (beans == null) {
+            return;
+        }
+        beans.forEach(b -> fillAudit(b, false));
+    }
+
+    private static void fillAudit(Object bean, boolean insert) {
+        if (bean == null) {
+            return;
+        }
+        try {
+            String userId = InvocationInfoProxy.getUserid();
+            Date now = new Date();
+            if (insert) {
+                invokeAuditSetter(bean, "creator", userId);
+                invokeAuditSetter(bean, "createTime", now);
+            }
+            invokeAuditSetter(bean, "modifier", userId);
+            invokeAuditSetter(bean, "modifyTime", now);
+        } catch (Exception e) {
+            log.warn("[fillAudit] 填充审计字段失败 class={}", bean.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeAuditSetter(Object bean, String field, Object value) {
+        Map<String, Method> setters = AUDIT_SETTER_CACHE.computeIfAbsent(bean.getClass(), k -> new ConcurrentHashMap<>());
+        Method setter = setters.get(field);
+        if (setter == null) {
+            try {
+                setter = bean.getClass().getMethod("set" + Character.toUpperCase(field.charAt(0)) + field.substring(1));
+            } catch (NoSuchMethodException e) {
+                // 实体没有该审计字段则跳过
+                return;
+            }
+            setter.setAccessible(true);
+            setters.put(field, setter);
+        }
+        try {
+            setter.invoke(bean, value);
+        } catch (Exception e) {
+            log.warn("[fillAudit] 调用 setter 失败 class={} field={}", bean.getClass().getName(), field, e);
+        }
+    }
 
     public final String FIELD_CODE_WAYBILL_EMPLOYEE_ID = "waybill_employeeId";
     public final String FIELD_CODE_EMPLOYEE_ID = "code";

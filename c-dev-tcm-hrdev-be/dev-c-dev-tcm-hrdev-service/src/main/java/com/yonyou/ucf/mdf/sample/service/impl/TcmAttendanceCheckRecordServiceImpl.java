@@ -8,6 +8,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCheckRecord;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
@@ -47,6 +48,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                     updateRecordByModule(record, moduleEnum, isGood);
                     normalizeStoredDate(record);
                 }
+                CommonUtil.fillUpdateAudit(existingRecords);
                 billRepository.update(existingRecords);
             }
 
@@ -56,6 +58,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                     .collect(Collectors.toList());
 
             if (!newRecords.isEmpty()) {
+                CommonUtil.fillInsertAudit(newRecords);
                 billRepository.insert(newRecords);
             }
         }
@@ -72,6 +75,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
             List<TcmAttendanceCheckRecord> records = findRecordsByDate(normalizedDate, tenantId);
             if (records.isEmpty()) {
                 TcmAttendanceCheckRecord newRecord = createNewRecord(normalizedDate, tenantId, moduleEnum, isGood);
+                CommonUtil.fillInsertAudit(newRecord);
                 billRepository.insert(Collections.singletonList(newRecord));
                 return;
             }
@@ -85,6 +89,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                 }
             }
             if (needUpdate) {
+                CommonUtil.fillUpdateAudit(records);
                 billRepository.update(records);
             }
         }
@@ -102,6 +107,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                 record.setCheck_status(status);
                 normalizeStoredDate(record);
             }
+            CommonUtil.fillUpdateAudit(list);
             billRepository.update(list);
         }
     }

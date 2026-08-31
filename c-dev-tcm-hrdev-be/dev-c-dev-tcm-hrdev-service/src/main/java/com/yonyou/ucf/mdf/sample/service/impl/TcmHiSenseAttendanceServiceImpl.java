@@ -386,6 +386,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             List<TcmDriverHolidayWorkRecord> holidayList = new ArrayList<>(holidayByEmp.values());
 
             stepStart = System.currentTimeMillis();
+            CommonUtil.fillInsertAudit(dataList);
             billRepository.insert(dataList);
             log.warn("[HXKQ_SYNC] date={} step=insertAttendance size={} costMs={}",
                     runDate, dataList.size(), System.currentTimeMillis() - stepStart);
@@ -513,6 +514,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             for (TcmHisenseAttendanceData data : matchedList) {
                 data.setHandle_status(BaseEnum.DONE.getCode());
             }
+            CommonUtil.fillUpdateAudit(matchedList);
             billRepository.update(matchedList);
             stepStart = System.currentTimeMillis();
             calculationService.getAndUpdateAssessReviseByDate(runDate);
@@ -735,6 +737,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         }
 
         // 批量更新修正数据
+        CommonUtil.fillUpdateAudit(correctionList);
         billRepository.update(correctionList);
     }
 

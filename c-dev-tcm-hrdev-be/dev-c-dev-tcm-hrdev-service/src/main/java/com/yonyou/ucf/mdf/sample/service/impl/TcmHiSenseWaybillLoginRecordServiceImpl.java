@@ -183,6 +183,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         }
 
         if (!list.isEmpty()) {
+            CommonUtil.fillInsertAudit(list);
             billRepository.insert(list);
             checkRecordService.updateOrSaveRecord(actDate, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD,true);
             log.info("成功同步海信数据，日期: {}, 记录数: {}", actDate, list.size());

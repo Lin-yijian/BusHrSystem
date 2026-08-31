@@ -7,6 +7,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -159,10 +160,12 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         // 批量新增和更新
         Map<String, Object> result = new HashMap<>();
         if (!newCalList.isEmpty()) {
+            CommonUtil.fillInsertAudit(newCalList);
             billRepository.insert(newCalList);
             result.put("insertCount", newCalList.size());
         }
         if (!updateCalList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateCalList);
             billRepository.update(updateCalList);
             result.put("updateCount", updateCalList.size());
         }

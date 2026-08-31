@@ -3,6 +3,7 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmBaTypeAttendanceData;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmBaTypeAttendanceDataService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.SimpleCondition;
@@ -37,6 +38,7 @@ public class TcmBaTypeAttendanceDataServiceImpl implements TcmBaTypeAttendanceDa
         }
         Set<String> ids = list.stream().map(TcmBaTypeAttendanceData::getEmployee_id).collect(Collectors.toSet());
         removeByDateAndEmployeeIds(date, ids);
+        CommonUtil.fillInsertAudit(list);
         billRepository.insert(list);
     }
 
