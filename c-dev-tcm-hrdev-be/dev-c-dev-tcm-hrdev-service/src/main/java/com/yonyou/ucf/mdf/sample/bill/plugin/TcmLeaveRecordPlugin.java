@@ -1,6 +1,11 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmLeaveRecord;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -24,9 +29,30 @@ public class TcmLeaveRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private CommonUtil util;
 
+    @Autowired
+    private TcmAttendanceCorrectionService correctionService;
+
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmLeaveRecord) {
+            TcmLeaveRecord data = (TcmLeaveRecord) billDo;
+            String id = data.getId();
+            String date = data.getStart_date();
+            String employeeId = data.getEmployee_id();
+            if (id != null && date != null && employeeId != null) {
+                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
+                List<TcmAttendanceAbsenceDataRecord> records = new ArrayList<>();
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    TcmAttendanceAbsenceDataRecord record = new TcmAttendanceAbsenceDataRecord();
+                    record.setForeignerKey(correction.getId());
+                    record.setEntity(id);
+                    records.add(record);
+                }
+                correctionService.saveTcmAttendanceAbsenceDataRecord(records);
+            }
+        }
 
     }
 

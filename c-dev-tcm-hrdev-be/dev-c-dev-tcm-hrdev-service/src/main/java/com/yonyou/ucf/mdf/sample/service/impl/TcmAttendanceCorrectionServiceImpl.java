@@ -4,6 +4,7 @@ import com.yonyou.iuap.BusinessException;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
@@ -151,6 +152,19 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     @Override
     public void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday) {
         commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, String.valueOf(isWorkingHoliday), ids);
+    }
+
+
+    @Override
+    public void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceAbsenceDataRecord record : list) {
+            record.setYtenantId(tenantId);
+        }
+        billRepository.insert(list);
     }
 
     // 辅助方法：构建key，处理null值

@@ -47,11 +47,14 @@ public class TcmHisenseAttendanceDataPlugin extends AbstractBillPlugin {
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
-        TcmHisenseAttendanceData data = (TcmHisenseAttendanceData) billContext.getBillDO();
-        String date = data.getRun_date();
-        boolean existFlag = service.checkDataByDate(date);
-        if (!existFlag) {
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, false);
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmHisenseAttendanceData) {
+            TcmHisenseAttendanceData data = (TcmHisenseAttendanceData) billContext.getBillDO();
+            String date = data.getRun_date();
+            boolean existFlag = service.checkDataByDate(date);
+            if (!existFlag) {
+                tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, false);
+            }
         }
 //        service.refreshCorrectionFromLocalData(date, data.getEmployee_id());
 //        calcTrigger.afterDataChanged(date, data.getEmployee_id());
