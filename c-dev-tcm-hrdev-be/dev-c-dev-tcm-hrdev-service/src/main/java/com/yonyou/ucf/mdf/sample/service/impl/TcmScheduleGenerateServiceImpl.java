@@ -129,6 +129,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             record.setStart_date(startDate);
             record.setEffective_month(effectiveMonth);
             record.setEnd_date(endDate);
+            // 请假说明带入 waybill 解析备注；请假天数默认 1
+            record.setRemark(data.getRemark());
+            record.setLeave_days(1);
             record.setYtenantId(tenantId);
             list.add(record);
         }
