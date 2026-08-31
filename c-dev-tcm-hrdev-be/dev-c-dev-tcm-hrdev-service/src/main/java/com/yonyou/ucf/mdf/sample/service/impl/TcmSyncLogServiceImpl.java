@@ -46,16 +46,16 @@ public class TcmSyncLogServiceImpl implements TcmSyncLogService {
 
     // =================== 状态常量（与 AOP / 前端约定保持一致） ===================
     /** 同步状态 - 未同步 */
-    public static final String SYNC_STATUS_NOT_SYNCED = "0";
+    public static final String SYNC_STATUS_NOT_SYNCED = "1";
     /** 同步状态 - 已同步(成功) */
-    public static final String SYNC_STATUS_SYNCED_SUCCESS = "1";
+    public static final String SYNC_STATUS_SYNCED_SUCCESS = "2";
     /** 同步状态 - 已同步(失败) */
-    public static final String SYNC_STATUS_SYNCED_FAIL = "2";
+    public static final String SYNC_STATUS_SYNCED_FAIL = "3";
 
     /** 任务完成状态 - 正常 */
-    public static final String TASK_STATUS_NORMAL = "1";
+    public static final String TASK_STATUS_NORMAL = "2";
     /** 任务完成状态 - 异常 */
-    public static final String TASK_STATUS_ABNORMAL = "2";
+    public static final String TASK_STATUS_ABNORMAL = "1";
 
     /** 初始化备注 */
     private static final String REMARK_INIT = "正在开始同步...";

@@ -71,15 +71,17 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             return;
         }
         Throwable captured = null;
+        int newCount = 0;
         try {
-            doGenerateLeaveRInternal(ruleId, date);
+            newCount = doGenerateLeaveRInternal(ruleId, date);
         } catch (Throwable t) {
             captured = t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw (Error) t;
         } finally {
+            String remarkEx = (captured == null) ? ("同步成功，新增 " + newCount + " 条") : null;
             try {
-                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
             } catch (Exception finishEx) {
                 log.error("[generateLeaveR(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
             }
@@ -89,7 +91,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     /**
      * 生成休假记录（主逻辑）。内部调用不触发 AOP。
      */
-    private void doGenerateLeaveRInternal(String ruleId, String date) {
+    private int doGenerateLeaveRInternal(String ruleId, String date) {
         TcmLeaveRule rule = queryService.findById(TcmLeaveRule.ENTITY_NAME, ruleId);
         if (rule == null) {
             throw new RuntimeException("请至少选择一条规则进行匹配");
@@ -157,6 +159,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         if (!recordList.isEmpty()) {
             billRepository.insert(recordList);
         }
+        return list.size();
     }
 
     @Override

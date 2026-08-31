@@ -219,16 +219,18 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return;
         }
         Throwable captured = null;
+        int newCount = 0;
         try {
-            doSyncDataInternal(runDate);
+            newCount = doSyncDataInternal(runDate);
         } catch (Throwable t) {
             captured = t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw (Error) t;
         } finally {
             // REQUIRES_NEW 独立事务回填日志，即使主事务回滚也保留记录
+            String remarkEx = (captured == null) ? ("同步成功，新增 " + newCount + " 条") : null;
             try {
-                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
             } catch (Exception finishEx) {
                 log.error("[syncData(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
             }
@@ -239,7 +241,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 同步海信考勤数据的真正内部实现（抽离后避免 syncData(String) 与 syncData(String,String) 代码重复）。
      * 内部方法直接调用不会触发 AOP（基于 Spring 代理机制，需走代理才会切入）。
      */
-    private void doSyncDataInternal(String runDate) {
+    private int doSyncDataInternal(String runDate) {
         List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
         if (hiSenseDTOList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
@@ -372,6 +374,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 計算
         calculationService.getAndUpdateAssessReviseByDate(runDate);
 
+        return dataList.size();
     }
 
     @SyncLog(model = TaskTypeEnum.HXKQ_MAKE,dateParam = "runDate")
@@ -392,15 +395,17 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return;
         }
         Throwable captured = null;
+        int newCount = 0;
         try {
-            doGenerateInternal(runDate);
+            newCount = doGenerateInternal(runDate);
         } catch (Throwable t) {
             captured = t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw (Error) t;
         } finally {
+            String remarkEx = (captured == null) ? ("同步成功，处理 " + newCount + " 条") : null;
             try {
-                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
             } catch (Exception finishEx) {
                 log.error("[generate(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
             }
@@ -410,9 +415,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     /**
      * 生成本地考勤（考勤修正装配+更新计数）的真正实现，不携带 @SyncLog。
      */
-    private void doGenerateInternal(String runDate) {
+    private int doGenerateInternal(String runDate) {
         if (StringUtil.isEmpty(runDate)) {
-            return;
+            return 0;
         }
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmHisenseAttendanceData> condition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
@@ -423,7 +428,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 .lt(TcmHisenseAttendanceData::getCount, 3); // count <= 2
         List<TcmHisenseAttendanceData> dataList = billRepository.queryByClause(condition);
         if (dataList == null || dataList.isEmpty()) {
-            return;
+            return 0;
         }
 
         Set<String> staffSet = dataList.stream()
@@ -431,7 +436,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 .filter(id -> !StringUtil.isEmpty(id))
                 .collect(Collectors.toSet());
         if (staffSet.isEmpty()) {
-            return;
+            return 0;
         }
 
         // 加载员工岗位信息
@@ -462,6 +467,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             data.setHandle_status(BaseEnum.DONE.getCode());
         }
         billRepository.update(dataList);
+        return dataList.size();
     }
 
     @SyncLog(model = TaskTypeEnum.BXZS_SYNC,dateParam = "runDate")
@@ -482,15 +488,17 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return;
         }
         Throwable captured = null;
+        int newCount = 0;
         try {
-            doSyncBaTypeInternal(runDate);
+            newCount = doSyncBaTypeInternal(runDate);
         } catch (Throwable t) {
             captured = t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw (Error) t;
         } finally {
+            String remarkEx = (captured == null) ? ("同步成功，新增 " + newCount + " 条") : null;
             try {
-                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
             } catch (Exception finishEx) {
                 log.error("[syncBaType(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
             }
@@ -500,7 +508,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     /**
      * 同步巴型转数并更新考勤修正的真正实现（不携带 @SyncLog）。
      */
-    private void doSyncBaTypeInternal(String runDate) {
+    private int doSyncBaTypeInternal(String runDate) {
         List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
         if (hiSenseDTOList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
@@ -606,13 +614,14 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 更新考勤修正数据：基于已落库的海信考勤数据 + 本方法生成的巴型转数
         List<TcmHisenseAttendanceData> dataList = getByRunDate(runDate);
         if (dataList == null || dataList.isEmpty()) {
-            return;
+            return baTypeAttendanceDataList.size();
         }
         Set<String> staffSet = dataList.stream()
                 .map(TcmHisenseAttendanceData::getEmployee_id)
                 .filter(id -> !StringUtil.isEmpty(id))
                 .collect(Collectors.toSet());
         assemblyCorrection(dataList, baTypeMap, runDate, staffSet, staffPostMap);
+        return baTypeAttendanceDataList.size();
     }
 
     /**

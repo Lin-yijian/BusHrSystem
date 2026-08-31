@@ -100,15 +100,17 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
             return;
         }
         Throwable captured = null;
+        int newCount = 0;
         try {
-            doSyncByActDateInternal(actDate);
+            newCount = doSyncByActDateInternal(actDate);
         } catch (Throwable t) {
             captured = t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw (Error) t;
         } finally {
+            String remarkEx = (captured == null) ? ("同步成功，新增 " + newCount + " 条") : null;
             try {
-                tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
             } catch (Exception finishEx) {
                 log.error("[syncByActDate(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
             }
@@ -118,7 +120,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
     /**
      * 车载机登入记录同步主逻辑（内部私有，不携带 @SyncLog 避免 AOP 切入）。
      */
-    private void doSyncByActDateInternal(String actDate) {
+    private int doSyncByActDateInternal(String actDate) {
         List<HiSenseLoginRecordDataDTO> hiSenseDataList = getHiSenseDataByActDate(actDate);
         if (hiSenseDataList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");
@@ -187,6 +189,7 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         } else {
             log.warn("没有可同步的数据，日期: {}", actDate);
         }
+        return list.size();
     }
 
     @Override
