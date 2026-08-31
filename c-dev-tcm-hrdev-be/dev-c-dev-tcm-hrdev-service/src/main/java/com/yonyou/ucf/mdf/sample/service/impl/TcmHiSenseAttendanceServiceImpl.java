@@ -56,12 +56,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     // ====================== 参数管理：海信考勤模块(TCM_HI_SENSE_ATTENDANCE) ======================
     // 所属 module = ModuleEnum.TCM_HI_SENSE_ATTENDANCE.getCode()
     // 参数 key 枚举见 TcmHiSenseAttendanceParamKeyEnum
+    // 实时查询（不缓存），保证 TCMParamManage 更新后立即生效
 
     /** HH:mm 时长格式正则 */
     private static final Pattern HH_MM_PATTERN = Pattern.compile("^\\d{1,2}:[0-5]\\d$");
-
-    /** 懒加载缓存：TCM_HI_SENSE_ATTENDANCE 模块下全部 key → value */
-    private volatile Map<String, String> hiSenseParamCache;
 
     @Autowired
     private TcmParamManageService tcmParamManageService;
@@ -1212,30 +1210,18 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     }
 
     // =============================================================================================
-    // 参数管理工具：TCM_HI_SENSE_ATTENDANCE 模块 — 懒加载 + 强制校验（不允许默认值兜底）
+    // 参数管理工具：TCM_HI_SENSE_ATTENDANCE 模块 — 实时查询 + 强制校验（不允许默认值兜底）
     // =============================================================================================
 
-    private Map<String, String> getHiSenseParamCache() {
-        Map<String, String> cache = hiSenseParamCache;
-        if (cache != null) return cache;
-        synchronized (this) {
-            cache = hiSenseParamCache;
-            if (cache == null) {
-                Map<String, String> m = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_HI_SENSE_ATTENDANCE);
-                hiSenseParamCache = cache = (m != null) ? new HashMap<>(m) : new HashMap<>();
-            }
-        }
-        return cache;
-    }
-
     /**
-     * 要求缓存中必须存在指定的参数 key 且 value 非空白，否则抛异常。
+     * 实时查询指定参数 key 的 value（每次走 DB，不缓存），若不存在或空白则抛异常。
      * 消息格式与 CommonUtil 保持一致："配置缺失：name[code]，請至【參數管理】菜單補錄"
      */
     private String requireHiSenseParam(TcmHiSenseAttendanceParamKeyEnum keyEnum) {
         String code = keyEnum.getCode();
         String name = keyEnum.getName();
-        String value = getHiSenseParamCache().get(code);
+        String value = tcmParamManageService.queryModuleParamValueNullable(
+                ModuleEnum.TCM_HI_SENSE_ATTENDANCE, code);
         if (StringUtils.isBlank(value)) {
             throw new RuntimeException("配置缺失：" + name + "[" + code + "]，請至【參數管理】菜單補錄");
         }

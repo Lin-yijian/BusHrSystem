@@ -39,24 +39,8 @@ public class CommonUtil {
     public final String FIELD_CODE_STAFF_AB_09 = "diverType";
 
 
-    /** 懒加载缓存 */
-    private volatile Map<String, String> rosterParamCache;
-
-    private Map<String, String> getRosterParamCache() {
-        Map<String, String> cache = rosterParamCache;
-        if (cache != null) return cache;
-        synchronized (this) {
-            cache = rosterParamCache;
-            if (cache == null) {
-                Map<String, String> m = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
-                rosterParamCache = cache = (m != null) ? new HashMap<>(m) : new HashMap<>();
-            }
-        }
-        return cache;
-    }
-
     /**
-     * 要求缓存中必须存在指定的参数 key，否则抛 RuntimeException（提示到参数管理补录）。
+     * 实时查询指定参数 key 的 value（每次走 DB，不缓存），若不存在或空白则抛 RuntimeException。
      *
      * @param keyEnum 参数键枚举（含 name、code）
      * @return 非空 value
@@ -64,7 +48,8 @@ public class CommonUtil {
     private String requireRosterParam(TcmRosteringParamKeyEnum keyEnum) {
         String code = keyEnum.getCode();
         String displayName = keyEnum.getName();
-        String value = getRosterParamCache().get(code);
+        String value = tcmParamManageService.queryModuleParamValueNullable(
+                ModuleEnum.TCM_SHEDULE_SHIFTS, code);
         if (StringUtils.isBlank(value)) {
             throw new RuntimeException(
                     "配置缺失：" + displayName + "[" + code + "]，請至【參數管理】菜單補錄");
