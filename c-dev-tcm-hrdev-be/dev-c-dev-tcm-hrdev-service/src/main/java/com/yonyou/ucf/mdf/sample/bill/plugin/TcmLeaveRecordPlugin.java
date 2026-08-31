@@ -35,6 +35,31 @@ public class TcmLeaveRecordPlugin extends AbstractBillPlugin {
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
+//        Object billDo = billContext.getBillDO();
+//        if (billDo instanceof TcmLeaveRecord) {
+//            TcmLeaveRecord data = (TcmLeaveRecord) billDo;
+//            String id = data.getId();
+//            String date = data.getStart_date();
+//            String employeeId = data.getEmployee_id();
+//            if (id != null && date != null && employeeId != null) {
+//                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
+//                List<TcmAttendanceAbsenceDataRecord> records = new ArrayList<>();
+//                for (TcmAttendanceCorrection correction : correctionList) {
+//                    TcmAttendanceAbsenceDataRecord record = new TcmAttendanceAbsenceDataRecord();
+//                    record.setForeignerKey(correction.getId());
+//                    record.setEntity(id);
+//                    records.add(record);
+//                }
+//                correctionService.saveTcmAttendanceAbsenceDataRecord(records);
+//            }
+//        }
+
+    }
+
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
         Object billDo = billContext.getBillDO();
         if (billDo instanceof TcmLeaveRecord) {
             TcmLeaveRecord data = (TcmLeaveRecord) billDo;
@@ -53,7 +78,6 @@ public class TcmLeaveRecordPlugin extends AbstractBillPlugin {
                 correctionService.saveTcmAttendanceAbsenceDataRecord(records);
             }
         }
-
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
