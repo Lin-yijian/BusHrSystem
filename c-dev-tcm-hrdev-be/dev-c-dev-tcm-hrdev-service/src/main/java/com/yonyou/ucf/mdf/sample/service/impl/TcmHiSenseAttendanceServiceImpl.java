@@ -221,9 +221,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Throwable captured = null;
         try {
             doSyncDataInternal(runDate);
-        } catch (RuntimeException | Error e) {
-            captured = e;
-            throw e;
+        } catch (Throwable t) {
+            captured = t;
+            if (t instanceof RuntimeException) throw (RuntimeException) t;
+            throw (Error) t;
         } finally {
             // REQUIRES_NEW 独立事务回填日志，即使主事务回滚也保留记录
             try {
@@ -393,9 +394,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Throwable captured = null;
         try {
             doGenerateInternal(runDate);
-        } catch (RuntimeException | Error e) {
-            captured = e;
-            throw e;
+        } catch (Throwable t) {
+            captured = t;
+            if (t instanceof RuntimeException) throw (RuntimeException) t;
+            throw (Error) t;
         } finally {
             try {
                 tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
@@ -482,9 +484,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Throwable captured = null;
         try {
             doSyncBaTypeInternal(runDate);
-        } catch (RuntimeException | Error e) {
-            captured = e;
-            throw e;
+        } catch (Throwable t) {
+            captured = t;
+            if (t instanceof RuntimeException) throw (RuntimeException) t;
+            throw (Error) t;
         } finally {
             try {
                 tcmSyncLogService.finishSyncLog(syncLogId, captured, null);

@@ -102,9 +102,10 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         Throwable captured = null;
         try {
             doSyncByActDateInternal(actDate);
-        } catch (RuntimeException | Error e) {
-            captured = e;
-            throw e;
+        } catch (Throwable t) {
+            captured = t;
+            if (t instanceof RuntimeException) throw (RuntimeException) t;
+            throw (Error) t;
         } finally {
             try {
                 tcmSyncLogService.finishSyncLog(syncLogId, captured, null);
