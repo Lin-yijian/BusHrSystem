@@ -857,6 +857,28 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 .map(BaTypeAttendanceSummaryDTO::getBusTransferTimes)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // 1. 按顺序(order)排序后再处理（稳定排序，order 相同保持原始相对顺序）
+        List<BaTypeAttendanceSummaryDTO> sortedList = baTypeList.stream()
+                .filter(dto -> carTypeMap.get(dto.getCarType()) != null)
+                .sorted(Comparator.comparingInt(BaTypeAttendanceSummaryDTO::getOrder))
+                .collect(Collectors.toList());
+
+        // 2. 相邻车型(bus_type_rpm_order)相同的合并成一条，巴型转数相加；合并后继续与相邻比较（支持连续多条合并）
+        List<BaTypeAttendanceSummaryDTO> mergedList = new ArrayList<>();
+        for (BaTypeAttendanceSummaryDTO dto : sortedList) {
+            String normalized = normalizeCarTypeCode(carTypeMap.get(dto.getCarType()).getType_code());
+            if (!mergedList.isEmpty()) {
+                BaTypeAttendanceSummaryDTO last = mergedList.get(mergedList.size() - 1);
+                String lastNormalized = normalizeCarTypeCode(carTypeMap.get(last.getCarType()).getType_code());
+                if (normalized.equals(lastNormalized)) {
+                    last.setBusTransferTimes(last.getBusTransferTimes().add(dto.getBusTransferTimes()));
+                    continue;
+                }
+            }
+            // 拷贝一条，避免合并时污染原始 DTO
+            mergedList.add(new BaTypeAttendanceSummaryDTO(dto.getStaffId(), dto.getCarType(), dto.getOrder(), dto.getBusTransferTimes()));
+        }
+
         // 用于拼接巴型类型顺序和巴型转数字符串
         StringBuilder busTypeOrderBuilder = new StringBuilder();
         StringBuilder busTypeRpmBuilder = new StringBuilder();
@@ -866,12 +888,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 是否已开始进入加班状态
         boolean isOvertimeStarted = false;
 
-        // 遍历巴型转数数据，按车型累加工时
-        for (BaTypeAttendanceSummaryDTO dto : baTypeList) {
+        // 遍历排序合并后的巴型转数数据，按车型累加工时
+        for (BaTypeAttendanceSummaryDTO dto : mergedList) {
             TCMCarType type = carTypeMap.get(dto.getCarType());
-            if (type == null){
-                continue;
-            }
             String typeCode = type.getType_code();
             BigDecimal busTransferTimes = dto.getBusTransferTimes(); // 巴型转数
             String runCarTime = calculate(jl_valid_time, busTransferTimes, totalTimes); // 行车工时 = 有效工时 * (目标转数/总转数)
@@ -883,7 +902,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             busTypeRpmBuilder.append(busTransferTimes).append(",");
 
             // 归一化车型编号（去除前导零，支持"01"、"1"等多种格式）
-            String normalizedTypeCode = typeCode != null ? typeCode.replaceFirst("^0+", "") : "";
+            String normalizedTypeCode = normalizeCarTypeCode(typeCode);
 
             // 车型编号（1=小巴，2=中巴，3=大巴，4=特大巴）
             // 将正常工时部分累加到行车工时和基本工时
@@ -980,6 +999,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         entity.setMedium_bus_overtime_hours(medium_bus_overtime_hours);
         entity.setLarge_bus_overtime_hours(large_bus_overtime_hours);
         entity.setExtra_large_bus_overtime_hours(extra_large_bus_overtime_hours);
+    }
+
+    /** 归一化车型编号（去除前导零，支持"01"、"1"等多种格式），用于车型相同判断与 switch 匹配 */
+    private String normalizeCarTypeCode(String typeCode) {
+        return typeCode != null ? typeCode.replaceFirst("^0+", "") : "";
     }
 
     /**
