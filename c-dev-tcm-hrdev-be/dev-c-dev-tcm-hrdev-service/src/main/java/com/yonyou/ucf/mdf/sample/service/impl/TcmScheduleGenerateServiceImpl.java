@@ -8,8 +8,10 @@ import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
+import com.yonyou.ucf.mdf.sample.enums.params.TcmRosteringParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
+import com.yonyou.ucf.mdf.sample.service.TcmParamManageService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
 import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
@@ -51,6 +53,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
     @Autowired
     private TcmSyncLogService tcmSyncLogService;
+
+    @Autowired
+    private TcmParamManageService tcmParamManageService;
 
 
     @Override
@@ -231,6 +236,50 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         }
     }
 
+    /**
+     *【两阶段日志】使用预创建的同步日志ID生成排更，finally 中以 REQUIRES_NEW 回填日志，
+     * 即使主事务回滚日志仍保留。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> generateSchedule(String date, String syncLogId) throws Exception {
+        if (date == null || date.isEmpty()) {
+            throw new RuntimeException("日期不能为空");
+        }
+        long totalStart = System.currentTimeMillis();
+        AttendanceCalcImportContext.beginBulkSync();
+        Throwable captured = null;
+        Map<String, Object> result = null;
+        try {
+            result = doGenerateScheduleInternal(date);
+            return result;
+        } catch (Throwable t) {
+            captured = t;
+            if (t instanceof Exception) throw (Exception) t;
+            throw (Error) t;
+        } finally {
+            AttendanceCalcImportContext.endBulkSync();
+            String remarkEx = (captured == null) ? buildScheduleSuccessRemark(result) : null;
+            try {
+                tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
+            } catch (Exception finishEx) {
+                log.error("[generateSchedule(syncLogId)] 回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+            }
+            log.warn("[HXPG_MAKE] date={} step=total costMs={}", date, System.currentTimeMillis() - totalStart);
+        }
+    }
+
+    /** 成功备注：同步成功，排更新增 X 条、更新 Y 条，修正新增 M 条、更新 N 条 */
+    private String buildScheduleSuccessRemark(Map<String, Object> result) {
+        if (result == null) {
+            return TcmSyncLogServiceImpl.remarkSuccess();
+        }
+        return "同步成功，本地排更新增 " + result.getOrDefault("scheduleInserted", 0)
+                + " 条、更新 " + result.getOrDefault("scheduleUpdated", 0)
+                + " 条，修正新增 " + result.getOrDefault("correctionInserted", 0)
+                + " 条、更新 " + result.getOrDefault("correctionUpdated", 0) + " 条";
+    }
+
     private Map<String, Object> doGenerateScheduleInternal(String date) throws Exception {
         String tenantId = InvocationInfoProxy.getTenantid();
 
@@ -241,6 +290,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
         Set<String> employeeIds = sourceList.stream().map(TcmWaybillSheduleShiftsData::getEmployee_id).collect(Collectors.toSet());
         Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(employeeIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
+
+        // 循环外一次性查询 ROSTERING 模块全部参数（含培训任务固定值），避免逐条查库
+        Map<String, String> rosterParams = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
+        TrainingParamConfig trainingConfig = buildTrainingParamConfig(rosterParams);
 
         Map<String, List<TcmWaybillSheduleShiftsData>> groups = groupByDateAndEmployee(sourceList);
 
@@ -284,11 +337,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmAttendanceCorrection existing = queryExistingCorrection(
                         row.getDate(), row.getEmployee_id(), row.getTask_code(), tenantId);
                 if (existing != null) {
-                    fillCorrectionFields(existing, row, null);
+                    fillCorrectionFields(existing, row, null, trainingConfig);
                     correctionUpdateList.add(existing);
                     correctionUpdated++;
                 } else {
-                    correctionInsertList.add(buildCorrection(row, null, tenantId));
+                    correctionInsertList.add(buildCorrection(row, null, tenantId, trainingConfig));
                     correctionInserted++;
                 }
 
@@ -330,11 +383,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmAttendanceCorrection existing = queryExistingCorrection(
                         earlyRow.getDate(), earlyRow.getEmployee_id(), earlyRow.getTask_code(), tenantId);
                 if (existing != null) {
-                    fillCorrectionFields(existing, earlyRow, lateRow);
+                    fillCorrectionFields(existing, earlyRow, lateRow, trainingConfig);
                     correctionUpdateList.add(existing);
                     correctionUpdated++;
                 } else {
-                    correctionInsertList.add(buildCorrection(earlyRow, lateRow, tenantId));
+                    correctionInsertList.add(buildCorrection(earlyRow, lateRow, tenantId, trainingConfig));
                     correctionInserted++;
                 }
 
@@ -559,7 +612,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         return list.isEmpty() ? null : list.get(0);
     }
 
-    private TcmAttendanceCorrection buildCorrection(TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, String tenantId) {
+    private TcmAttendanceCorrection buildCorrection(TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, String tenantId, TrainingParamConfig trainingConfig) {
         String id = ymsOidGenerator.nextStrId();
         TcmAttendanceCorrection entity = new TcmAttendanceCorrection();
         entity.setId(id);
@@ -567,11 +620,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setDate(earlyRow.getDate());
         entity.setEmployee_id(earlyRow.getEmployee_id());
         entity.setTask_code(earlyRow.getTask_code());
-        fillCorrectionFields(entity, earlyRow, lateRow);
+        fillCorrectionFields(entity, earlyRow, lateRow, trainingConfig);
         return entity;
     }
 
-    private void fillCorrectionFields(TcmAttendanceCorrection entity, TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow) {
+    private void fillCorrectionFields(TcmAttendanceCorrection entity, TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, TrainingParamConfig trainingConfig) {
         entity.setWaybill_employee_id(earlyRow.getWaybill_employee_id());
         entity.setDriver_name(earlyRow.getDriver_name());
         entity.setPg_one_departure_time(earlyRow.getDeparture_time());
@@ -623,6 +676,84 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             mealDuration = "00:00";
         }
         entity.setMeal_duration(mealDuration);
+
+        // 培训/其他培训：計糧排更一更發車/收車、用膳次数、用膳时长 取参数管理(ROSTERING)配置
+        String taskCode = earlyRow.getTask_code();
+        if (TASK_CODE_TRAINING.equals(taskCode) || TASK_CODE_OTHER_TRAINING.equals(taskCode)) {
+            entity.setJl_one_departure_time(combineDateAndTime(earlyRow.getDate(), trainingConfig.departureTime));
+            entity.setJl_one_return_time(combineDateAndTime(earlyRow.getDate(), trainingConfig.returnTime));
+            entity.setJl_two_departure_time(null);
+            entity.setJl_two_return_time(null);
+            entity.setMeal_count(trainingConfig.mealCount);
+            entity.setMeal_duration(trainingConfig.mealDuration);
+        }
+    }
+
+    /** 培训类任务代号 */
+    private static final String TASK_CODE_TRAINING = "培训";
+    /** 其他培训任务代号 */
+    private static final String TASK_CODE_OTHER_TRAINING = "其他培训";
+
+    /**
+     * 培训任务固定值配置（来源：TCMParamManage / ROSTERING 模块，循环外一次性解析）
+     */
+    private static class TrainingParamConfig {
+        /** 計糧排更一更發車时间 HH:mm */
+        final String departureTime;
+        /** 計糧排更一更收車时间 HH:mm */
+        final String returnTime;
+        /** 用膳次数 */
+        final int mealCount;
+        /** 用膳时长 HH:mm */
+        final String mealDuration;
+
+        TrainingParamConfig(String departureTime, String returnTime, int mealCount, String mealDuration) {
+            this.departureTime = departureTime;
+            this.returnTime = returnTime;
+            this.mealCount = mealCount;
+            this.mealDuration = mealDuration;
+        }
+    }
+
+    /**
+     * 循环外一次性解析培训参数配置；缺配置直接抛错（fail-fast，避免写一半数据）。
+     */
+    private TrainingParamConfig buildTrainingParamConfig(Map<String, String> params) {
+        String departureTime = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_DEPARTURE_TIME);
+        String returnTime = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_RETURN_TIME);
+        String mealCountStr = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_COUNT);
+        String mealDuration = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_DURATION);
+        int mealCount;
+        try {
+            mealCount = Integer.parseInt(mealCountStr.trim());
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("配置非法：培訓任務用膳次數[TRAINING_MEAL_COUNT]=" + mealCountStr
+                    + "，請至【參數管理】菜單修正");
+        }
+        return new TrainingParamConfig(departureTime, returnTime, mealCount, mealDuration);
+    }
+
+    /** 从模块参数Map中取值；缺失抛出统一提示 */
+    private String requireRosterParam(Map<String, String> params, TcmRosteringParamKeyEnum keyEnum) {
+        String code = keyEnum.getCode();
+        String value = params == null ? null : params.get(code);
+        if (StringUtils.isBlank(value)) {
+            throw new RuntimeException("配置缺失：" + keyEnum.getName() + "[" + code + "]，請至【參數管理】菜單補錄");
+        }
+        return value.trim();
+    }
+
+    /** 将日期(yyyy-MM-dd)与时间(HH:mm)合并为 Date；解析失败返回 null */
+    private Date combineDateAndTime(String date, String time) {
+        if (StringUtils.isBlank(date) || StringUtils.isBlank(time)) {
+            return null;
+        }
+        try {
+            return DateUtil.stringToDate(DateUtil.YYYY_MM_DD_HH_MM, date.trim() + " " + time.trim());
+        } catch (Exception e) {
+            log.warn("[HXPG_MAKE] 合并日期时间失败 date={} time={}", date, time, e);
+            return null;
+        }
     }
 
 

@@ -23,11 +23,19 @@ public class TcmScheduleGenerateController {
 
     @PostMapping("/generate-schedule")
     public ResponseEntity<?> generateSchedule(@RequestBody Map<String, String> body) {
+        String date = body.get("date");
+        String syncLogId = body.get("syncLogId");
         try {
-            String date = body.get("date");
-            Map<String, Object> result = scheduleGenerateService.generateSchedule(date);
+            Map<String, Object> result = scheduleGenerateService.generateSchedule(date, syncLogId);
             return ResponseUtil.success("生成排更成功", result);
         } catch (Exception e) {
+            if (syncLogId != null && !syncLogId.trim().isEmpty()) {
+                try {
+                    tcmSyncLogService.finishSyncLog(syncLogId, e, null);
+                } catch (Exception finishEx) {
+                    log.error("[TcmScheduleGenerateController.generateSchedule] 兜底回填同步日志失败 syncLogId={}", syncLogId, finishEx);
+                }
+            }
             return ResponseUtil.error(e);
         }
     }

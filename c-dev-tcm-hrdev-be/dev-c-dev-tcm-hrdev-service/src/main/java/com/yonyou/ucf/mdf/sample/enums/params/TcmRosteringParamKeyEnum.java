@@ -29,7 +29,15 @@ public enum TcmRosteringParamKeyEnum implements ParamKey {
     /** 兼职司机岗位编码 — 对应原 CommonUtil.PART_TIME_JOB_CODE（默认值 P0020103_NC07） */
     PART_TIME_JOB_CODE("PART_TIME_JOB_CODE", "兼職司機崗位編碼"),
     /** 深宵司机枚举编号 — 对应原 CommonUtil.NIGHT_DIVER_TYPE（默认值 4） */
-    NIGHT_DIVER_TYPE("NIGHT_DIVER_TYPE", "深宵司機枚舉編號");
+    NIGHT_DIVER_TYPE("NIGHT_DIVER_TYPE", "深宵司機枚舉編號"),
+    /** 培训任务計糧一更發車时间（HH:mm） */
+    TRAINING_DEPARTURE_TIME("TRAINING_DEPARTURE_TIME", "培訓任務計糧一更發車時間"),
+    /** 培训任务計糧一更收車时间（HH:mm） */
+    TRAINING_RETURN_TIME("TRAINING_RETURN_TIME", "培訓任務計糧一更收車時間"),
+    /** 培训任务用膳次数 */
+    TRAINING_MEAL_COUNT("TRAINING_MEAL_COUNT", "培訓任務用膳次數"),
+    /** 培训任务用膳时长（HH:mm） */
+    TRAINING_MEAL_DURATION("TRAINING_MEAL_DURATION", "培訓任務用膳時長");
 
     private final String code;
     private final String name;
