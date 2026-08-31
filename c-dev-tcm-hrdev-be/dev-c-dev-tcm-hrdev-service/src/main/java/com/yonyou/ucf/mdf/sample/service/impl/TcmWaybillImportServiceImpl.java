@@ -149,7 +149,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
         data.setLine_str(record.getRoute());
         try {
-            data.setMeal_time(record.getDiningNum() != null && !record.getDiningNum().isEmpty() 
+            data.setMeal_time(record.getDiningNum() != null && !record.getDiningNum().isEmpty()
                     ? Integer.valueOf(record.getDiningNum()) : 0);
         } catch (NumberFormatException e) {
             data.setMeal_time(0);
@@ -203,7 +203,8 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
     /**
      * 解析派车单Excel文件
      * 1. 先解析Data工作表：B1为日期，A2/B2/C2为标题行，数据从第3行开始，解析为aList
-     * 2. 循环除Data外的工作表：判断第二行（C2-U2合并格子）是否含有"線"，若是则解析正式数据为bList
+//     * 2. 循环除Data外的工作表：判断第二行（C2-U2合并格子）是否含有"線"，若是则解析正式数据为bList
+     * 2. 循环除Data外的工作表：判断第二行（C2-U2合并格子）是否含有"線"，若是则解析正式数据为bList；包車sheet跳过不解析
      * 3. 比对：bList中存在与aList相同task的数据时，从aList中删除
      * 4. 合并剩余aList和bList为cList返回
      * @param file Excel文件
@@ -261,12 +262,16 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
 
                 List<CellRangeAddress> mergedRegions = sheet.getMergedRegions();
 
-                // 判断第二行数据是否含有"線"或等于"包車"（第二行处于C2-U2合并的格子中）
+//                // 判断第二行数据是否含有"線"或等于"包車"（第二行处于C2-U2合并的格子中）
+//                String routeValue = getCellValueWithMerged(sheet, 1, 2, mergedRegions);
+//                if (routeValue == null || (!routeValue.contains("線") && !"包車".equals(routeValue))) {
+//                    continue;
+//                }
+                // 判断第二行数据是否含有"線"（第二行处于C2-U2合并的格子中）；包車sheet不解析導入BIP
                 String routeValue = getCellValueWithMerged(sheet, 1, 2, mergedRegions);
-                if (routeValue == null || (!routeValue.contains("線") && !"包車".equals(routeValue))) {
+                if (routeValue == null || !routeValue.contains("線")) {
                     continue;
                 }
-
                 // N开头路线：只有C-U范围数据，shift设为NM，无晚更
                 boolean isNRoute = routeValue.startsWith("N");
 
