@@ -431,18 +431,22 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return 0;
         }
 
-        Set<String> staffSet = dataList.stream()
-                .map(TcmHisenseAttendanceData::getEmployee_id)
-                .filter(id -> !StringUtil.isEmpty(id))
-                .collect(Collectors.toSet());
-        if (staffSet.isEmpty()) {
+        // 源头过滤：未匹配到员工的记录不参与生成，状态保持待处理
+        List<TcmHisenseAttendanceData> matchedList = dataList.stream()
+                .filter(d -> d != null && !StringUtil.isEmpty(d.getEmployee_id()))
+                .collect(Collectors.toList());
+        if (matchedList.isEmpty()) {
             return 0;
         }
+
+        Set<String> staffSet = matchedList.stream()
+                .map(TcmHisenseAttendanceData::getEmployee_id)
+                .collect(Collectors.toSet());
 
         // 加载员工岗位信息
         Map<String, String> staffPostMap = new HashMap<>();
         try {
-            List<String> waybillIds = dataList.stream()
+            List<String> waybillIds = matchedList.stream()
                     .map(TcmHisenseAttendanceData::getWaybill_employee_id)
                     .filter(id -> !StringUtil.isEmpty(id))
                     .distinct()
@@ -462,12 +466,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         }
 
         // 更新考勤修正数据（巴型工时由 syncBaType 链路负责，此处传空 baTypeMap）
-        assemblyCorrection(dataList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
-        for (TcmHisenseAttendanceData data : dataList) {
+        assemblyCorrection(matchedList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
+        for (TcmHisenseAttendanceData data : matchedList) {
             data.setHandle_status(BaseEnum.DONE.getCode());
         }
-        billRepository.update(dataList);
-        return dataList.size();
+        billRepository.update(matchedList);
+        return matchedList.size();
     }
 
     @SyncLog(model = TaskTypeEnum.BXZS_SYNC,dateParam = "runDate")
