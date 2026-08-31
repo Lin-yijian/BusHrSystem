@@ -1116,6 +1116,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Map<String, List<HiSenseAttendanceDataDTO>> groupedMap = validList.stream()
                 .collect(Collectors.groupingBy(this::buildGroupKey));
 
+        // 一次拉取只查一次合并间隔，循环内复用，避免 N+1 打库
+        long mergeGapMillis = getMergeGapMillis();
+
         List<HiSenseAttendanceMergedDTO> mergedList = new ArrayList<>();
 
         // 遍历每个分组，进行组内排序和合并
@@ -1126,7 +1129,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     Comparator.nullsLast(Comparator.naturalOrder())
             ));
             // 在组内执行合并逻辑
-            mergedList.addAll(mergeWithinGroup(group));
+            mergedList.addAll(mergeWithinGroup(group, mergeGapMillis));
         }
 
         // ============ 4. 合并后再次过滤：发车与到达同时为空 的记录不保存 ============
@@ -1188,10 +1191,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 遍历排序后的记录，判断相邻记录是否需要合并
      * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔不超过1小时
      *
-     * @param sortedGroup 已按实际发车时间排序的分组数据
+     * @param sortedGroup    已按实际发车时间排序的分组数据
+     * @param mergeGapMillis 本次拉取已解析的合并间隔（毫秒）
      * @return 合并后的结果列表
      */
-    private List<HiSenseAttendanceMergedDTO> mergeWithinGroup(List<HiSenseAttendanceDataDTO> sortedGroup) {
+    private List<HiSenseAttendanceMergedDTO> mergeWithinGroup(List<HiSenseAttendanceDataDTO> sortedGroup,
+                                                              long mergeGapMillis) {
         List<HiSenseAttendanceMergedDTO> mergedList = new ArrayList<>();
         if (sortedGroup.isEmpty()) {
             return mergedList;
@@ -1207,7 +1212,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             HiSenseAttendanceDataDTO curr = sortedGroup.get(i);
 
             // 判断是否满足合并条件
-            if (shouldMerge(prev, curr)) {
+            if (shouldMerge(prev, curr, mergeGapMillis)) {
                 // 满足条件，合并到当前组
                 currentMergeGroup.add(curr);
             } else {
@@ -1273,7 +1278,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     }
 
     /**
-     * 考勤合并间隔阈值（毫秒）。
+     * 考勤合并间隔阈值（毫秒）。一次合并只应调用一次，结果在循环内复用。
      * <p>来自参数管理 key = {@link TcmHiSenseAttendanceParamKeyEnum#MERGE_GAP_DURATION}，
      * DB 中 value 维护为 HH:mm 字符串（例如 01:00 表示 1 小时）。
      *
@@ -1288,11 +1293,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 判断两条记录是否需要合并
      * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔不超过参数配置的合并阈值（格式 HH:mm），且时间顺序正确（非负数）
      *
-     * @param prev 上一条记录
-     * @param curr 当前记录
+     * @param prev           上一条记录
+     * @param curr           当前记录
+     * @param mergeGapMillis 本次拉取已解析的合并间隔（毫秒）
      * @return true表示需要合并，false表示不需要合并
      */
-    private boolean shouldMerge(HiSenseAttendanceDataDTO prev, HiSenseAttendanceDataDTO curr) {
+    private boolean shouldMerge(HiSenseAttendanceDataDTO prev, HiSenseAttendanceDataDTO curr, long mergeGapMillis) {
         Date prevArrive = prev.getRealarrivetime();
         Date currLeave = curr.getRealleavetime();
 
@@ -1304,7 +1310,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 计算时间间隔（毫秒）
         long gap = currLeave.getTime() - prevArrive.getTime();
         // 间隔 >= 0（时间顺序正确）且 <= 参数配置的合并间隔（HH:mm 解析得到的毫秒数）则合并
-        return gap >= 0 && gap <= getMergeGapMillis();
+        return gap >= 0 && gap <= mergeGapMillis;
     }
 
     /**

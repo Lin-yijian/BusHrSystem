@@ -15,6 +15,8 @@ import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,23 +40,42 @@ public class CommonUtil {
     public final String FIELD_CODE_STAFF_ID = "id";
     public final String FIELD_CODE_STAFF_AB_09 = "diverType";
 
+    /** 当前事务内排更参数快照：一次任务只查整表一次，事务结束后丢弃。 */
+    private final ThreadLocal<Map<String, String>> rosterParamSnapshot = new ThreadLocal<>();
 
     /**
-     * 实时查询指定参数 key 的 value（每次走 DB，不缓存），若不存在或空白则抛 RuntimeException。
-     *
-     * @param keyEnum 参数键枚举（含 name、code）
-     * @return 非空 value
+     * 读取排更模块参数。有事务时整表查一次后复用；无事务仍按 key 实时查库。
+     * 参数变更在下一次任务（新事务）生效，避免循环里 N+1。
      */
     private String requireRosterParam(TcmRosteringParamKeyEnum keyEnum) {
         String code = keyEnum.getCode();
         String displayName = keyEnum.getName();
-        String value = tcmParamManageService.queryModuleParamValueNullable(
-                ModuleEnum.TCM_SHEDULE_SHIFTS, code);
+        String value = resolveRosterParam(code);
         if (StringUtils.isBlank(value)) {
             throw new RuntimeException(
                     "配置缺失：" + displayName + "[" + code + "]，請至【參數管理】菜單補錄");
         }
         return value;
+    }
+
+    private String resolveRosterParam(String code) {
+        Map<String, String> snapshot = rosterParamSnapshot.get();
+        if (snapshot != null) {
+            return snapshot.get(code);
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            Map<String, String> loaded = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
+            snapshot = (loaded != null) ? new HashMap<>(loaded) : new HashMap<>();
+            rosterParamSnapshot.set(snapshot);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    rosterParamSnapshot.remove();
+                }
+            });
+            return snapshot.get(code);
+        }
+        return tcmParamManageService.queryModuleParamValueNullable(ModuleEnum.TCM_SHEDULE_SHIFTS, code);
     }
 
     /** @return 兼职司机岗位编码 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#PART_TIME_JOB_CODE} */
