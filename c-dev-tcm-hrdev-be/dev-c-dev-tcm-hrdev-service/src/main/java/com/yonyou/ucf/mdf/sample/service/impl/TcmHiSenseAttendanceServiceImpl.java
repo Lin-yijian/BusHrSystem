@@ -17,6 +17,7 @@ import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmHiSenseAttendanceParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -242,139 +243,176 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 内部方法直接调用不会触发 AOP（基于 Spring 代理机制，需走代理才会切入）。
      */
     private int doSyncDataInternal(String runDate) {
-        List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
-        if (hiSenseDTOList.isEmpty()) {
-            throw new RuntimeException("當前日期數據爲空，請稍後再試");
-        }
-
-        List<HiSenseAttendanceMergedDTO> hiSenseDataList = mergeAttendanceData(hiSenseDTOList);
-        removeByRunDate(runDate);
-
-        List<TcmHisenseAttendanceData> dataList = new ArrayList<>();
-        List<TcmDriverHolidayWorkRecord> driverHolidayWorkRecordList = new ArrayList<>();
-        List<TcmBaTypeAttendanceData> baTypeAttendanceDataList = new ArrayList<>();
-
-        List<String> routeNameList = new ArrayList<>();
-        List<String> busCardIdList = new ArrayList<>();
-        List<String> employeeIdList = new ArrayList<>();
-        for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
-            routeNameList.add(hiSenseData.getRoutename());
-            busCardIdList.add(hiSenseData.getBuscardid());
-            employeeIdList.add(hiSenseData.getEmployeeId());
-        }
-
-        // 基礎信息
-        String tenantId = InvocationInfoProxy.getTenantid();
-        Map<String, String> staffIdMap = new HashMap<>();
-        Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
-        Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
-        List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
-        if (staffInfoList != null && !staffInfoList.isEmpty()) {
-            for (Map<String, Object> map : staffInfoList) {
-                staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_STAFF_ID));
+        long totalStart = System.currentTimeMillis();
+        AttendanceCalcImportContext.beginBulkSync();
+        try {
+            long stepStart = totalStart;
+            List<HiSenseAttendanceDataDTO> hiSenseDTOList = getHiSenseDataByRunData(runDate);
+            if (hiSenseDTOList.isEmpty()) {
+                throw new RuntimeException("當前日期數據爲空，請稍後再試");
             }
-        }
+            log.warn("[HXKQ_SYNC] date={} step=api records={} costMs={}",
+                    runDate, hiSenseDTOList.size(), System.currentTimeMillis() - stepStart);
 
-        // 收集缺失数据
-        List<String> missingCarNumbers = new ArrayList<>();
-        List<String> missingRouteNames = new ArrayList<>();
+            stepStart = System.currentTimeMillis();
+            List<HiSenseAttendanceMergedDTO> hiSenseDataList = mergeAttendanceData(hiSenseDTOList);
+            log.warn("[HXKQ_SYNC] date={} step=merge merged={} costMs={}",
+                    runDate, hiSenseDataList.size(), System.currentTimeMillis() - stepStart);
 
-        for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
-            String id = ymsOidGenerator.nextStrId();
-            TcmHisenseAttendanceData data = new TcmHisenseAttendanceData();
-            data.setId(id);
-            data.setYtenantId(tenantId);
-            data.setFake_flag(hiSenseData.getFakeflag());
-            data.setTrouble_flag(hiSenseData.getTroubleflag());
-            data.setReal_arrive_time(hiSenseData.getRealarrivetime());
-            data.setReal_leave_time(hiSenseData.getRealleavetime());
-            data.setSegment_id(hiSenseData.getSegmentid());
-            data.setSegment_name(hiSenseData.getSegmentname());
-            data.setStart_station_name(hiSenseData.getStartstationname());
-            data.setEnd_station_name(hiSenseData.getEndstationname());
-            data.setDriver_name(hiSenseData.getDriverName());
-            data.setWaybill_employee_id(hiSenseData.getEmployeeId());
-            data.setRun_date(runDate);
-            // 标记为待处理，供 generate 查询更新修正
-            data.setHandle_status(BaseEnum.TODO.getCode());
-            data.setCar_str(hiSenseData.getBuscardid());
-            data.setInternal_no(hiSenseData.getBusselfid());
+            stepStart = System.currentTimeMillis();
+            removeByRunDate(runDate);
+            log.warn("[HXKQ_SYNC] date={} step=deleteOld costMs={}",
+                    runDate, System.currentTimeMillis() - stepStart);
 
-            // 检查车辆信息
-            TCMCar tcmCar = stringTCMCarMap.get(hiSenseData.getBuscardid());
-            if (null != tcmCar){
+            List<TcmHisenseAttendanceData> dataList = new ArrayList<>();
+            Map<String, TcmDriverHolidayWorkRecord> holidayByEmp = new LinkedHashMap<>();
+
+            List<String> routeNameList = hiSenseDataList.stream()
+                    .map(HiSenseAttendanceMergedDTO::getRoutename)
+                    .filter(name -> !StringUtil.isEmpty(name))
+                    .distinct()
+                    .collect(Collectors.toList());
+            List<String> busCardIdList = hiSenseDataList.stream()
+                    .map(HiSenseAttendanceMergedDTO::getBuscardid)
+                    .filter(id -> !StringUtil.isEmpty(id))
+                    .distinct()
+                    .collect(Collectors.toList());
+            List<String> employeeIdList = hiSenseDataList.stream()
+                    .map(HiSenseAttendanceMergedDTO::getEmployeeId)
+                    .filter(id -> !StringUtil.isEmpty(id))
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            stepStart = System.currentTimeMillis();
+            String tenantId = InvocationInfoProxy.getTenantid();
+            Map<String, String> staffIdMap = new HashMap<>();
+            Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
+            Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
+            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
+            if (staffInfoList != null && !staffInfoList.isEmpty()) {
+                for (Map<String, Object> map : staffInfoList) {
+                    staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID),
+                            (String) map.get(commonUtil.FIELD_CODE_STAFF_ID));
+                }
+            }
+            log.warn("[HXKQ_SYNC] date={} step=lookup staff={} car={} route={} costMs={}",
+                    runDate, staffIdMap.size(), stringTCMCarMap.size(), stringTCMRouteMap.size(),
+                    System.currentTimeMillis() - stepStart);
+
+            List<String> missingCarNumbers = new ArrayList<>();
+            List<String> missingRouteNames = new ArrayList<>();
+
+            for (HiSenseAttendanceMergedDTO hiSenseData : hiSenseDataList) {
+                String id = ymsOidGenerator.nextStrId();
+                TcmHisenseAttendanceData data = new TcmHisenseAttendanceData();
+                data.setId(id);
+                data.setYtenantId(tenantId);
+                data.setFake_flag(hiSenseData.getFakeflag());
+                data.setTrouble_flag(hiSenseData.getTroubleflag());
+                data.setReal_arrive_time(hiSenseData.getRealarrivetime());
+                data.setReal_leave_time(hiSenseData.getRealleavetime());
+                data.setSegment_id(hiSenseData.getSegmentid());
+                data.setSegment_name(hiSenseData.getSegmentname());
+                data.setStart_station_name(hiSenseData.getStartstationname());
+                data.setEnd_station_name(hiSenseData.getEndstationname());
+                data.setDriver_name(hiSenseData.getDriverName());
+                data.setWaybill_employee_id(hiSenseData.getEmployeeId());
+                data.setRun_date(runDate);
+                data.setHandle_status(BaseEnum.TODO.getCode());
+                data.setCar_str(hiSenseData.getBuscardid());
+                data.setInternal_no(hiSenseData.getBusselfid());
+
+                TCMCar tcmCar = stringTCMCarMap.get(hiSenseData.getBuscardid());
+                if (null != tcmCar) {
+                    data.setCar(tcmCar.getId());
+                }
+                if (tcmCar == null) {
+                    missingCarNumbers.add(hiSenseData.getBuscardid());
+                }
+
+                TCMRoute tcmRoute = stringTCMRouteMap.get(hiSenseData.getRoutename());
+                if (tcmRoute != null) {
+                    data.setRoute(tcmRoute.getId());
+                }
+                if (tcmRoute == null) {
+                    missingRouteNames.add(hiSenseData.getRoutename());
+                }
+
+                if (tcmCar == null || tcmRoute == null) {
+                    continue;
+                }
+
+                String staffId = staffIdMap.get(hiSenseData.getEmployeeId());
+                data.setEmployee_id(staffId);
                 data.setCar(tcmCar.getId());
-            }
-            if (tcmCar == null) {
-                missingCarNumbers.add(hiSenseData.getBuscardid());
-            }
-
-            // 检查路线信息
-            TCMRoute tcmRoute = stringTCMRouteMap.get(hiSenseData.getRoutename());
-            if (tcmRoute != null){
                 data.setRoute(tcmRoute.getId());
+
+                String holidayKey = StringUtils.defaultIfBlank(staffId, hiSenseData.getEmployeeId());
+                if (StringUtils.isNotBlank(holidayKey) && !holidayByEmp.containsKey(holidayKey)) {
+                    TcmDriverHolidayWorkRecord holiday = new TcmDriverHolidayWorkRecord();
+                    holiday.setEmployee_id(staffId);
+                    holiday.setWaybill_employee_id(data.getWaybill_employee_id());
+                    holiday.setDriver_name(data.getDriver_name());
+                    holiday.setDate(runDate);
+                    holiday.setYtenantId(tenantId);
+                    holidayByEmp.put(holidayKey, holiday);
+                }
+
+                dataList.add(data);
             }
-            if (tcmRoute == null) {
-                missingRouteNames.add(hiSenseData.getRoutename());
+
+            if (!missingCarNumbers.isEmpty() || !missingRouteNames.isEmpty()) {
+                StringBuilder errorMsg = new StringBuilder("数据校验失败：");
+                if (!missingCarNumbers.isEmpty()) {
+                    errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
+                            .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
+                }
+                if (!missingRouteNames.isEmpty()) {
+                    errorMsg.append("\n路线信息档案缺失，请先完善档案内容，缺失路线：")
+                            .append(String.join("、", missingRouteNames.stream().distinct().collect(Collectors.toList())));
+                }
+                throw new RuntimeException(errorMsg.toString());
             }
 
-            // 如果车辆或路线缺失，跳过当前数据处理，继续收集
-            if (tcmCar == null || tcmRoute == null) {
-                continue;
+            Map<String, List<TcmHisenseAttendanceData>> countGroupMap = dataList.stream()
+                    .collect(Collectors.groupingBy(d -> d.getRun_date() + "|" + d.getWaybill_employee_id()));
+            for (List<TcmHisenseAttendanceData> group : countGroupMap.values()) {
+                int cnt = group.size();
+                for (TcmHisenseAttendanceData d : group) {
+                    d.setCount(cnt);
+                }
             }
 
-            String staffId = staffIdMap.get(hiSenseData.getEmployeeId());
-            data.setEmployee_id(staffId);
-            data.setCar(tcmCar.getId());
-            data.setRoute(tcmRoute.getId());
+            List<TcmDriverHolidayWorkRecord> holidayList = new ArrayList<>(holidayByEmp.values());
 
-            // 车长假期工作
-            TcmDriverHolidayWorkRecord driverHolidayWorkRecord = new TcmDriverHolidayWorkRecord();
-            driverHolidayWorkRecord.setEmployee_id(data.getEmployee_id());
-            driverHolidayWorkRecord.setWaybill_employee_id(data.getWaybill_employee_id());
-            driverHolidayWorkRecord.setDriver_name(data.getDriver_name());
-            driverHolidayWorkRecord.setDate(runDate);
-            driverHolidayWorkRecord.setYtenantId(tenantId);
-            driverHolidayWorkRecordList.add(driverHolidayWorkRecord);
+            stepStart = System.currentTimeMillis();
+            billRepository.insert(dataList);
+            log.warn("[HXKQ_SYNC] date={} step=insertAttendance size={} costMs={}",
+                    runDate, dataList.size(), System.currentTimeMillis() - stepStart);
 
-            dataList.add(data);
+            stepStart = System.currentTimeMillis();
+            driverHolidayWorkRecordService.coverInsert(runDate, holidayList);
+            log.warn("[HXKQ_SYNC] date={} step=insertHoliday size={} costMs={}",
+                    runDate, holidayList.size(), System.currentTimeMillis() - stepStart);
+
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, true);
+
+            stepStart = System.currentTimeMillis();
+            refreshCorrectionFromLocalData(runDate);
+            log.warn("[HXKQ_SYNC] date={} step=refreshCorrection costMs={}",
+                    runDate, System.currentTimeMillis() - stepStart);
+
+            stepStart = System.currentTimeMillis();
+            calculationService.getAndUpdateAssessReviseByDate(runDate);
+            log.warn("[HXKQ_SYNC] date={} step=calc costMs={}",
+                    runDate, System.currentTimeMillis() - stepStart);
+
+            return dataList.size();
+        } finally {
+            AttendanceCalcImportContext.endBulkSync();
+            log.warn("[HXKQ_SYNC] date={} step=total costMs={}",
+                    runDate, System.currentTimeMillis() - totalStart);
         }
-
-        // 统一校验缺失数据，如果有缺失则抛出包含所有缺失信息的异常
-        if (!missingCarNumbers.isEmpty() || !missingRouteNames.isEmpty()) {
-            StringBuilder errorMsg = new StringBuilder("数据校验失败：");
-            if (!missingCarNumbers.isEmpty()) {
-                errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
-                        .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
-            }
-            if (!missingRouteNames.isEmpty()) {
-                errorMsg.append("\n路线信息档案缺失，请先完善档案内容，缺失路线：")
-                        .append(String.join("、", missingRouteNames.stream().distinct().collect(Collectors.toList())));
-            }
-            throw new RuntimeException(errorMsg.toString());
-        }
-
-        // 以 run_date + waybill_employee_id（海信工号）为标志分组统计，将统计数量放入对应分组对象的 count 字段
-        Map<String, List<TcmHisenseAttendanceData>> countGroupMap = dataList.stream()
-                .collect(Collectors.groupingBy(d -> d.getRun_date() + "|" + d.getWaybill_employee_id()));
-        for (List<TcmHisenseAttendanceData> group : countGroupMap.values()) {
-            int cnt = group.size();
-            for (TcmHisenseAttendanceData d : group) {
-                d.setCount(cnt);
-            }
-        }
-
-        billRepository.insert(dataList);
-        // 車長假期工作記錄
-        driverHolidayWorkRecordService.coverInsert(runDate, driverHolidayWorkRecordList);
-
-        // 更新核对记录
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE,true);
-
-        // 計算
-        calculationService.getAndUpdateAssessReviseByDate(runDate);
-
-        return dataList.size();
     }
 
     @SyncLog(model = TaskTypeEnum.HXKQ_MAKE,dateParam = "runDate")
@@ -416,62 +454,76 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 生成本地考勤（考勤修正装配+更新计数）的真正实现，不携带 @SyncLog。
      */
     private int doGenerateInternal(String runDate) {
-        if (StringUtil.isEmpty(runDate)) {
-            return 0;
-        }
-        String tenantId = InvocationInfoProxy.getTenantid();
-        LambdaQueryCondition<TcmHisenseAttendanceData> condition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
-        condition.eq(TcmHisenseAttendanceData::getRun_date, runDate)
-                .eq(TcmHisenseAttendanceData::getYtenantId, tenantId)
-                .eq(TcmHisenseAttendanceData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
-                .eq(TcmHisenseAttendanceData::getHandle_status, BaseEnum.TODO.getCode())
-                .lt(TcmHisenseAttendanceData::getCount, 3); // count <= 2
-        List<TcmHisenseAttendanceData> dataList = billRepository.queryByClause(condition);
-        if (dataList == null || dataList.isEmpty()) {
-            return 0;
-        }
-
-        // 源头过滤：未匹配到员工的记录不参与生成，状态保持待处理
-        List<TcmHisenseAttendanceData> matchedList = dataList.stream()
-                .filter(d -> d != null && !StringUtil.isEmpty(d.getEmployee_id()))
-                .collect(Collectors.toList());
-        if (matchedList.isEmpty()) {
-            return 0;
-        }
-
-        Set<String> staffSet = matchedList.stream()
-                .map(TcmHisenseAttendanceData::getEmployee_id)
-                .collect(Collectors.toSet());
-
-        // 加载员工岗位信息
-        Map<String, String> staffPostMap = new HashMap<>();
+        long totalStart = System.currentTimeMillis();
+        AttendanceCalcImportContext.beginBulkSync();
         try {
-            List<String> waybillIds = matchedList.stream()
-                    .map(TcmHisenseAttendanceData::getWaybill_employee_id)
-                    .filter(id -> !StringUtil.isEmpty(id))
-                    .distinct()
+            if (StringUtil.isEmpty(runDate)) {
+                return 0;
+            }
+            String tenantId = InvocationInfoProxy.getTenantid();
+            LambdaQueryCondition<TcmHisenseAttendanceData> condition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
+            condition.eq(TcmHisenseAttendanceData::getRun_date, runDate)
+                    .eq(TcmHisenseAttendanceData::getYtenantId, tenantId)
+                    .eq(TcmHisenseAttendanceData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
+                    .eq(TcmHisenseAttendanceData::getHandle_status, BaseEnum.TODO.getCode())
+                    .lt(TcmHisenseAttendanceData::getCount, 3); // count <= 2
+            List<TcmHisenseAttendanceData> dataList = billRepository.queryByClause(condition);
+            if (dataList == null || dataList.isEmpty()) {
+                return 0;
+            }
+
+            // 源头过滤：未匹配到员工的记录不参与生成，状态保持待处理
+            List<TcmHisenseAttendanceData> matchedList = dataList.stream()
+                    .filter(d -> d != null && !StringUtil.isEmpty(d.getEmployee_id()))
                     .collect(Collectors.toList());
-            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
-            if (staffInfoList != null) {
-                for (Map<String, Object> map : staffInfoList) {
-                    String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
-                    String postCode = (String) map.get(commonUtil.FIELD_CODE_POST_CODE);
-                    if (sid != null) {
-                        staffPostMap.put(sid, postCode);
+            if (matchedList.isEmpty()) {
+                return 0;
+            }
+
+            Set<String> staffSet = matchedList.stream()
+                    .map(TcmHisenseAttendanceData::getEmployee_id)
+                    .collect(Collectors.toSet());
+
+            // 加载员工岗位信息
+            Map<String, String> staffPostMap = new HashMap<>();
+            try {
+                List<String> waybillIds = matchedList.stream()
+                        .map(TcmHisenseAttendanceData::getWaybill_employee_id)
+                        .filter(id -> !StringUtil.isEmpty(id))
+                        .distinct()
+                        .collect(Collectors.toList());
+                List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
+                if (staffInfoList != null) {
+                    for (Map<String, Object> map : staffInfoList) {
+                        String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
+                        String postCode = (String) map.get(commonUtil.FIELD_CODE_POST_CODE);
+                        if (sid != null) {
+                            staffPostMap.put(sid, postCode);
+                        }
                     }
                 }
+            } catch (Exception e) {
+                log.warn("生成修正时加载岗位信息失败, date={}", runDate, e);
             }
-        } catch (Exception e) {
-            log.warn("生成修正时加载岗位信息失败, date={}", runDate, e);
-        }
 
-        // 更新考勤修正数据（巴型工时由 syncBaType 链路负责，此处传空 baTypeMap）
-        assemblyCorrection(matchedList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
-        for (TcmHisenseAttendanceData data : matchedList) {
-            data.setHandle_status(BaseEnum.DONE.getCode());
+            long stepStart = System.currentTimeMillis();
+            assemblyCorrection(matchedList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
+            log.warn("[HXKQ_MAKE] date={} step=assemblyCorrection size={} costMs={}",
+                    runDate, matchedList.size(), System.currentTimeMillis() - stepStart);
+            for (TcmHisenseAttendanceData data : matchedList) {
+                data.setHandle_status(BaseEnum.DONE.getCode());
+            }
+            billRepository.update(matchedList);
+            stepStart = System.currentTimeMillis();
+            calculationService.getAndUpdateAssessReviseByDate(runDate);
+            log.warn("[HXKQ_MAKE] date={} step=calc costMs={}",
+                    runDate, System.currentTimeMillis() - stepStart);
+            return matchedList.size();
+        } finally {
+            AttendanceCalcImportContext.endBulkSync();
+            log.warn("[HXKQ_MAKE] date={} step=total costMs={}",
+                    runDate, System.currentTimeMillis() - totalStart);
         }
-        billRepository.update(matchedList);
-        return matchedList.size();
     }
 
     @SyncLog(model = TaskTypeEnum.BXZS_SYNC,dateParam = "runDate")

@@ -10,6 +10,7 @@ import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,7 @@ import java.util.*;
  * 考勤计算服务实现
  * @author aze
  */
+@Slf4j
 @Service
 public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalculationService {
 
@@ -61,15 +63,22 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
      * @param singleDate true=仅该日；false=该日所在整月（employeeCode 必须为空）
      */
     private Map<String, Object> getAndUpdateAssessReviseByDateInternal(String dateStr, String employeeCode, boolean singleDate) {
+        long t0 = System.currentTimeMillis();
         String tenantId = InvocationInfoProxy.getTenantid();
 
+        long step = t0;
         correctionSyncService.refreshCorrectionsBeforeCalc(dateStr, employeeCode, singleDate);
+        log.warn("[KQ_CALC] date={} employee={} step=refreshCorrections costMs={}",
+                dateStr, employeeCode, System.currentTimeMillis() - step);
 
-        // 查询修正数据
+        step = System.currentTimeMillis();
         List<Map<String, Object>> correctionData = queryCorrectionData(dateStr, employeeCode, tenantId, singleDate);
-
-        // 查询计算数据
         List<TcmAttendanceCalculation> calData = queryCalculationData(dateStr, employeeCode, tenantId, singleDate);
+        log.warn("[KQ_CALC] date={} employee={} step=query corr={} calc={} costMs={}",
+                dateStr, employeeCode,
+                correctionData != null ? correctionData.size() : 0,
+                calData != null ? calData.size() : 0,
+                System.currentTimeMillis() - step);
 
         // 构建计算数据Map，key为employee_id
         Map<String, TcmAttendanceCalculation> calMap = new HashMap<>();
@@ -158,7 +167,10 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
             result.put("updateCount", updateCalList.size());
         }
         result.put("correctionCount", correctionData != null ? correctionData.size() : 0);
-
+        log.warn("[KQ_CALC] date={} employee={} step=total insert={} update={} costMs={}",
+                dateStr, employeeCode,
+                newCalList.size(), updateCalList.size(),
+                System.currentTimeMillis() - t0);
         return result;
     }
 

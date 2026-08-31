@@ -40,6 +40,9 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
         if (data == null) {
             return;
         }
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
         if (AttendanceCalcImportContext.isImporting()) {
             AttendanceCalcImportContext.collectSchedule(data);
             calcTrigger.registerImportFlushAfterCommit();

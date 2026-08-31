@@ -12,6 +12,7 @@ import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmScheduleGenerateService;
 import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -178,7 +179,17 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         if (date == null || date.isEmpty()) {
             throw new RuntimeException("日期不能为空");
         }
+        long totalStart = System.currentTimeMillis();
+        AttendanceCalcImportContext.beginBulkSync();
+        try {
+            return doGenerateScheduleInternal(date);
+        } finally {
+            AttendanceCalcImportContext.endBulkSync();
+            log.warn("[HXPG_MAKE] date={} step=total costMs={}", date, System.currentTimeMillis() - totalStart);
+        }
+    }
 
+    private Map<String, Object> doGenerateScheduleInternal(String date) throws Exception {
         String tenantId = InvocationInfoProxy.getTenantid();
 
         List<TcmWaybillSheduleShiftsData> sourceList = queryWaybillData(date, tenantId);

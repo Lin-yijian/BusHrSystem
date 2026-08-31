@@ -341,6 +341,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         if (list.isEmpty()) {
             return;
         }
+        long t0 = System.currentTimeMillis();
         applyFuelAndException(list, tenantId);
         Set<String> staffIds = list.stream()
                 .map(TcmAttendanceCorrection::getEmployee_id)
@@ -351,6 +352,8 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             commonUtil.processDate(c, staffMap);
         }
         billRepository.update(list);
+        log.warn("[KQ_CALC] date={} step=refreshCorrectionsBeforeCalc size={} costMs={}",
+                dateStr, list.size(), System.currentTimeMillis() - t0);
     }
 
     private void applyScheduleToCorrection(TcmAttendanceCorrection correction, TcmSheduleShiftsData schedule) {

@@ -87,6 +87,9 @@ public class AttendanceCalcTrigger {
         if (StringUtils.isBlank(date)) {
             return;
         }
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
         if (AttendanceCalcImportContext.isImporting()) {
             AttendanceCalcImportContext.collectDate(date);
             registerImportFlushAfterCommit();

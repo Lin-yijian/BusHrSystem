@@ -42,6 +42,9 @@ public class TcmDriverHolidayWorkRecordPlugin extends AbstractBillPlugin {
         if (data == null) {
             return;
         }
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
         if (AttendanceCalcImportContext.isImporting()) {
             AttendanceCalcImportContext.collectHoliday(data);
             calcTrigger.registerImportFlushAfterCommit();

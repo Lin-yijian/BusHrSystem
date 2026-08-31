@@ -5,6 +5,7 @@ import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmHiSenseAttendanceService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
@@ -27,6 +28,9 @@ public class TcmHisenseAttendanceDataPlugin extends AbstractBillPlugin {
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
+        if (AttendanceCalcImportContext.isBulkSyncing() || AttendanceCalcImportContext.isImporting()) {
+            return;
+        }
 
         Object billDo = billContext.getBillDO();
         if (billDo instanceof TcmHisenseAttendanceData) {

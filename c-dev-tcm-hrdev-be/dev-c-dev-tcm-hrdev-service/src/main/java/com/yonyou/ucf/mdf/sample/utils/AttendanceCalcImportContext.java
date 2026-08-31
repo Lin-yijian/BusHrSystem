@@ -24,8 +24,22 @@ public final class AttendanceCalcImportContext {
     private static final ThreadLocal<List<TcmDriverHolidayWorkRecord>> PENDING_HOLIDAYS =
             ThreadLocal.withInitial(ArrayList::new);
     private static final ThreadLocal<Boolean> SYNC_REGISTERED = ThreadLocal.withInitial(() -> false);
+    /** 海信拉取等批量写入：afterSave 不再按条触发修正/计算。 */
+    private static final ThreadLocal<Boolean> BULK_SYNC = ThreadLocal.withInitial(() -> false);
 
     private AttendanceCalcImportContext() {
+    }
+
+    public static void beginBulkSync() {
+        BULK_SYNC.set(true);
+    }
+
+    public static boolean isBulkSyncing() {
+        return Boolean.TRUE.equals(BULK_SYNC.get());
+    }
+
+    public static void endBulkSync() {
+        BULK_SYNC.remove();
     }
 
     public static void beginImport() {
@@ -102,5 +116,6 @@ public final class AttendanceCalcImportContext {
         PENDING_RESERVES.remove();
         PENDING_HOLIDAYS.remove();
         SYNC_REGISTERED.remove();
+        BULK_SYNC.remove();
     }
 }
