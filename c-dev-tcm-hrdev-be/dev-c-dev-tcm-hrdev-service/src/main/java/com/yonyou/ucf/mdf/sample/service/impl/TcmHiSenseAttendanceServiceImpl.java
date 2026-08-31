@@ -638,9 +638,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return;
         }
 
-        // 按员工ID分组考勤数据，预处理
+        // 按员工ID分组考勤数据；未匹配到员工的记录 employee_id 为空，groupingBy 不允许 null key，需先过滤
         Map<String, List<TcmHisenseAttendanceData>> attendanceGroupMap = dataList.stream()
                 .filter(Objects::nonNull)
+                .filter(d -> !StringUtil.isEmpty(d.getEmployee_id()))
                 .collect(Collectors.groupingBy(TcmHisenseAttendanceData::getEmployee_id));
 
         Set<String> idSet = attendanceGroupMap.keySet();
