@@ -412,6 +412,46 @@ public class DateUtil {
         return variants;
     }
 
+    /**
+     * 从实体字段中取出 yyyy-MM-dd。兼容 Date、yyyy-MM-dd、yyyy-MM-dd HH:mm:ss。
+     */
+    public static String extractDateString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Date) {
+            return formatDate((Date) value, YYYY_MM_DD);
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value).format(FORMATTER_YYYY_MM_DD);
+        }
+        String s = String.valueOf(value).trim();
+        if (s.isEmpty() || "null".equalsIgnoreCase(s)) {
+            return null;
+        }
+        return normalizeToYyyyMmDd(s);
+    }
+
+    /**
+     * from - to 的有符号分钟差。任一为空返回 null。
+     */
+    public static Integer signedDiffMinutes(Date from, Date to) {
+        if (from == null || to == null) {
+            return null;
+        }
+        return (int) TimeUnit.MILLISECONDS.toMinutes(from.getTime() - to.getTime());
+    }
+
+    /**
+     * 分钟数转 HH:mm。负数按 0 处理。
+     */
+    public static String minutesToHhMm(int minutes) {
+        if (minutes < 0) {
+            minutes = 0;
+        }
+        return String.format("%02d:%02d", minutes / 60, minutes % 60);
+    }
+
 
 
     /**

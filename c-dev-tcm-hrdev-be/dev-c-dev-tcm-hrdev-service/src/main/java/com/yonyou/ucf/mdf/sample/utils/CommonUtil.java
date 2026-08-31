@@ -251,6 +251,33 @@ public class CommonUtil {
     }
 
     /**
+     * 按员工主键 ID 批量查询员工信息。key = staff.id，供修正表 employee_id 匹配。
+     */
+    public Map<String, Map<String, Object>> getStaffMapByStaffIds(Collection<String> ids, String tenantId) {
+        Map<String, Map<String, Object>> result = new HashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return result;
+        }
+        QuerySchema querySchema = QuerySchema.create()
+                .addSelect("id, staffDefines.ab_01 as waybill_employeeId, staffDefines.ab_09 as diverType, postId, postId.code as postCode,code");
+        querySchema.appendQueryCondition(QueryCondition.name("id").in(ids));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        List<Map<String, Object>> mapList = queryService.queryMapBySchema(
+                UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+        if (mapList == null || mapList.isEmpty()) {
+            return result;
+        }
+        for (Map<String, Object> map : mapList) {
+            String id = (String) map.get(FIELD_CODE_STAFF_ID);
+            if (id != null) {
+                result.put(id, map);
+            }
+        }
+        return result;
+    }
+
+    /**
      * 根据员工编号获取员工信息（批量）
      * @param codes 员工编号集合
      * @param tenantId 租户ID
@@ -330,6 +357,9 @@ public class CommonUtil {
 
         // 计算加班时长（根据员工类型）
         calculateOvertimeTime(entity, staffMap);
+
+        // 计算超时时长（计粮 vs 考勤发收车）
+        calculateOvertimeDuration(entity);
 
         // 计算迟到早退状态
         calculateLateEarlyStatus(entity);
@@ -433,7 +463,80 @@ public class CommonUtil {
         }
     }
 
+    /**
+     * 超时时长：计粮发收车 vs 考勤发收车。
+     * A 两边都是一更或都是两更时按分钟规则累加；B 更次不一致时不计算，超时状态=待核对。
+     */
+    private void calculateOvertimeDuration(TcmAttendanceCorrection entity) {
+        boolean kqOne = hasShiftData(entity.getKq_one_departure_time(), entity.getKq_one_return_time());
+        boolean kqTwo = hasShiftData(entity.getKq_two_departure_time(), entity.getKq_two_return_time());
+        boolean jlOne = hasShiftData(entity.getJl_one_departure_time(), entity.getJl_one_return_time());
+        boolean jlTwo = hasShiftData(entity.getJl_two_departure_time(), entity.getJl_two_return_time());
 
+        boolean kqOneOnly = kqOne && !kqTwo;
+        boolean jlOneOnly = jlOne && !jlTwo;
+        boolean mismatch = (kqOneOnly && jlTwo) || (kqTwo && jlOneOnly);
+        if (mismatch) {
+            entity.setOvertime_duration(DateUtil.HH_MM_ZERO);
+            entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+            return;
+        }
+
+        boolean bothOne = kqOneOnly && jlOneOnly;
+        boolean bothTwo = kqTwo && jlTwo;
+        if (!bothOne && !bothTwo) {
+            entity.setOvertime_duration(DateUtil.HH_MM_ZERO);
+            return;
+        }
+
+        int total = contribDeparture(entity.getJl_one_departure_time(), entity.getKq_one_departure_time())
+                + contribReturn(entity.getJl_one_return_time(), entity.getKq_one_return_time())
+                + contribDeparture(entity.getJl_two_departure_time(), entity.getKq_two_departure_time())
+                + contribReturn(entity.getJl_two_return_time(), entity.getKq_two_return_time());
+        if (total < 0) {
+            total = 0;
+        }
+        entity.setOvertime_duration(DateUtil.minutesToHhMm(total));
+        if (total >= 10) {
+            entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_0.getCode());
+        } else {
+            entity.setOvertimeStatus(BaseEnum.AC_CHECK_STATUS_2.getCode());
+        }
+    }
+
+    private boolean hasShiftData(Date departure, Date ret) {
+        return departure != null || ret != null;
+    }
+
+    /** 发车：X=计粮-考勤；X>=0 取 X；-10&lt;X&lt;0 取 0；X&lt;=-10 取 X */
+    private int contribDeparture(Date jl, Date kq) {
+        Integer x = DateUtil.signedDiffMinutes(jl, kq);
+        if (x == null) {
+            return 0;
+        }
+        if (x >= 0) {
+            return x;
+        }
+        if (x > -10) {
+            return 0;
+        }
+        return x;
+    }
+
+    /** 收车：X=计粮-考勤；X&lt;0 取 |X|；X>=30 取 -X；0&lt;X&lt;30 取 0 */
+    private int contribReturn(Date jl, Date kq) {
+        Integer x = DateUtil.signedDiffMinutes(jl, kq);
+        if (x == null) {
+            return 0;
+        }
+        if (x < 0) {
+            return -x;
+        }
+        if (x >= 30) {
+            return -x;
+        }
+        return 0;
+    }
 
     /**
      * 批量更新指定表中某个字段的值

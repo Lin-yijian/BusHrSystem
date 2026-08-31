@@ -5,6 +5,7 @@ import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCalculation;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -32,6 +33,9 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
     @Autowired
     protected IBillQueryRepository queryService;
 
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
+
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
 
     @Transactional(rollbackFor = RuntimeException.class)
@@ -58,6 +62,8 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
      */
     private Map<String, Object> getAndUpdateAssessReviseByDateInternal(String dateStr, String employeeCode, boolean singleDate) {
         String tenantId = InvocationInfoProxy.getTenantid();
+
+        correctionSyncService.refreshCorrectionsBeforeCalc(dateStr, employeeCode, singleDate);
 
         // 查询修正数据
         List<Map<String, Object>> correctionData = queryCorrectionData(dateStr, employeeCode, tenantId, singleDate);
@@ -172,10 +178,10 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         QuerySchema querySchema = QuerySchema.create().addSelect(selectFields);
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
         if (employeeCode != null && !employeeCode.isEmpty()) {
-            querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
+            querySchema.appendQueryCondition(QueryCondition.name("date").in(DateUtil.dateQueryVariants(dateStr)));
             querySchema.appendQueryCondition(QueryCondition.name("employee_id.code").eq(employeeCode));
         } else if (singleDate) {
-            querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
+            querySchema.appendQueryCondition(QueryCondition.name("date").in(DateUtil.dateQueryVariants(dateStr)));
         } else {
             String[] monthRange = getMonthRange(dateStr);
             querySchema.appendQueryCondition(QueryCondition.name("date").egt(monthRange[0]));
@@ -198,10 +204,10 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         condition.eq(TcmAttendanceCalculation::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
                 .eq(TcmAttendanceCalculation::getYtenantId, tenantId);
         if (employeeCode != null && !employeeCode.isEmpty()) {
-            condition.eq(TcmAttendanceCalculation::getDate, dateStr)
+            condition.in(TcmAttendanceCalculation::getDate, DateUtil.dateQueryVariants(dateStr))
                     .eq(TcmAttendanceCalculation::getEmployee_id, employeeCode);
         } else if (singleDate) {
-            condition.eq(TcmAttendanceCalculation::getDate, dateStr);
+            condition.in(TcmAttendanceCalculation::getDate, DateUtil.dateQueryVariants(dateStr));
         } else {
             String[] monthRange = getMonthRange(dateStr);
             condition.ge(TcmAttendanceCalculation::getDate, monthRange[0])

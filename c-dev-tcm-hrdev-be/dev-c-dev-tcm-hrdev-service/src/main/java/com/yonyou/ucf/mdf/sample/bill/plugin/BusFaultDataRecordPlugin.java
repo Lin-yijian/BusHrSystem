@@ -3,6 +3,7 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmBusFaultDataRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -40,6 +41,9 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
+
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -51,6 +55,7 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,false);
         }
+        correctionSyncService.syncExceptionSources(date, data.getEmployee_id());
     }
 
     @Override
@@ -61,6 +66,16 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
         String date = data.getReport_date();
         tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,true);
 
+    }
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+        TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billContext.getBillDO();
+        if (data == null) {
+            return;
+        }
+        correctionSyncService.syncExceptionSources(data.getReport_date(), data.getEmployee_id());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

@@ -45,4 +45,19 @@ public interface AttendanceCorrectionSyncService {
      * 导入收尾：批量同步假期工作修正。
      */
     void batchSyncFromHolidays(List<TcmDriverHolidayWorkRecord> holidays);
+
+    /**
+     * 入油加气 → 修正：汇总当日该员工加油/加气次数，写到所有匹配修正行。
+     */
+    void syncFromFuelGas(String date, String employeeId);
+
+    /**
+     * 巴士故障 / 控制中心日志 / 缺勤 → 修正展示字段（异常核对用）。
+     */
+    void syncExceptionSources(String date, String employeeId);
+
+    /**
+     * 考勤计算前：按计算范围回写加油加气、异常来源，并重算超时时长。
+     */
+    void refreshCorrectionsBeforeCalc(String dateStr, String employeeCode, boolean singleDate);
 }

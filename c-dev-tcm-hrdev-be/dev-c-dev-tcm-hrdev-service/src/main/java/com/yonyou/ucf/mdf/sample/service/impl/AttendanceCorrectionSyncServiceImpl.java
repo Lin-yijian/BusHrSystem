@@ -3,8 +3,12 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmFuelGasDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
@@ -264,6 +268,91 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         }
     }
 
+    @Override
+    public void syncFromFuelGas(String date, String employeeId) {
+        if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeId)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCorrection> list = queryCorrections(
+                DateUtil.dateQueryVariants(date), Collections.singleton(employeeId), tenantId);
+        if (list.isEmpty()) {
+            log.warn("入油加气同步跳过：无对应修正记录, date={}, employeeId={}", date, employeeId);
+            return;
+        }
+        int[] counts = sumFuelCounts(queryFuels(DateUtil.dateQueryVariants(date),
+                Collections.singleton(employeeId), tenantId));
+        for (TcmAttendanceCorrection c : list) {
+            c.setRefuel_count(counts[0]);
+            c.setGas_refill_count(counts[1]);
+        }
+        billRepository.update(list);
+    }
+
+    @Override
+    public void syncExceptionSources(String date, String employeeId) {
+        if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeId)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCorrection> list = queryCorrections(
+                DateUtil.dateQueryVariants(date), Collections.singleton(employeeId), tenantId);
+        if (list.isEmpty()) {
+            log.warn("异常来源同步跳过：无对应修正记录, date={}, employeeId={}", date, employeeId);
+            return;
+        }
+        Set<String> dateVars = DateUtil.dateQueryVariants(date);
+        Set<String> staffIds = Collections.singleton(employeeId);
+        String busFault = joinTexts(collectFaultDescs(queryBusFaults(dateVars, staffIds, tenantId)));
+        String controlLog = joinTexts(collectLogContents(queryControlLogs(dateVars, staffIds, tenantId)));
+        List<TcmAbsenceDataRecord> absences = queryAbsences(dateVars, staffIds, tenantId);
+        String absenceCategory = joinTexts(collectAbsenceCategories(absences));
+        String absenceReason = joinTexts(collectAbsenceReasons(absences));
+        int absenceCount = absences.size();
+        for (TcmAttendanceCorrection c : list) {
+            c.setBus_fault(busFault);
+            c.setControl_center_log(controlLog);
+            c.setAbsence_category(absenceCategory);
+            c.setAbsence_reason(absenceReason);
+            c.setAbsence_record_count(absenceCount);
+        }
+        billRepository.update(list);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void refreshCorrectionsBeforeCalc(String dateStr, String employeeCode, boolean singleDate) {
+        if (StringUtils.isBlank(dateStr)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        Set<String> staffFilter = null;
+        if (StringUtils.isNotBlank(employeeCode)) {
+            Map<String, String> idByCode = commonUtil.getStaffByCodes(
+                    Collections.singletonList(employeeCode), tenantId);
+            String staffId = idByCode.get(employeeCode);
+            if (StringUtils.isBlank(staffId)) {
+                log.warn("考勤计算前回写跳过：无法解析员工, code={}", employeeCode);
+                return;
+            }
+            staffFilter = Collections.singleton(staffId);
+        }
+        List<TcmAttendanceCorrection> list = queryCorrectionsForCalc(dateStr, staffFilter, singleDate, tenantId);
+        if (list.isEmpty()) {
+            return;
+        }
+        applyFuelAndException(list, tenantId);
+        Set<String> staffIds = list.stream()
+                .map(TcmAttendanceCorrection::getEmployee_id)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toSet());
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByStaffIds(staffIds, tenantId);
+        for (TcmAttendanceCorrection c : list) {
+            commonUtil.processDate(c, staffMap);
+        }
+        billRepository.update(list);
+    }
+
     private void applyScheduleToCorrection(TcmAttendanceCorrection correction, TcmSheduleShiftsData schedule) {
         correction.setWaybill_employee_id(schedule.getWaybill_employee_id());
         correction.setDriver_name(schedule.getName());
@@ -348,13 +437,220 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     }
 
     private List<TcmAttendanceCorrection> queryCorrections(Set<String> dates, Set<String> staffIds, String tenantId) {
+        if (dates == null || dates.isEmpty() || staffIds == null || staffIds.isEmpty()) {
+            return Collections.emptyList();
+        }
         LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
-        condition.in(TcmAttendanceCorrection::getDate, dates)
+        condition.in(TcmAttendanceCorrection::getDate, DateUtil.dateQueryVariants(dates))
                 .in(TcmAttendanceCorrection::getEmployee_id, staffIds)
                 .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
                 .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         List<TcmAttendanceCorrection> list = billRepository.queryByClause(condition);
         return list == null ? Collections.emptyList() : list;
+    }
+
+    private List<TcmAttendanceCorrection> queryCorrectionsForCalc(String dateStr, Set<String> staffIds,
+                                                                  boolean singleDate, String tenantId) {
+        LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        condition.eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        if (singleDate || (staffIds != null && !staffIds.isEmpty())) {
+            condition.in(TcmAttendanceCorrection::getDate, DateUtil.dateQueryVariants(dateStr));
+        } else {
+            String[] monthRange = monthRange(dateStr);
+            condition.ge(TcmAttendanceCorrection::getDate, monthRange[0])
+                    .lt(TcmAttendanceCorrection::getDate, monthRange[1]);
+        }
+        if (staffIds != null && !staffIds.isEmpty()) {
+            condition.in(TcmAttendanceCorrection::getEmployee_id, staffIds);
+        }
+        List<TcmAttendanceCorrection> list = billRepository.queryByClause(condition);
+        return list == null ? Collections.emptyList() : list;
+    }
+
+    private void applyFuelAndException(List<TcmAttendanceCorrection> list, String tenantId) {
+        Set<String> dates = new HashSet<>();
+        Set<String> staffIds = new HashSet<>();
+        for (TcmAttendanceCorrection c : list) {
+            if (c == null) {
+                continue;
+            }
+            String d = DateUtil.extractDateString(c.getDate());
+            if (d != null) {
+                dates.add(d);
+            }
+            if (StringUtils.isNotBlank(c.getEmployee_id())) {
+                staffIds.add(c.getEmployee_id());
+            }
+        }
+        if (dates.isEmpty() || staffIds.isEmpty()) {
+            return;
+        }
+        Set<String> dateVars = DateUtil.dateQueryVariants(dates);
+        Map<String, int[]> fuelMap = new HashMap<>();
+        for (TcmFuelGasDataRecord rec : queryFuels(dateVars, staffIds, tenantId)) {
+            String key = empDateKey(rec.getAttendance_date(), rec.getEmployee_id());
+            int[] counts = fuelMap.computeIfAbsent(key, k -> new int[]{0, 0});
+            counts[0] += nz(rec.getRefuel_count());
+            counts[1] += nz(rec.getGas_count());
+        }
+        Map<String, List<String>> faultMap = new HashMap<>();
+        for (TcmBusFaultDataRecord rec : queryBusFaults(dateVars, staffIds, tenantId)) {
+            faultMap.computeIfAbsent(empDateKey(rec.getReport_date(), rec.getEmployee_id()), k -> new ArrayList<>())
+                    .add(rec.getFault_detail_desc());
+        }
+        Map<String, List<String>> logMap = new HashMap<>();
+        for (TcmControlCenterLog rec : queryControlLogs(dateVars, staffIds, tenantId)) {
+            logMap.computeIfAbsent(empDateKey(rec.getDate(), rec.getEmployee_id()), k -> new ArrayList<>())
+                    .add(rec.getContent());
+        }
+        Map<String, List<TcmAbsenceDataRecord>> absenceMap = new HashMap<>();
+        for (TcmAbsenceDataRecord rec : queryAbsences(dateVars, staffIds, tenantId)) {
+            absenceMap.computeIfAbsent(empDateKey(rec.getDate(), rec.getEmployee_id()), k -> new ArrayList<>())
+                    .add(rec);
+        }
+        for (TcmAttendanceCorrection c : list) {
+            String key = empDateKey(c.getDate(), c.getEmployee_id());
+            int[] counts = fuelMap.getOrDefault(key, new int[]{0, 0});
+            c.setRefuel_count(counts[0]);
+            c.setGas_refill_count(counts[1]);
+            c.setBus_fault(joinTexts(faultMap.get(key)));
+            c.setControl_center_log(joinTexts(logMap.get(key)));
+            List<TcmAbsenceDataRecord> absences = absenceMap.getOrDefault(key, Collections.emptyList());
+            c.setAbsence_category(joinTexts(collectAbsenceCategories(absences)));
+            c.setAbsence_reason(joinTexts(collectAbsenceReasons(absences)));
+            c.setAbsence_record_count(absences.size());
+        }
+    }
+
+    private List<TcmFuelGasDataRecord> queryFuels(Set<String> dates, Set<String> staffIds, String tenantId) {
+        if (dates == null || dates.isEmpty() || staffIds == null || staffIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryCondition<TcmFuelGasDataRecord> condition = new LambdaQueryCondition<>(new TcmFuelGasDataRecord());
+        condition.in(TcmFuelGasDataRecord::getAttendance_date, dates)
+                .in(TcmFuelGasDataRecord::getEmployee_id, staffIds)
+                .eq(TcmFuelGasDataRecord::getYtenantId, tenantId)
+                .eq(TcmFuelGasDataRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmFuelGasDataRecord> list = billRepository.queryByClause(condition);
+        return list == null ? Collections.emptyList() : list;
+    }
+
+    private List<TcmBusFaultDataRecord> queryBusFaults(Set<String> dates, Set<String> staffIds, String tenantId) {
+        if (dates == null || dates.isEmpty() || staffIds == null || staffIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryCondition<TcmBusFaultDataRecord> condition = new LambdaQueryCondition<>(new TcmBusFaultDataRecord());
+        condition.in(TcmBusFaultDataRecord::getReport_date, dates)
+                .in(TcmBusFaultDataRecord::getEmployee_id, staffIds)
+                .eq(TcmBusFaultDataRecord::getYtenantId, tenantId)
+                .eq(TcmBusFaultDataRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmBusFaultDataRecord> list = billRepository.queryByClause(condition);
+        return list == null ? Collections.emptyList() : list;
+    }
+
+    private List<TcmControlCenterLog> queryControlLogs(Set<String> dates, Set<String> staffIds, String tenantId) {
+        if (dates == null || dates.isEmpty() || staffIds == null || staffIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryCondition<TcmControlCenterLog> condition = new LambdaQueryCondition<>(new TcmControlCenterLog());
+        condition.in(TcmControlCenterLog::getDate, dates)
+                .in(TcmControlCenterLog::getEmployee_id, staffIds)
+                .eq(TcmControlCenterLog::getYtenantId, tenantId)
+                .eq(TcmControlCenterLog::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmControlCenterLog> list = billRepository.queryByClause(condition);
+        return list == null ? Collections.emptyList() : list;
+    }
+
+    private List<TcmAbsenceDataRecord> queryAbsences(Set<String> dates, Set<String> staffIds, String tenantId) {
+        if (dates == null || dates.isEmpty() || staffIds == null || staffIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryCondition<TcmAbsenceDataRecord> condition = new LambdaQueryCondition<>(new TcmAbsenceDataRecord());
+        condition.in(TcmAbsenceDataRecord::getDate, dates)
+                .in(TcmAbsenceDataRecord::getEmployee_id, staffIds)
+                .eq(TcmAbsenceDataRecord::getYtenantId, tenantId)
+                .eq(TcmAbsenceDataRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmAbsenceDataRecord> list = billRepository.queryByClause(condition);
+        return list == null ? Collections.emptyList() : list;
+    }
+
+    private int[] sumFuelCounts(List<TcmFuelGasDataRecord> records) {
+        int refuel = 0;
+        int gas = 0;
+        for (TcmFuelGasDataRecord rec : records) {
+            refuel += nz(rec.getRefuel_count());
+            gas += nz(rec.getGas_count());
+        }
+        return new int[]{refuel, gas};
+    }
+
+    private List<String> collectFaultDescs(List<TcmBusFaultDataRecord> records) {
+        List<String> texts = new ArrayList<>();
+        for (TcmBusFaultDataRecord rec : records) {
+            texts.add(rec.getFault_detail_desc());
+        }
+        return texts;
+    }
+
+    private List<String> collectLogContents(List<TcmControlCenterLog> records) {
+        List<String> texts = new ArrayList<>();
+        for (TcmControlCenterLog rec : records) {
+            texts.add(rec.getContent());
+        }
+        return texts;
+    }
+
+    private List<String> collectAbsenceCategories(List<TcmAbsenceDataRecord> records) {
+        List<String> texts = new ArrayList<>();
+        for (TcmAbsenceDataRecord rec : records) {
+            texts.add(rec.getAbsence_category());
+        }
+        return texts;
+    }
+
+    private List<String> collectAbsenceReasons(List<TcmAbsenceDataRecord> records) {
+        List<String> texts = new ArrayList<>();
+        for (TcmAbsenceDataRecord rec : records) {
+            texts.add(rec.getReason());
+        }
+        return texts;
+    }
+
+    private String joinTexts(List<String> texts) {
+        if (texts == null || texts.isEmpty()) {
+            return "";
+        }
+        return texts.stream()
+                .filter(StringUtils::isNotBlank)
+                .distinct()
+                .collect(Collectors.joining("；"));
+    }
+
+    private String empDateKey(String date, String employeeId) {
+        String d = DateUtil.extractDateString(date);
+        if (d == null) {
+            d = date != null ? date : "";
+        }
+        return d + "|" + (employeeId != null ? employeeId : "");
+    }
+
+    private int nz(Integer n) {
+        return n == null ? 0 : n;
+    }
+
+    private String[] monthRange(String dateStr) {
+        String normalized = DateUtil.extractDateString(dateStr);
+        if (normalized == null) {
+            return new String[]{dateStr, dateStr};
+        }
+        try {
+            java.time.LocalDate d = java.time.LocalDate.parse(normalized);
+            java.time.LocalDate start = d.withDayOfMonth(1);
+            return new String[]{start.toString(), start.plusMonths(1).toString()};
+        } catch (Exception e) {
+            return new String[]{normalized, normalized};
+        }
     }
 
     private List<TcmSheduleShiftsData> querySchedules(String date, String employeeId, String tenantId) {

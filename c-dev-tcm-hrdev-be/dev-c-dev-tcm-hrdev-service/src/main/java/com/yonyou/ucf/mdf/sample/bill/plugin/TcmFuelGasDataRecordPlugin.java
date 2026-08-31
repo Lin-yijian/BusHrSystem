@@ -5,6 +5,7 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmFuelGasDataRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmFuelGasDataRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -37,6 +38,9 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
+
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -48,6 +52,7 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,false);
         }
+        correctionSyncService.syncFromFuelGas(date, data.getEmployee_id());
     }
 
 
@@ -59,6 +64,16 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
         tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
 
+    }
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+        TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
+        if (entity == null) {
+            return;
+        }
+        correctionSyncService.syncFromFuelGas(entity.getAttendance_date(), entity.getEmployee_id());
     }
 
 

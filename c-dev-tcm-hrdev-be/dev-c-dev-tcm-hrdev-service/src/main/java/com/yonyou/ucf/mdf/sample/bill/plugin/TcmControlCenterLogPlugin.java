@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmControlCenterLogService;
@@ -50,6 +51,9 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
+
 
 
     @Override
@@ -62,6 +66,7 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,false);
         }
+        correctionSyncService.syncExceptionSources(date, data.getEmployee_id());
     }
 
     @Override
@@ -78,6 +83,16 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
         String date = entity.getDate();
         tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,true);
 
+    }
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+        TcmControlCenterLog entity = (TcmControlCenterLog) billContext.getBillDO();
+        if (entity == null) {
+            return;
+        }
+        correctionSyncService.syncExceptionSources(entity.getDate(), entity.getEmployee_id());
     }
 
 
