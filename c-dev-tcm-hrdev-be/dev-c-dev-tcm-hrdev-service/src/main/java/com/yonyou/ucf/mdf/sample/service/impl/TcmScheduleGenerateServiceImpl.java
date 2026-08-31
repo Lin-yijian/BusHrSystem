@@ -117,26 +117,65 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 java.time.format.DateTimeFormatter.ofPattern(DateUtil.YYYY_MM));
         String startDate = baseLocalDate.toString();
         String endDate = baseLocalDate.toString();
+        String leaveType = rule.getReference();
+
+        // 查询已存在的休假记录（start_date + employee_id）
+        LambdaQueryCondition<TcmLeaveRecord> leaveCondition = new LambdaQueryCondition<>(new TcmLeaveRecord());
+        leaveCondition.eq(TcmLeaveRecord::getStart_date, startDate)
+                .eq(TcmLeaveRecord::getYtenantId, tenantId)
+                .eq(TcmLeaveRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmLeaveRecord> existingRecords = billRepository.queryByClause(leaveCondition);
+        // key = start_date + "|" + employee_id + "|" + leave_type
+        Map<String, TcmLeaveRecord> existingMap = new HashMap<>();
+        if (existingRecords != null) {
+            for (TcmLeaveRecord existing : existingRecords) {
+                String key = existing.getStart_date() + "|"
+                        + existing.getEmployee_id() + "|"
+                        + existing.getLeave_type();
+                existingMap.putIfAbsent(key, existing);
+            }
+        }
+
+        List<TcmLeaveRecord> insertList = new ArrayList<>();
+        List<TcmLeaveRecord> updateList = new ArrayList<>();
 
         for (TcmWaybillSheduleShiftsData data : dataList) {
-            String id = ymsOidGenerator.nextStrId();
             TcmLeaveRecord record = new TcmLeaveRecord();
-            record.setId(id);
             record.setWaybill_employee_id(data.getWaybill_employee_id());
             record.setEmployee_id(data.getEmployee_id());
             record.setDriver_name(data.getDriver_name());
-            record.setLeave_type(rule.getReference());
+            record.setLeave_type(leaveType);
             record.setWaybill_shedule(data.getId());
             record.setStart_date(startDate);
             record.setEffective_month(effectiveMonth);
             record.setEnd_date(endDate);
-            // 请假说明带入 waybill 解析备注；请假天数默认 1
             record.setRemark(data.getRemark());
             record.setLeave_days(1);
             record.setYtenantId(tenantId);
-            list.add(record);
+
+            // 按 start_date + employee_id + leave_type 校验是否已存在
+            String key = startDate + "|" + data.getEmployee_id() + "|" + leaveType;
+            TcmLeaveRecord existing = existingMap.get(key);
+            if (existing != null) {
+                // 已存在：用原记录 id，加入 update 集合
+                record.setId(existing.getId());
+                updateList.add(record);
+            } else {
+                // 不存在：生成新 id，加入 insert 集合
+                record.setId(ymsOidGenerator.nextStrId());
+                insertList.add(record);
+            }
         }
-        billRepository.insert(list);
+        if (!insertList.isEmpty()) {
+            billRepository.insert(insertList);
+        }
+        if (!updateList.isEmpty()) {
+            billRepository.update(updateList);
+        }
+
+        // 合并 insert + update 两个集合，供后续挂考勤修正缺勤子表
+        list.addAll(insertList);
+        list.addAll(updateList);
 
         Map<String, List<TcmLeaveRecord>> leaveRecordMap = list.stream()
                 .filter(r -> r.getEmployee_id() != null && !r.getEmployee_id().isEmpty())
