@@ -354,9 +354,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             throw new RuntimeException(errorMsg.toString());
         }
 
-        // 以 run_date + employee_id 为标志分组统计，将统计数量放入对应分组对象的 count 字段
+        // 以 run_date + waybill_employee_id（海信工号）为标志分组统计，将统计数量放入对应分组对象的 count 字段
         Map<String, List<TcmHisenseAttendanceData>> countGroupMap = dataList.stream()
-                .collect(Collectors.groupingBy(d -> d.getRun_date() + "|" + d.getEmployee_id()));
+                .collect(Collectors.groupingBy(d -> d.getRun_date() + "|" + d.getWaybill_employee_id()));
         for (List<TcmHisenseAttendanceData> group : countGroupMap.values()) {
             int cnt = group.size();
             for (TcmHisenseAttendanceData d : group) {
