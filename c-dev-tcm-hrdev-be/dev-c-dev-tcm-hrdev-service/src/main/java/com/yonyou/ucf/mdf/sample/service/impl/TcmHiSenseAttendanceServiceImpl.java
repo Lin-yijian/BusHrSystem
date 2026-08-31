@@ -751,27 +751,29 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         if (minLeaveTimeData != null) {
             entity.setKq_one_departure_time(minLeaveTimeData.getReal_leave_time());
             entity.setOne_license_plate(minLeaveTimeData.getCar());
+            entity.setKq_one_return_time(minLeaveTimeData.getReal_arrive_time());
+            availableDataList.remove(minLeaveTimeData);
         } else {
             entity.setKq_one_departure_time(null);
             entity.setOne_license_plate(null);
         }
 
-        // kq_one_return_time：取数据集中 real_arrive_time 与 pg_one_return_time 最接近的值
-        Date pgOneReturnTime = entity.getPg_one_return_time();
-        TcmHisenseAttendanceData closestArriveData = findClosestData(availableDataList, pgOneReturnTime, true);
-        if (closestArriveData != null) {
-            entity.setKq_one_return_time(closestArriveData.getReal_arrive_time());
-        } else {
-            entity.setKq_one_return_time(null);
-        }
-
-        // 统一移除第一步和第二步匹配到的数据
-        if (minLeaveTimeData != null) {
-            availableDataList.remove(minLeaveTimeData);
-        }
-        if (closestArriveData != null && closestArriveData != minLeaveTimeData) {
-            availableDataList.remove(closestArriveData);
-        }
+//        // kq_one_return_time：取数据集中 real_arrive_time 与 pg_one_return_time 最接近的值
+//        Date pgOneReturnTime = entity.getPg_one_return_time();
+//        TcmHisenseAttendanceData closestArriveData = findClosestData(availableDataList, pgOneReturnTime, true);
+//        if (closestArriveData != null) {
+//            entity.setKq_one_return_time(closestArriveData.getReal_arrive_time());
+//        } else {
+//            entity.setKq_one_return_time(null);
+//        }
+//
+//        // 统一移除第一步和第二步匹配到的数据
+//        if (minLeaveTimeData != null) {
+//            availableDataList.remove(minLeaveTimeData);
+//        }
+//        if (closestArriveData != null && closestArriveData != minLeaveTimeData) {
+//            availableDataList.remove(closestArriveData);
+//        }
     }
 
     /**
@@ -783,6 +785,13 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             entity.setKq_two_departure_time(null);
             entity.setTwo_license_plate(null);
             entity.setKq_two_return_time(null);
+            return;
+        }
+        if (availableDataList.size() == 1) {
+            TcmHisenseAttendanceData data = availableDataList.get(0);
+            entity.setKq_two_departure_time(data.getReal_leave_time());
+            entity.setTwo_license_plate(data.getCar());
+            entity.setKq_two_return_time(data.getReal_arrive_time());
             return;
         }
 
