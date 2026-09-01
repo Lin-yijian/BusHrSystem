@@ -63,14 +63,17 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
         TcmDriverOvertimeRecord data = (TcmDriverOvertimeRecord) billContext.getBillDO();
+        if (data == null) {
+            return;
+        }
         String date = data.getOvertime_date();
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
         }
-        correctionSyncService.refreshJlForEmployeeDay(date, data.getEmployee_id());
-        calcTrigger.afterDataChanged(date, data.getEmployee_id());
+        AttendanceCalcImportContext.collectJlRefresh(date, data.getEmployee_id());
+        calcTrigger.registerFlushAfterCommit();
     }
 
     @Override

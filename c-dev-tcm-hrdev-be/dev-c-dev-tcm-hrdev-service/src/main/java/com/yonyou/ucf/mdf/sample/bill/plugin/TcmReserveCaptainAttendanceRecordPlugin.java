@@ -48,13 +48,16 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
+        if (data == null) {
+            return;
+        }
         String date = data.getDate();
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, false);
         }
-        correctionSyncService.refreshJlForEmployeeDay(date, data.getDriver_no());
-        calcTrigger.afterDataChanged(date, data.getDriver_no());
+        AttendanceCalcImportContext.collectJlRefresh(date, data.getDriver_no());
+        calcTrigger.registerFlushAfterCommit();
     }
 
     @Override

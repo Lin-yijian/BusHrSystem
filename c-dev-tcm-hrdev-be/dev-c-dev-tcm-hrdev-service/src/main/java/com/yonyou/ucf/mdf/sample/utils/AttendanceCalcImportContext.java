@@ -26,6 +26,9 @@ public final class AttendanceCalcImportContext {
             ThreadLocal.withInitial(ArrayList::new);
     private static final ThreadLocal<List<TcmDriverHolidayWorkRecord>> PENDING_HOLIDAYS =
             ThreadLocal.withInitial(ArrayList::new);
+    /** 删除后待重算计粮的 date\temployeeId */
+    private static final ThreadLocal<Set<String>> PENDING_JL_REFRESH =
+            ThreadLocal.withInitial(HashSet::new);
     private static final ThreadLocal<Boolean> SYNC_REGISTERED = ThreadLocal.withInitial(() -> false);
     /** 海信拉取等批量写入：afterSave 不再按条触发修正/计算。 */
     private static final ThreadLocal<Boolean> BULK_SYNC = ThreadLocal.withInitial(() -> false);
@@ -52,6 +55,7 @@ public final class AttendanceCalcImportContext {
         PENDING_RESERVES.get().clear();
         PENDING_OVERTIMES.get().clear();
         PENDING_HOLIDAYS.get().clear();
+        PENDING_JL_REFRESH.get().clear();
         SYNC_REGISTERED.set(false);
     }
 
@@ -93,6 +97,17 @@ public final class AttendanceCalcImportContext {
         }
     }
 
+    /**
+     * 删除后备/超时后：提交后再按人重算计粮，避免批量删除时在同一事务里更新修正导致失败。
+     */
+    public static void collectJlRefresh(String date, String employeeId) {
+        collectDate(date);
+        if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeId)) {
+            return;
+        }
+        PENDING_JL_REFRESH.get().add(date.trim() + "\t" + employeeId.trim());
+    }
+
     public static Set<String> snapshotDates() {
         return new HashSet<>(DATES.get());
     }
@@ -113,6 +128,10 @@ public final class AttendanceCalcImportContext {
         return new ArrayList<>(PENDING_HOLIDAYS.get());
     }
 
+    public static Set<String> snapshotJlRefresh() {
+        return new HashSet<>(PENDING_JL_REFRESH.get());
+    }
+
     /**
      * @return true 表示首次注册，可挂 afterCommit
      */
@@ -131,6 +150,7 @@ public final class AttendanceCalcImportContext {
         PENDING_RESERVES.remove();
         PENDING_OVERTIMES.remove();
         PENDING_HOLIDAYS.remove();
+        PENDING_JL_REFRESH.remove();
         SYNC_REGISTERED.remove();
         BULK_SYNC.remove();
     }

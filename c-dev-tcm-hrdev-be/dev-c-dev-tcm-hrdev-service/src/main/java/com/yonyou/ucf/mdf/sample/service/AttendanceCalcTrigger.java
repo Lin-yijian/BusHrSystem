@@ -109,6 +109,13 @@ public class AttendanceCalcTrigger {
         if (!AttendanceCalcImportContext.isImporting()) {
             return;
         }
+        registerFlushAfterCommit();
+    }
+
+    /**
+     * 删除等场景：收集后挂 afterCommit，不阻断当前单据删除。
+     */
+    public void registerFlushAfterCommit() {
         if (!AttendanceCalcImportContext.markSyncRegistered()) {
             return;
         }
@@ -137,6 +144,17 @@ public class AttendanceCalcTrigger {
             correctionSyncService.batchSyncFromReserves(AttendanceCalcImportContext.snapshotReserves());
             correctionSyncService.batchSyncFromOvertimes(AttendanceCalcImportContext.snapshotOvertimes());
             correctionSyncService.batchSyncFromHolidays(AttendanceCalcImportContext.snapshotHolidays());
+            for (String key : AttendanceCalcImportContext.snapshotJlRefresh()) {
+                int tab = key.indexOf('\t');
+                if (tab <= 0 || tab >= key.length() - 1) {
+                    continue;
+                }
+                try {
+                    correctionSyncService.refreshJlForEmployeeDay(key.substring(0, tab), key.substring(tab + 1));
+                } catch (Exception e) {
+                    log.error("删除后重算计粮失败, key={}", key, e);
+                }
+            }
             for (String date : AttendanceCalcImportContext.snapshotDates()) {
                 try {
                     calculationService.getAndUpdateAssessReviseByDate(date);
