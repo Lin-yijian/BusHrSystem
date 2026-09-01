@@ -1,6 +1,8 @@
 package com.yonyou.ucf.mdf.sample.service;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
@@ -14,6 +16,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -208,9 +211,14 @@ public class AttendanceCalcTrigger {
     private FlushResult drainAndProcess() {
         FlushResult result = new FlushResult();
         while (true) {
-            correctionSyncService.batchSyncFromSchedules(AttendanceCalcImportContext.snapshotSchedules());
-            correctionSyncService.batchSyncFromHolidays(AttendanceCalcImportContext.snapshotHolidays());
+            List<TcmSheduleShiftsData> schedules = AttendanceCalcImportContext.snapshotSchedules();
+            List<TcmDriverHolidayWorkRecord> holidays = AttendanceCalcImportContext.snapshotHolidays();
+            Set<String> empDayKeys = keysFromSchedules(schedules);
+            empDayKeys.addAll(keysFromHolidays(holidays));
+            correctionSyncService.batchSyncFromSchedules(schedules);
+            correctionSyncService.batchSyncFromHolidays(holidays);
             Set<String> jlKeys = AttendanceCalcImportContext.snapshotJlRefresh();
+            jlKeys.addAll(empDayKeys);
             AttendanceCalcImportContext.drainDates();
             if (jlKeys.isEmpty() && AttendanceCalcImportContext.isQueueEmpty()) {
                 return result;
@@ -220,6 +228,38 @@ public class AttendanceCalcTrigger {
                 return result;
             }
         }
+    }
+
+    private Set<String> keysFromSchedules(List<TcmSheduleShiftsData> schedules) {
+        Set<String> keys = new HashSet<>();
+        if (schedules == null) {
+            return keys;
+        }
+        for (TcmSheduleShiftsData s : schedules) {
+            if (s == null || StringUtils.isBlank(s.getDate()) || StringUtils.isBlank(s.getEmployee_id())) {
+                continue;
+            }
+            String normalized = DateUtil.extractDateString(s.getDate());
+            String date = normalized != null ? normalized : s.getDate().trim();
+            keys.add(date + "\t" + s.getEmployee_id().trim());
+        }
+        return keys;
+    }
+
+    private Set<String> keysFromHolidays(List<TcmDriverHolidayWorkRecord> holidays) {
+        Set<String> keys = new HashSet<>();
+        if (holidays == null) {
+            return keys;
+        }
+        for (TcmDriverHolidayWorkRecord h : holidays) {
+            if (h == null || StringUtils.isBlank(h.getDate()) || StringUtils.isBlank(h.getEmployee_id())) {
+                continue;
+            }
+            String normalized = DateUtil.extractDateString(h.getDate());
+            String date = normalized != null ? normalized : h.getDate().trim();
+            keys.add(date + "\t" + h.getEmployee_id().trim());
+        }
+        return keys;
     }
 
     /**
@@ -254,7 +294,6 @@ public class AttendanceCalcTrigger {
             for (String staffId : e.getValue()) {
                 String key = date + "\t" + staffId;
                 try {
-                    correctionSyncService.refreshJlForEmployeeDay(date, staffId);
                     String code = codeById.get(staffId);
                     if (StringUtils.isBlank(code)) {
                         log.warn("无法解析员工编号，跳过计算 date={} staffId={}", date, staffId);
@@ -262,7 +301,7 @@ public class AttendanceCalcTrigger {
                     }
                     calcDateWithLock(date, code);
                 } catch (Exception ex) {
-                    log.error("删除后按人考勤计算失败, date={} staffId={}", date, staffId, ex);
+                    log.error("按人考勤计算失败, date={} staffId={}", date, staffId, ex);
                     result.failEmpDay(key);
                 }
             }

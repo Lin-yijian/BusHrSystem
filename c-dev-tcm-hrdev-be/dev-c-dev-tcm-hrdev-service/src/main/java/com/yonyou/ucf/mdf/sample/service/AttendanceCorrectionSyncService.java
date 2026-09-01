@@ -11,8 +11,7 @@ import java.util.List;
 public interface AttendanceCorrectionSyncService {
 
     /**
-     * 排更 → 修正：更新排更侧发收车/用膳等。
-     * 计粮发收车按优先级重算：排更 → 后备车长 → 超时工作记录（后者覆盖前者；海信不参与计粮取值）。
+     * 排更 → 修正：只回写排更侧发收车/用膳等。计粮叠加在计算前 {@link #refreshCorrectionsBeforeCalc} 做一次。
      */
     void syncFromSchedule(TcmSheduleShiftsData schedule);
 
@@ -25,11 +24,6 @@ public interface AttendanceCorrectionSyncService {
      * 排更删除后：若仍有同日同人排更则按剩余重装；否则仅保留非排更字段（不删修正行）。
      */
     void afterScheduleDeleted(TcmSheduleShiftsData deleted);
-
-    /**
-     * 后备/超时删除或导入后：按剩余数据重算该日该人计粮发收车（不新建修正行）。
-     */
-    void refreshJlForEmployeeDay(String date, String employeeId);
 
     /**
      * 周末假期工作 → 修正：同步是否周假上班标记。
@@ -52,7 +46,8 @@ public interface AttendanceCorrectionSyncService {
     void syncExceptionSources(String date, String employeeId);
 
     /**
-     * 考勤计算前：按计算范围回写加油加气、异常来源，并按排更/后备/超时重算计粮。
+     * 考勤计算前：按计算范围回写加油加气、异常来源，并按更叠加重算计粮（排更打底 → 后备 → 超时）。
+     * 仅 UPDATE 内容有变化的行。
      */
     void refreshCorrectionsBeforeCalc(String dateStr, String employeeCode, boolean singleDate);
 }

@@ -43,14 +43,11 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
         if (AttendanceCalcImportContext.isBulkSyncing()) {
             return;
         }
-        if (AttendanceCalcImportContext.isImporting()) {
-            AttendanceCalcImportContext.collectSchedule(data);
-            calcTrigger.registerImportFlushAfterCommit();
-            return;
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_SHEDULE_SHIFTS, true);
         }
-        correctionSyncService.syncFromSchedule(data);
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_SHEDULE_SHIFTS, true);
-        calcTrigger.afterDataChanged(data.getDate(), data.getEmployee_id());
+        AttendanceCalcImportContext.collectSchedule(data);
+        calcTrigger.registerFlushAfterCommit();
     }
 
     @Override
