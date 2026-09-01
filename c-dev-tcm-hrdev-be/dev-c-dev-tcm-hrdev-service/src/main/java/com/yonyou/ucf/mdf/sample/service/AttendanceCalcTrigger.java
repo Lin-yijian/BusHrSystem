@@ -3,6 +3,7 @@ package com.yonyou.ucf.mdf.sample.service;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,14 +12,24 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 考勤计算统一触发入口。
- * 手工保存：按人计算；导入：afterCommit 批量同步修正后按日计算。
+ * 手工保存：按人计算。导入/删除：提交后按人合并计算，避免整日重算和 MVCC。
  */
 @Slf4j
 @Component
 public class AttendanceCalcTrigger {
+
+    private static final int CALC_RETRY = 5;
+
+    private static final ConcurrentHashMap<String, Object> DATE_LOCKS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Object> TENANT_FLUSH_LOCKS = new ConcurrentHashMap<>();
 
     @Autowired
     private TcmAttendanceCalculationService calculationService;
@@ -29,18 +40,6 @@ public class AttendanceCalcTrigger {
     @Autowired
     private CommonUtil commonUtil;
 
-    public void triggerByDate(String date) {
-        if (StringUtils.isBlank(date)) {
-            return;
-        }
-        try {
-            calculationService.getAndUpdateAssessReviseByDate(date);
-        } catch (Exception e) {
-            log.error("考勤计算触发失败(按日), date={}", date, e);
-            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
-        }
-    }
-
     /**
      * 按员工编号计算（优先）；staffId 会解析为 code。
      */
@@ -50,21 +49,65 @@ public class AttendanceCalcTrigger {
         }
         String employeeCode = resolveEmployeeCode(staffId);
         if (StringUtils.isBlank(employeeCode)) {
-            log.warn("无法解析员工编号，回退按日计算 date={}, staffId={}", date, staffId);
-            triggerByDate(date);
+            log.warn("无法解析员工编号，跳过计算 date={}, staffId={}", date, staffId);
             return;
         }
+        calcDateWithLock(date, employeeCode);
+    }
+
+    private void calcDateWithLock(String date, String employeeCode) {
+        if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeCode)) {
+            return;
+        }
+        String normalized = DateUtil.extractDateString(date);
+        if (normalized == null) {
+            normalized = date.trim();
+        }
+        String lockKey = InvocationInfoProxy.getTenantid() + "|" + normalized + "|" + employeeCode;
+        Object lock = DATE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
+        synchronized (lock) {
+            for (int i = 0; i < CALC_RETRY; i++) {
+                try {
+                    calculationService.getAndUpdateAssessReviseByDate(parseDate(normalized), employeeCode);
+                    return;
+                } catch (RuntimeException e) {
+                    if (!isConcurrencyConflict(e) || i == CALC_RETRY - 1) {
+                        log.error("考勤计算触发失败, date={}, code={}", normalized, employeeCode, e);
+                        throw e;
+                    }
+                    log.warn("考勤计算并发冲突，重试 {}/{} date={}", i + 1, CALC_RETRY, normalized);
+                    sleepQuietly(100L * (1L << i));
+                }
+            }
+        }
+    }
+
+    private boolean isConcurrencyConflict(Throwable e) {
+        while (e != null) {
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("mvcc") || msg.contains("MVCC")
+                    || msg.contains("乐观锁") || msg.contains("pubts"))) {
+                return true;
+            }
+            e = e.getCause();
+        }
+        return false;
+    }
+
+    private void sleepQuietly(long ms) {
         try {
-            calculationService.getAndUpdateAssessReviseByDate(parseDate(date), employeeCode);
-        } catch (Exception e) {
-            log.error("考勤计算触发失败(按人), date={}, code={}", date, employeeCode, e);
-            throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
+            Thread.sleep(ms);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
     private Date parseDate(String date) {
-        return com.yonyou.ucf.mdf.sample.utils.DateUtil.stringToDate(
-                com.yonyou.ucf.mdf.sample.utils.DateUtil.YYYY_MM_DD, date);
+        String normalized = DateUtil.extractDateString(date);
+        if (normalized == null) {
+            normalized = date;
+        }
+        return DateUtil.stringToDate(DateUtil.YYYY_MM_DD, normalized);
     }
 
     private String resolveEmployeeCode(String staffId) {
@@ -91,8 +134,13 @@ public class AttendanceCalcTrigger {
             return;
         }
         if (AttendanceCalcImportContext.isImporting()) {
-            AttendanceCalcImportContext.collectDate(date);
+            if (StringUtils.isNotBlank(staffId)) {
+                AttendanceCalcImportContext.collectJlRefresh(date, staffId);
+            }
             registerImportFlushAfterCommit();
+            return;
+        }
+        if (StringUtils.isBlank(staffId)) {
             return;
         }
         triggerByDateAndStaff(date, staffId);
@@ -113,14 +161,14 @@ public class AttendanceCalcTrigger {
     }
 
     /**
-     * 删除等场景：收集后挂 afterCommit，不阻断当前单据删除。
+     * 删除/导入：提交后在当前线程收尾（租户上下文仍在），按人合并计算。
      */
     public void registerFlushAfterCommit() {
-        if (!AttendanceCalcImportContext.markSyncRegistered()) {
-            return;
-        }
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             flushImportPending();
+            return;
+        }
+        if (!AttendanceCalcImportContext.markSyncRegistered()) {
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -139,31 +187,97 @@ public class AttendanceCalcTrigger {
     }
 
     private void flushImportPending() {
-        try {
+        String tenant = StringUtils.defaultIfBlank(InvocationInfoProxy.getTenantid(), "_");
+        Object lock = TENANT_FLUSH_LOCKS.computeIfAbsent(tenant, k -> new Object());
+        synchronized (lock) {
+            try {
+                FlushResult result = drainAndProcess();
+                if (!result.ok()) {
+                    AttendanceCalcImportContext.requeueJlRefresh(result.failedJlKeys);
+                    log.error("导入/删除后考勤收尾未全部成功，失败人天可到【考勤计算】补齐. empDays={}",
+                            result.failedJlKeys.size());
+                }
+            } catch (Exception e) {
+                log.error("导入/删除后考勤收尾失败 tenant={}", tenant, e);
+            } finally {
+                AttendanceCalcImportContext.clear();
+            }
+        }
+    }
+
+    private FlushResult drainAndProcess() {
+        FlushResult result = new FlushResult();
+        while (true) {
             correctionSyncService.batchSyncFromSchedules(AttendanceCalcImportContext.snapshotSchedules());
-            correctionSyncService.batchSyncFromReserves(AttendanceCalcImportContext.snapshotReserves());
-            correctionSyncService.batchSyncFromOvertimes(AttendanceCalcImportContext.snapshotOvertimes());
             correctionSyncService.batchSyncFromHolidays(AttendanceCalcImportContext.snapshotHolidays());
-            for (String key : AttendanceCalcImportContext.snapshotJlRefresh()) {
-                int tab = key.indexOf('\t');
-                if (tab <= 0 || tab >= key.length() - 1) {
-                    continue;
-                }
+            Set<String> jlKeys = AttendanceCalcImportContext.snapshotJlRefresh();
+            AttendanceCalcImportContext.drainDates();
+            if (jlKeys.isEmpty() && AttendanceCalcImportContext.isQueueEmpty()) {
+                return result;
+            }
+            refreshAndCalcByEmployee(jlKeys, result);
+            if (AttendanceCalcImportContext.isQueueEmpty()) {
+                return result;
+            }
+        }
+    }
+
+    /**
+     * 必须同时有日期和员工才重算计粮和考勤。
+     */
+    private void refreshAndCalcByEmployee(Set<String> jlKeys, FlushResult result) {
+        if (jlKeys == null || jlKeys.isEmpty()) {
+            return;
+        }
+        Map<String, Set<String>> staffByDate = new HashMap<>();
+        Set<String> staffIds = new HashSet<>();
+        for (String key : jlKeys) {
+            int tab = key.indexOf('\t');
+            if (tab <= 0 || tab >= key.length() - 1) {
+                continue;
+            }
+            String date = key.substring(0, tab);
+            String staffId = key.substring(tab + 1);
+            if (StringUtils.isBlank(date) || StringUtils.isBlank(staffId)) {
+                continue;
+            }
+            staffByDate.computeIfAbsent(date, k -> new HashSet<>()).add(staffId);
+            staffIds.add(staffId);
+        }
+        if (staffIds.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        Map<String, String> codeById = commonUtil.getStaffCodesByIds(staffIds, tenantId);
+        for (Map.Entry<String, Set<String>> e : staffByDate.entrySet()) {
+            String date = e.getKey();
+            for (String staffId : e.getValue()) {
+                String key = date + "\t" + staffId;
                 try {
-                    correctionSyncService.refreshJlForEmployeeDay(key.substring(0, tab), key.substring(tab + 1));
-                } catch (Exception e) {
-                    log.error("删除后重算计粮失败, key={}", key, e);
+                    correctionSyncService.refreshJlForEmployeeDay(date, staffId);
+                    String code = codeById.get(staffId);
+                    if (StringUtils.isBlank(code)) {
+                        log.warn("无法解析员工编号，跳过计算 date={} staffId={}", date, staffId);
+                        continue;
+                    }
+                    calcDateWithLock(date, code);
+                } catch (Exception ex) {
+                    log.error("删除后按人考勤计算失败, date={} staffId={}", date, staffId, ex);
+                    result.failEmpDay(key);
                 }
             }
-            for (String date : AttendanceCalcImportContext.snapshotDates()) {
-                try {
-                    calculationService.getAndUpdateAssessReviseByDate(date);
-                } catch (Exception e) {
-                    log.error("导入后考勤计算失败, date={}", date, e);
-                }
-            }
-        } finally {
-            AttendanceCalcImportContext.clear();
+        }
+    }
+
+    private static final class FlushResult {
+        private final Set<String> failedJlKeys = new HashSet<>();
+
+        boolean ok() {
+            return failedJlKeys.isEmpty();
+        }
+
+        void failEmpDay(String key) {
+            failedJlKeys.add(key);
         }
     }
 }

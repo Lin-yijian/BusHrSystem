@@ -24,7 +24,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,6 +45,8 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     private static final double SHIFT_CHANGE_HOURS = 3.0;
     private static final String TASK_CODE_TRAINING = "培训";
     private static final String TASK_CODE_OTHER_TRAINING = "其他培训";
+
+    private static final int JL_UPDATE_RETRY = 3;
 
     @Autowired
     private IBillRepository billRepository;
@@ -49,16 +61,21 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     private TcmAttendanceCorrectionService attendanceCorrectionService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void syncFromSchedule(TcmSheduleShiftsData schedule) {
         if (schedule == null) {
             return;
         }
-        batchSyncFromSchedules(Collections.singletonList(schedule));
+        doBatchSyncFromSchedules(Collections.singletonList(schedule));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchSyncFromSchedules(List<TcmSheduleShiftsData> schedules) {
+        doBatchSyncFromSchedules(schedules);
+    }
+
+    private void doBatchSyncFromSchedules(List<TcmSheduleShiftsData> schedules) {
         if (schedules == null || schedules.isEmpty()) {
             return;
         }
@@ -132,6 +149,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void afterScheduleDeleted(TcmSheduleShiftsData deleted) {
         if (deleted == null || StringUtils.isBlank(deleted.getDate()) || StringUtils.isBlank(deleted.getEmployee_id())) {
             return;
@@ -158,41 +176,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             billRepository.update(list);
             return;
         }
-        syncFromSchedule(remain.get(0));
-    }
-
-    @Override
-    public void syncFromReserve(TcmReserveCaptainAttendanceRecord reserve) {
-        if (reserve == null) {
-            return;
-        }
-        batchSyncFromReserves(Collections.singletonList(reserve));
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void batchSyncFromReserves(List<TcmReserveCaptainAttendanceRecord> reserves) {
-        if (reserves == null || reserves.isEmpty()) {
-            return;
-        }
-        syncJlByEmployeeDays(collectEmployeeDaysFromReserves(reserves), true);
-    }
-
-    @Override
-    public void syncFromOvertime(TcmDriverOvertimeRecord overtime) {
-        if (overtime == null) {
-            return;
-        }
-        batchSyncFromOvertimes(Collections.singletonList(overtime));
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void batchSyncFromOvertimes(List<TcmDriverOvertimeRecord> overtimes) {
-        if (overtimes == null || overtimes.isEmpty()) {
-            return;
-        }
-        syncJlByEmployeeDays(collectEmployeeDaysFromOvertimes(overtimes), true);
+        doBatchSyncFromSchedules(Collections.singletonList(remain.get(0)));
     }
 
     @Override
@@ -206,16 +190,21 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void syncFromHolidayWork(TcmDriverHolidayWorkRecord holiday) {
         if (holiday == null) {
             return;
         }
-        batchSyncFromHolidays(Collections.singletonList(holiday));
+        doBatchSyncFromHolidays(Collections.singletonList(holiday));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void batchSyncFromHolidays(List<TcmDriverHolidayWorkRecord> holidays) {
+        doBatchSyncFromHolidays(holidays);
+    }
+
+    private void doBatchSyncFromHolidays(List<TcmDriverHolidayWorkRecord> holidays) {
         if (holidays == null || holidays.isEmpty()) {
             return;
         }
@@ -340,10 +329,15 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 .map(TcmAttendanceCorrection::getEmployee_id)
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.toSet());
-        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByStaffIds(staffIds, tenantId);
+        Set<String> dates = new HashSet<>();
+        dates.add(dateStr);
         for (TcmAttendanceCorrection c : list) {
-            commonUtil.processDate(c, staffMap);
+            if (c != null && StringUtils.isNotBlank(c.getDate())) {
+                dates.add(c.getDate());
+            }
         }
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByStaffIds(staffIds, tenantId);
+        applyJlPriority(list, dates, staffIds, tenantId, staffMap);
         CommonUtil.fillUpdateAudit(list);
         billRepository.update(list);
         log.warn("[KQ_CALC] date={} step=refreshCorrectionsBeforeCalc size={} costMs={}",
@@ -359,7 +353,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             correction.setTask_code(schedule.getTask_code());
         }
 
-        Integer mealCount = schedule.getMeal() == null ? 0 : schedule.getMeal();
+        int mealCount = schedule.getMeal() == null ? 0 : schedule.getMeal();
         correction.setMeal_count(mealCount);
         if (mealCount == 1) {
             correction.setMeal_duration("00:30");
@@ -443,74 +437,92 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
 
         Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(
                 staffIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
-        Map<String, List<TcmAttendanceCorrection>> byEmpDate = loadCorrectionsByEmpDate(dates, staffIds, tenantId);
-        List<TcmAttendanceCorrection> insertList = new ArrayList<>();
-        List<TcmAttendanceCorrection> updateList = new ArrayList<>();
-        List<TcmAttendanceCorrection> touched = new ArrayList<>();
-        Set<String> seenIds = new HashSet<>();
-
         for (EmpDay empDay : unique.values()) {
-            List<TcmAttendanceCorrection> existing = byEmpDate.get(empDateKey(empDay.date, empDay.employeeId));
-            TcmAttendanceCorrection correction = pickCorrection(existing, empDay.hintTask);
-            boolean isNew = false;
-            if (correction == null) {
-                if (!createIfMissing) {
-                    continue;
-                }
-                correction = new TcmAttendanceCorrection();
-                correction.setId(ymsOidGenerator.nextStrId());
-                correction.setYtenantId(tenantId);
-                String normalized = DateUtil.extractDateString(empDay.date);
-                correction.setDate(normalized != null ? normalized : empDay.date);
-                correction.setEmployee_id(empDay.employeeId);
-                if (StringUtils.isNotBlank(empDay.hintTask)) {
-                    correction.setTask_code(empDay.hintTask);
-                }
-                isNew = true;
-                byEmpDate.computeIfAbsent(empDateKey(empDay.date, empDay.employeeId), k -> new ArrayList<>())
-                        .add(correction);
+            String lockKey = tenantId + "|" + empDateKey(empDay.date, empDay.employeeId);
+            synchronized (lockKey.intern()) {
+                persistJlForEmployeeDay(empDay, createIfMissing, tenantId, staffMap);
             }
-            if (isNew) {
-                insertList.add(correction);
-            } else if (correction.getId() != null && seenIds.add(correction.getId()) && !updateList.contains(correction)) {
-                updateList.add(correction);
-            }
-            if (!touched.contains(correction)) {
-                touched.add(correction);
-            }
-        }
-        applyJlPriority(touched, dates, staffIds, tenantId, staffMap);
-        if (!insertList.isEmpty()) {
-            CommonUtil.fillInsertAudit(insertList);
-            billRepository.insert(insertList);
-        }
-        if (!updateList.isEmpty()) {
-            CommonUtil.fillUpdateAudit(updateList);
-            billRepository.update(updateList);
         }
     }
 
-    private List<EmpDay> collectEmployeeDaysFromReserves(List<TcmReserveCaptainAttendanceRecord> reserves) {
-        List<EmpDay> list = new ArrayList<>();
-        for (TcmReserveCaptainAttendanceRecord r : reserves) {
-            if (r == null || StringUtils.isBlank(r.getDate()) || StringUtils.isBlank(r.getDriver_no())) {
-                continue;
+    private void persistJlForEmployeeDay(EmpDay empDay, boolean createIfMissing, String tenantId,
+                                         Map<String, Map<String, Object>> staffMap) {
+        Set<String> dates = Collections.singleton(empDay.date);
+        Set<String> staffIds = Collections.singleton(empDay.employeeId);
+        Map<String, List<TcmAttendanceCorrection>> byEmpDate = loadCorrectionsByEmpDate(dates, staffIds, tenantId);
+        List<TcmAttendanceCorrection> existing = byEmpDate.get(empDateKey(empDay.date, empDay.employeeId));
+        TcmAttendanceCorrection correction = pickCorrection(existing, empDay.hintTask);
+        if (correction == null) {
+            if (!createIfMissing) {
+                return;
             }
-            // 匹配已有排更行：用 AM/PM 类型（如「早更后备」），不用安排任务
-            list.add(new EmpDay(r.getDate(), r.getDriver_no(), r.getType()));
+            correction = new TcmAttendanceCorrection();
+            correction.setId(ymsOidGenerator.nextStrId());
+            correction.setYtenantId(tenantId);
+            String normalized = DateUtil.extractDateString(empDay.date);
+            correction.setDate(normalized != null ? normalized : empDay.date);
+            correction.setEmployee_id(empDay.employeeId);
+            if (StringUtils.isNotBlank(empDay.hintTask)) {
+                correction.setTask_code(empDay.hintTask);
+            }
+            applyJlPriority(Collections.singletonList(correction), dates, staffIds, tenantId, staffMap);
+            CommonUtil.fillInsertAudit(Collections.singletonList(correction));
+            billRepository.insert(Collections.singletonList(correction));
+            return;
         }
-        return list;
+        updateCorrectionJlWithRetry(correction, empDay, tenantId, staffMap);
     }
 
-    private List<EmpDay> collectEmployeeDaysFromOvertimes(List<TcmDriverOvertimeRecord> overtimes) {
-        List<EmpDay> list = new ArrayList<>();
-        for (TcmDriverOvertimeRecord r : overtimes) {
-            if (r == null || StringUtils.isBlank(r.getOvertime_date()) || StringUtils.isBlank(r.getEmployee_id())) {
-                continue;
+    private void updateCorrectionJlWithRetry(TcmAttendanceCorrection correction, EmpDay empDay,
+                                             String tenantId, Map<String, Map<String, Object>> staffMap) {
+        Set<String> dates = Collections.singleton(empDay.date);
+        Set<String> staffIds = Collections.singleton(empDay.employeeId);
+        TcmAttendanceCorrection current = correction;
+        for (int i = 0; ; i++) {
+            if (i > 0) {
+                TcmAttendanceCorrection reloaded = queryCorrectionById(current.getId(), tenantId);
+                if (reloaded == null) {
+                    return;
+                }
+                current = reloaded;
             }
-            list.add(new EmpDay(r.getOvertime_date(), r.getEmployee_id(), r.getTask_no()));
+            applyJlPriority(Collections.singletonList(current), dates, staffIds, tenantId, staffMap);
+            CommonUtil.fillUpdateAudit(Collections.singletonList(current));
+            try {
+                billRepository.update(Collections.singletonList(current));
+                return;
+            } catch (RuntimeException e) {
+                if (!isOptimisticLock(e) || i >= JL_UPDATE_RETRY - 1) {
+                    throw e;
+                }
+                log.warn("计粮回写乐观锁冲突，重试 {}/{} date={} employeeId={}",
+                        i + 1, JL_UPDATE_RETRY, empDay.date, empDay.employeeId);
+            }
         }
-        return list;
+    }
+
+    private TcmAttendanceCorrection queryCorrectionById(String id, String tenantId) {
+        if (StringUtils.isBlank(id)) {
+            return null;
+        }
+        LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        condition.eq(TcmAttendanceCorrection::getId, id)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmAttendanceCorrection> list = billRepository.queryByClause(condition);
+        return list == null || list.isEmpty() ? null : list.get(0);
+    }
+
+    private boolean isOptimisticLock(Throwable e) {
+        while (e != null) {
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("乐观锁") || msg.contains("pubts") || msg.contains("mvcc")
+                    || msg.contains("MVCC"))) {
+                return true;
+            }
+            e = e.getCause();
+        }
+        return false;
     }
 
     private Map<String, List<TcmAttendanceCorrection>> loadCorrectionsByEmpDate(
@@ -605,109 +617,118 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     }
 
     /**
-     * 1 条：发/收车 → 计粮一更；多条：最早发/收 → 一更，最晚发/收 → 二更。
+     * 同日同人：一组只写一更（不改二更）；两组则一更+二更一次写回。
+     * 最早发车→一更发车，最早收车→一更收车，最晚发车→二更发车，最晚收车→二更收车。
      */
     private void applyReserveJl(TcmAttendanceCorrection correction, List<TcmReserveCaptainAttendanceRecord> reserves) {
-        List<Date> outs = new ArrayList<>();
-        List<Date> backs = new ArrayList<>();
+        if (reserves == null || reserves.isEmpty()) {
+            return;
+        }
+        List<Date> deps = new ArrayList<>();
+        List<Date> rets = new ArrayList<>();
+        int recordCount = 0;
         for (TcmReserveCaptainAttendanceRecord r : reserves) {
-            Date out = combineDateAndTime(r.getDate(), r.getOut_time());
-            Date back = combineDateAndTime(r.getDate(), r.getBack_time());
-            if (out != null) {
-                outs.add(out);
+            if (r == null) {
+                continue;
             }
-            if (back != null) {
-                backs.add(back);
+            recordCount++;
+            Date dep = combineDateAndTime(r.getDate(), r.getOut_time());
+            Date ret = adjustOvernight(dep, combineDateAndTime(r.getDate(), r.getBack_time()));
+            if (dep != null) {
+                deps.add(dep);
+            }
+            if (ret != null) {
+                rets.add(ret);
             }
         }
-        Date minOut = minDate(outs);
-        Date minBack = adjustOvernight(minOut, minDate(backs));
-        Date maxOut = maxDate(outs);
-        Date maxBack = adjustOvernight(maxOut, maxDate(backs));
-        correction.setJl_one_departure_time(minOut);
-        correction.setJl_one_return_time(minBack);
-        if (reserves.size() <= 1) {
-            correction.setJl_two_departure_time(null);
-            correction.setJl_two_return_time(null);
-        } else {
-            correction.setJl_two_departure_time(maxOut);
-            correction.setJl_two_return_time(maxBack);
+        if (recordCount == 0) {
+            return;
         }
+        Date oneDep = minDate(deps);
+        Date oneRet = adjustOvernight(oneDep, minDate(rets));
+        correction.setJl_one_departure_time(oneDep);
+        correction.setJl_one_return_time(oneRet);
+        if (recordCount == 1) {
+            return;
+        }
+        Date twoDep = maxDate(deps);
+        Date twoRet = adjustOvernight(twoDep, maxDate(rets));
+        correction.setJl_two_departure_time(twoDep);
+        correction.setJl_two_return_time(twoRet);
+    }
+
+    private Date minDate(List<Date> dates) {
+        Date min = null;
+        for (Date d : dates) {
+            if (d != null && (min == null || d.before(min))) {
+                min = d;
+            }
+        }
+        return min;
+    }
+
+    private Date maxDate(List<Date> dates) {
+        Date max = null;
+        for (Date d : dates) {
+            if (d != null && (max == null || d.after(max))) {
+                max = d;
+            }
+        }
+        return max;
     }
 
     /**
-     * 按编定上下班窗口分组：仅一更取最早实际上班/最晚实际下班；有二更则早窗口→一更、晚窗口→二更。
+     * 按编定上班时间分组（空值不参与），组升序。
+     * 第一组：实际上班最早→一更发车，实际下班最晚→一更收车；
+     * 最后一组：实际上班最早→二更发车，实际下班最晚→二更收车。
+     * 仅一组时不改二更。
      */
     private void applyOvertimeJl(TcmAttendanceCorrection correction, List<TcmDriverOvertimeRecord> records) {
         String date = DateUtil.extractDateString(correction.getDate());
-        Map<String, List<TcmDriverOvertimeRecord>> groups = new LinkedHashMap<>();
-        List<TcmDriverOvertimeRecord> unscheduled = new ArrayList<>();
-        for (TcmDriverOvertimeRecord r : records) {
-            String key = shiftWindowKey(r);
-            if (key == null) {
-                unscheduled.add(r);
-            } else {
-                groups.computeIfAbsent(key, k -> new ArrayList<>()).add(r);
-            }
-        }
-        if (groups.isEmpty() && !unscheduled.isEmpty()) {
-            groups.put("_all", unscheduled);
-        } else if (!unscheduled.isEmpty() && !groups.isEmpty()) {
-            List<TcmDriverOvertimeRecord> first = groups.values().iterator().next();
-            first.addAll(unscheduled);
-        }
+        List<List<TcmDriverOvertimeRecord>> groups = groupOvertimesByScheduleStart(date, records);
         if (groups.isEmpty()) {
             return;
         }
-        List<List<TcmDriverOvertimeRecord>> sorted = new ArrayList<>(groups.values());
-        sorted.sort(Comparator.comparing(g -> shiftSortTime(date, g), Comparator.nullsLast(Date::compareTo)));
-        ShiftTimes first = extractShiftTimes(date, sorted.get(0));
-        if (sorted.size() == 1) {
-            correction.setJl_one_departure_time(first.departure);
-            correction.setJl_one_return_time(first.returned);
-            correction.setJl_two_departure_time(null);
-            correction.setJl_two_return_time(null);
+        applyOvertimeGroupToShift(correction, date, groups.get(0), true);
+        if (groups.size() == 1) {
             return;
         }
-        ShiftTimes last = extractShiftTimes(date, sorted.get(sorted.size() - 1));
-        correction.setJl_one_departure_time(first.departure);
-        correction.setJl_one_return_time(first.returned);
-        correction.setJl_two_departure_time(last.departure);
-        correction.setJl_two_return_time(last.returned);
+        applyOvertimeGroupToShift(correction, date, groups.get(groups.size() - 1), false);
     }
 
-    private String shiftWindowKey(TcmDriverOvertimeRecord r) {
-        String start = normalizeTimeOnly(r.getSchedule_start_time());
-        String end = normalizeTimeOnly(r.getSchedule_end_time());
-        if (start == null && end == null) {
-            return null;
-        }
-        return (start == null ? "" : start) + "|" + (end == null ? "" : end);
-    }
-
-    private Date shiftSortTime(String date, List<TcmDriverOvertimeRecord> group) {
-        Date minSched = null;
-        Date minActual = null;
-        for (TcmDriverOvertimeRecord r : group) {
-            Date sched = combineDateAndTime(date != null ? date : r.getOvertime_date(), r.getSchedule_start_time());
-            Date actual = combineDateAndTime(date != null ? date : r.getOvertime_date(), r.getActual_start_time());
-            if (sched != null && (minSched == null || sched.before(minSched))) {
-                minSched = sched;
+    private List<List<TcmDriverOvertimeRecord>> groupOvertimesByScheduleStart(
+            String date, List<TcmDriverOvertimeRecord> records) {
+        Map<String, List<TcmDriverOvertimeRecord>> byStart = new HashMap<>();
+        for (TcmDriverOvertimeRecord r : records) {
+            if (r == null) {
+                continue;
             }
-            if (actual != null && (minActual == null || actual.before(minActual))) {
-                minActual = actual;
+            String key = scheduleStartKey(r.getSchedule_start_time());
+            if (key == null) {
+                continue;
             }
+            byStart.computeIfAbsent(key, k -> new ArrayList<>()).add(r);
         }
-        return minSched != null ? minSched : minActual;
+        if (byStart.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> keys = new ArrayList<>(byStart.keySet());
+        keys.sort(Comparator.comparing(k -> combineDateAndTime(date, k), Comparator.nullsLast(Date::compareTo)));
+        List<List<TcmDriverOvertimeRecord>> groups = new ArrayList<>(keys.size());
+        for (String key : keys) {
+            groups.add(byStart.get(key));
+        }
+        return groups;
     }
 
-    private ShiftTimes extractShiftTimes(String date, List<TcmDriverOvertimeRecord> group) {
+    private void applyOvertimeGroupToShift(TcmAttendanceCorrection correction, String date,
+                                           List<TcmDriverOvertimeRecord> group, boolean firstShift) {
         List<Date> starts = new ArrayList<>();
         List<Date> ends = new ArrayList<>();
         for (TcmDriverOvertimeRecord r : group) {
             String d = date != null ? date : DateUtil.extractDateString(r.getOvertime_date());
             Date start = combineDateAndTime(d, r.getActual_start_time());
-            Date end = combineDateAndTime(d, r.getActual_end_time());
+            Date end = adjustOvernight(start, combineDateAndTime(d, r.getActual_end_time()));
             if (start != null) {
                 starts.add(start);
             }
@@ -716,9 +737,26 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             }
         }
         Date dep = minDate(starts);
-        Date ret = maxDate(ends);
-        ret = adjustOvernight(dep, ret);
-        return new ShiftTimes(dep, ret);
+        Date ret = adjustOvernight(dep, maxDate(ends));
+        if (firstShift) {
+            correction.setJl_one_departure_time(dep);
+            correction.setJl_one_return_time(ret);
+        } else {
+            correction.setJl_two_departure_time(dep);
+            correction.setJl_two_return_time(ret);
+        }
+    }
+
+    /** 编定上班时间归一成 HH:mm；空值不参与分组 */
+    private String scheduleStartKey(String time) {
+        if (StringUtils.isBlank(time)) {
+            return null;
+        }
+        String t = padTime(time.trim());
+        if (t.length() >= 5 && t.charAt(2) == ':') {
+            return t.substring(0, 5);
+        }
+        return t;
     }
 
     private void recalcShiftChange(TcmAttendanceCorrection c) {
@@ -775,26 +813,6 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 .eq(TcmDriverOvertimeRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         List<TcmDriverOvertimeRecord> list = billRepository.queryByClause(condition);
         return list == null ? Collections.emptyList() : list;
-    }
-
-    private Date minDate(List<Date> dates) {
-        Date min = null;
-        for (Date d : dates) {
-            if (d != null && (min == null || d.before(min))) {
-                min = d;
-            }
-        }
-        return min;
-    }
-
-    private Date maxDate(List<Date> dates) {
-        Date max = null;
-        for (Date d : dates) {
-            if (d != null && (max == null || d.after(max))) {
-                max = d;
-            }
-        }
-        return max;
     }
 
     private Date adjustOvernight(Date start, Date end) {
@@ -1103,20 +1121,6 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         return h + ":" + m;
     }
 
-    private String normalizeTimeOnly(String time) {
-        if (StringUtils.isBlank(time)) {
-            return null;
-        }
-        Date parsed = combineDateAndTime("2000-01-01", time);
-        if (parsed == null) {
-            String padded = padTime(time.trim());
-            return padded.length() >= 5 ? padded.substring(0, 5) : padded;
-        }
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(parsed);
-        return String.format("%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE));
-    }
-
     private static final class EmpDay {
         final String date;
         final String employeeId;
@@ -1126,16 +1130,6 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             this.date = date;
             this.employeeId = employeeId;
             this.hintTask = hintTask;
-        }
-    }
-
-    private static final class ShiftTimes {
-        final Date departure;
-        final Date returned;
-
-        ShiftTimes(Date departure, Date returned) {
-            this.departure = departure;
-            this.returned = returned;
         }
     }
 }

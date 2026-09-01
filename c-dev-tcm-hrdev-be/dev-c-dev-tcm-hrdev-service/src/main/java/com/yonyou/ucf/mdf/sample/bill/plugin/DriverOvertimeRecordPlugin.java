@@ -6,7 +6,6 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmDriverOvertimeRecordService;
@@ -56,9 +55,6 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private AttendanceCalcTrigger calcTrigger;
 
-    @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
-
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
@@ -96,15 +92,13 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
         TcmDriverOvertimeRecord entity = (TcmDriverOvertimeRecord) billContext.getBillDO();
-        if (entity != null) {
-            if (AttendanceCalcImportContext.isImporting()) {
-                AttendanceCalcImportContext.collectOvertime(entity);
-                calcTrigger.registerImportFlushAfterCommit();
-                return;
-            }
-            correctionSyncService.syncFromOvertime(entity);
-            calcTrigger.afterDataChanged(entity.getOvertime_date(), entity.getEmployee_id());
+        if (entity == null) {
+            return;
         }
+        // 平台导入用线程池逐条保存，ThreadLocal 的 isImporting 在工作线程上为 false。
+        // 计粮回写放到提交后，避免 afterSave 里更新修正失败导致整行导入失败。
+        AttendanceCalcImportContext.collectJlRefresh(entity.getOvertime_date(), entity.getEmployee_id());
+        calcTrigger.registerFlushAfterCommit();
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

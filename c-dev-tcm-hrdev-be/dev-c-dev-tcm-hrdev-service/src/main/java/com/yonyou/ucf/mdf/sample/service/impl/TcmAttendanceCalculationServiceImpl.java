@@ -12,6 +12,7 @@ import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 考勤计算服务实现
@@ -141,13 +147,18 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
                 // 处理计算表特有字段
                 if (existing != null) {
-                    // 保留原有特殊字段
+                    // 保留原有特殊字段和乐观锁版本，避免批量删除并发 UPDATE 触发 PolarDB MVCC
                     newCalRecord.setDepartment_summary(existing.getDepartment_summary());
                     newCalRecord.setAttendance_type(existing.getAttendance_type());
                     newCalRecord.setWork_time(existing.getWork_time());
                     newCalRecord.setLate_early_leave_period(existing.getLate_early_leave_period());
                     newCalRecord.setCode(existing.getCode());
                     newCalRecord.setId(existing.getId());
+                    newCalRecord.setYtenantId(existing.getYtenantId());
+                    newCalRecord.setDr(existing.getDr());
+                    newCalRecord.setCreator(existing.getCreator());
+                    newCalRecord.setCreateTime(existing.getCreateTime());
+                    newCalRecord.setPubts(existing.getPubts());
                     updateCalList.add(newCalRecord);
                 } else {
                     // 新记录设置租户ID
@@ -192,11 +203,12 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
         QuerySchema querySchema = QuerySchema.create().addSelect(selectFields);
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenantId").eq(tenantId));
         if (employeeCode != null && !employeeCode.isEmpty()) {
-            querySchema.appendQueryCondition(QueryCondition.name("date").in(DateUtil.dateQueryVariants(dateStr)));
+            querySchema.appendQueryCondition(new QueryCondition<>("date", ConditionOperator.in, DateUtil.dateQueryVariants(dateStr)));
             querySchema.appendQueryCondition(QueryCondition.name("employee_id.code").eq(employeeCode));
         } else if (singleDate) {
-            querySchema.appendQueryCondition(QueryCondition.name("date").in(DateUtil.dateQueryVariants(dateStr)));
+            querySchema.appendQueryCondition(new QueryCondition<>("date", ConditionOperator.in, DateUtil.dateQueryVariants(dateStr)));
         } else {
             String[] monthRange = getMonthRange(dateStr);
             querySchema.appendQueryCondition(QueryCondition.name("date").egt(monthRange[0]));

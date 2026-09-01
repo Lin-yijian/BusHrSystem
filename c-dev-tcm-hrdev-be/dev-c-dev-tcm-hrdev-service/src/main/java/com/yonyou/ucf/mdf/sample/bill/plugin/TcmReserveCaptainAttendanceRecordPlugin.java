@@ -4,7 +4,6 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmReserveCaptainAttendanceRecordService;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
@@ -37,9 +36,6 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
 
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
-
-    @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
 
     @Autowired
     private AttendanceCalcTrigger calcTrigger;
@@ -76,13 +72,8 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         if (data == null) {
             return;
         }
-        if (AttendanceCalcImportContext.isImporting()) {
-            AttendanceCalcImportContext.collectReserve(data);
-            calcTrigger.registerImportFlushAfterCommit();
-            return;
-        }
-        correctionSyncService.syncFromReserve(data);
-        calcTrigger.afterDataChanged(data.getDate(), data.getDriver_no());
+        AttendanceCalcImportContext.collectJlRefresh(data.getDate(), data.getDriver_no());
+        calcTrigger.registerFlushAfterCommit();
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

@@ -1,8 +1,6 @@
 package com.yonyou.ucf.mdf.sample.service;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 
 import java.util.List;
@@ -29,27 +27,7 @@ public interface AttendanceCorrectionSyncService {
     void afterScheduleDeleted(TcmSheduleShiftsData deleted);
 
     /**
-     * 后备车长 → 修正：按同日同人聚合后写入计粮发收车（更新已有排更行，不按安排任务新增）。
-     */
-    void syncFromReserve(TcmReserveCaptainAttendanceRecord reserve);
-
-    /**
-     * 导入收尾：批量同步后备修正。
-     */
-    void batchSyncFromReserves(List<TcmReserveCaptainAttendanceRecord> reserves);
-
-    /**
-     * 超时工作记录 → 修正：按同日同人聚合实际上下班时间写入计粮发收车。
-     */
-    void syncFromOvertime(TcmDriverOvertimeRecord overtime);
-
-    /**
-     * 导入收尾：批量同步超时工作记录到计粮。
-     */
-    void batchSyncFromOvertimes(List<TcmDriverOvertimeRecord> overtimes);
-
-    /**
-     * 后备/超时删除后：按剩余数据重算该日该人计粮发收车。
+     * 后备/超时删除或导入后：按剩余数据重算该日该人计粮发收车（不新建修正行）。
      */
     void refreshJlForEmployeeDay(String date, String employeeId);
 
@@ -74,7 +52,7 @@ public interface AttendanceCorrectionSyncService {
     void syncExceptionSources(String date, String employeeId);
 
     /**
-     * 考勤计算前：按计算范围回写加油加气、异常来源，并重算超时时长。
+     * 考勤计算前：按计算范围回写加油加气、异常来源，并按排更/后备/超时重算计粮。
      */
     void refreshCorrectionsBeforeCalc(String dateStr, String employeeCode, boolean singleDate);
 }
