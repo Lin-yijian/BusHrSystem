@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmDriverOvertimeRecordService;
@@ -55,6 +56,9 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private AttendanceCalcTrigger calcTrigger;
 
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
+
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
@@ -65,6 +69,7 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
         }
+        correctionSyncService.refreshJlForEmployeeDay(date, data.getEmployee_id());
         calcTrigger.afterDataChanged(date, data.getEmployee_id());
     }
 
@@ -90,10 +95,11 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
         TcmDriverOvertimeRecord entity = (TcmDriverOvertimeRecord) billContext.getBillDO();
         if (entity != null) {
             if (AttendanceCalcImportContext.isImporting()) {
-                AttendanceCalcImportContext.collectDate(entity.getOvertime_date());
+                AttendanceCalcImportContext.collectOvertime(entity);
                 calcTrigger.registerImportFlushAfterCommit();
                 return;
             }
+            correctionSyncService.syncFromOvertime(entity);
             calcTrigger.afterDataChanged(entity.getOvertime_date(), entity.getEmployee_id());
         }
     }

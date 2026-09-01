@@ -1,6 +1,7 @@
 package com.yonyou.ucf.mdf.sample.service;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 
@@ -12,7 +13,8 @@ import java.util.List;
 public interface AttendanceCorrectionSyncService {
 
     /**
-     * 排更 → 修正：更新排更侧发收车/用膳等，不覆盖计粮上下更(jl_*)。
+     * 排更 → 修正：更新排更侧发收车/用膳等。
+     * 计粮发收车按优先级重算：排更 → 后备车长 → 超时工作记录（后者覆盖前者；海信不参与计粮取值）。
      */
     void syncFromSchedule(TcmSheduleShiftsData schedule);
 
@@ -27,7 +29,7 @@ public interface AttendanceCorrectionSyncService {
     void afterScheduleDeleted(TcmSheduleShiftsData deleted);
 
     /**
-     * 后备车长 → 修正：发车/收车拷贝到上下更(jl_*)。
+     * 后备车长 → 修正：按同日同人聚合后写入计粮发收车（更新已有排更行，不按安排任务新增）。
      */
     void syncFromReserve(TcmReserveCaptainAttendanceRecord reserve);
 
@@ -35,6 +37,21 @@ public interface AttendanceCorrectionSyncService {
      * 导入收尾：批量同步后备修正。
      */
     void batchSyncFromReserves(List<TcmReserveCaptainAttendanceRecord> reserves);
+
+    /**
+     * 超时工作记录 → 修正：按同日同人聚合实际上下班时间写入计粮发收车。
+     */
+    void syncFromOvertime(TcmDriverOvertimeRecord overtime);
+
+    /**
+     * 导入收尾：批量同步超时工作记录到计粮。
+     */
+    void batchSyncFromOvertimes(List<TcmDriverOvertimeRecord> overtimes);
+
+    /**
+     * 后备/超时删除后：按剩余数据重算该日该人计粮发收车。
+     */
+    void refreshJlForEmployeeDay(String date, String employeeId);
 
     /**
      * 周末假期工作 → 修正：同步是否周假上班标记。

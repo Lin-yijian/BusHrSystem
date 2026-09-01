@@ -135,6 +135,7 @@ public class AttendanceCalcTrigger {
         try {
             correctionSyncService.batchSyncFromSchedules(AttendanceCalcImportContext.snapshotSchedules());
             correctionSyncService.batchSyncFromReserves(AttendanceCalcImportContext.snapshotReserves());
+            correctionSyncService.batchSyncFromOvertimes(AttendanceCalcImportContext.snapshotOvertimes());
             correctionSyncService.batchSyncFromHolidays(AttendanceCalcImportContext.snapshotHolidays());
             for (String date : AttendanceCalcImportContext.snapshotDates()) {
                 try {

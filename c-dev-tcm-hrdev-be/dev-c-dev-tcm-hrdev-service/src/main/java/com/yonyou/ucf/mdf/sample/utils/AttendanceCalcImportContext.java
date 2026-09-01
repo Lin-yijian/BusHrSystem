@@ -1,6 +1,7 @@
 package com.yonyou.ucf.mdf.sample.utils;
 
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import org.apache.commons.lang3.StringUtils;
@@ -20,6 +21,8 @@ public final class AttendanceCalcImportContext {
     private static final ThreadLocal<List<TcmSheduleShiftsData>> PENDING_SCHEDULES =
             ThreadLocal.withInitial(ArrayList::new);
     private static final ThreadLocal<List<TcmReserveCaptainAttendanceRecord>> PENDING_RESERVES =
+            ThreadLocal.withInitial(ArrayList::new);
+    private static final ThreadLocal<List<TcmDriverOvertimeRecord>> PENDING_OVERTIMES =
             ThreadLocal.withInitial(ArrayList::new);
     private static final ThreadLocal<List<TcmDriverHolidayWorkRecord>> PENDING_HOLIDAYS =
             ThreadLocal.withInitial(ArrayList::new);
@@ -47,6 +50,7 @@ public final class AttendanceCalcImportContext {
         DATES.get().clear();
         PENDING_SCHEDULES.get().clear();
         PENDING_RESERVES.get().clear();
+        PENDING_OVERTIMES.get().clear();
         PENDING_HOLIDAYS.get().clear();
         SYNC_REGISTERED.set(false);
     }
@@ -75,6 +79,13 @@ public final class AttendanceCalcImportContext {
         }
     }
 
+    public static void collectOvertime(TcmDriverOvertimeRecord overtime) {
+        if (overtime != null) {
+            PENDING_OVERTIMES.get().add(overtime);
+            collectDate(overtime.getOvertime_date());
+        }
+    }
+
     public static void collectHoliday(TcmDriverHolidayWorkRecord holiday) {
         if (holiday != null) {
             PENDING_HOLIDAYS.get().add(holiday);
@@ -92,6 +103,10 @@ public final class AttendanceCalcImportContext {
 
     public static List<TcmReserveCaptainAttendanceRecord> snapshotReserves() {
         return new ArrayList<>(PENDING_RESERVES.get());
+    }
+
+    public static List<TcmDriverOvertimeRecord> snapshotOvertimes() {
+        return new ArrayList<>(PENDING_OVERTIMES.get());
     }
 
     public static List<TcmDriverHolidayWorkRecord> snapshotHolidays() {
@@ -114,6 +129,7 @@ public final class AttendanceCalcImportContext {
         DATES.remove();
         PENDING_SCHEDULES.remove();
         PENDING_RESERVES.remove();
+        PENDING_OVERTIMES.remove();
         PENDING_HOLIDAYS.remove();
         SYNC_REGISTERED.remove();
         BULK_SYNC.remove();

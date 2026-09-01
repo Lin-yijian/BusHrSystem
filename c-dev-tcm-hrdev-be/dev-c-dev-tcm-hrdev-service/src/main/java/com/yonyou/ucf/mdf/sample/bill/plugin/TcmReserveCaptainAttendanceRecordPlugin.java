@@ -53,6 +53,7 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, false);
         }
+        correctionSyncService.refreshJlForEmployeeDay(date, data.getDriver_no());
         calcTrigger.afterDataChanged(date, data.getDriver_no());
     }
 
