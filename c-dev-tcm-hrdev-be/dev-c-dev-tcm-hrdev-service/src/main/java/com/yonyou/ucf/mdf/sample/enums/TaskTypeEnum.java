@@ -13,6 +13,9 @@ public enum TaskTypeEnum {
 
     /** 生成本地考勤 */
     HXKQ_MAKE("HXKQ_MAKE", "生成本地考勤"),
+    /** 生成本地排更 */
+    HXPG_GENERATE("HXPG_GENERATE", "生成本地排更"),
+    /** 生成休假記錄 */
     HXPG_MAKE("HXPG_MAKE", "生成休假記錄"),
 
     /** 拉取海信考勤數據 */
