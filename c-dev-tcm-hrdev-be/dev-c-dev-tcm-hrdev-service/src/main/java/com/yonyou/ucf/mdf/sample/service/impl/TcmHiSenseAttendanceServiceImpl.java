@@ -392,12 +392,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             log.warn("[HXKQ_SYNC] date={} step=insertHoliday size={} costMs={}",
                     runDate, holidayList.size(), System.currentTimeMillis() - stepStart);
 
-            tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, true);
+//            tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, true);
 
-            stepStart = System.currentTimeMillis();
-            refreshCorrectionFromLocalData(runDate);
-            log.warn("[HXKQ_SYNC] date={} step=refreshCorrection costMs={}",
-                    runDate, System.currentTimeMillis() - stepStart);
+//            stepStart = System.currentTimeMillis();
+//            refreshCorrectionFromLocalData(runDate);
+//            log.warn("[HXKQ_SYNC] date={} step=refreshCorrection costMs={}",
+//                    runDate, System.currentTimeMillis() - stepStart);
 
             stepStart = System.currentTimeMillis();
             calculationService.getAndUpdateAssessReviseByDate(runDate);
@@ -516,6 +516,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             calculationService.getAndUpdateAssessReviseByDate(runDate);
             log.warn("[HXKQ_MAKE] date={} step=calc costMs={}",
                     runDate, System.currentTimeMillis() - stepStart);
+
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, true);
             return matchedList.size();
         } finally {
             AttendanceCalcImportContext.endBulkSync();

@@ -87,7 +87,7 @@ public class TCMParamManagePlugin extends AbstractBillPlugin {
 
         ParamKey keyEnum = lookup.apply(key);
         if (keyEnum == null) {
-            throw new RuntimeException("参数键(key)=" + key + " 不属于模块 " + module
+            throw new RuntimeException("参数键(key)=" + key + " 不属于模块 " + ModuleEnum.getNameByCode(module)
                     + "，請按對應 *ParamKeyEnum 枚舉維護");
         }
 
