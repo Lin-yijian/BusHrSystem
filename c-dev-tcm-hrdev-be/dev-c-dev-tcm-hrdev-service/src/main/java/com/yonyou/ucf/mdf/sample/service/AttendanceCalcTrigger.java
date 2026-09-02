@@ -1,6 +1,7 @@
 package com.yonyou.ucf.mdf.sample.service;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.iuap.context.YmsContextWrappers;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import javax.annotation.PreDestroy;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,19 +22,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 考勤计算统一触发入口。
- * 手工保存：按人计算。导入/删除：提交后按人合并计算，避免整日重算和 MVCC。
+ * 手工保存：按人计算。导入/批量删除线程：提交后合并按人去重再算，避免按条重算。
  */
 @Slf4j
 @Component
 public class AttendanceCalcTrigger {
 
     private static final int CALC_RETRY = 5;
+    private static final long MERGE_FLUSH_DELAY_MS = 800L;
 
     private static final ConcurrentHashMap<String, Object> DATE_LOCKS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> TENANT_FLUSH_LOCKS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ScheduledFuture<?>> PENDING_MERGE_FLUSH = new ConcurrentHashMap<>();
+
+    private final ScheduledExecutorService mergeFlushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "tcm-kq-merge-flush");
+        t.setDaemon(true);
+        return t;
+    });
 
     @Autowired
     private TcmAttendanceCalculationService calculationService;
@@ -164,11 +178,39 @@ public class AttendanceCalcTrigger {
     }
 
     /**
-     * 删除/导入：提交后在当前线程收尾（租户上下文仍在），按人合并计算。
+     * 超时/后备：收集人天并在提交后触发计算。
+     * 已在 beforeTranslate / beforeDelete 打开合并标记时：只入队，窗口合并后按人去重算一次。
+     * 页面单条保存：提交后马上算。
+     */
+    public void collectJlAndFlush(String date, String employeeId) {
+        boolean merge = AttendanceCalcImportContext.isMergeFlush();
+        AttendanceCalcImportContext.collectJlRefresh(date, employeeId, merge);
+        if (merge) {
+            registerMergedFlushAfterCommit();
+        } else {
+            registerFlushAfterCommit();
+        }
+    }
+
+    /**
+     * 删除/导入：提交后在当前线程收尾，只处理本线程收集的人天。
      */
     public void registerFlushAfterCommit() {
+        registerFlushAfterCommit(false);
+    }
+
+    private void registerMergedFlushAfterCommit() {
+        registerFlushAfterCommit(true);
+    }
+
+    private void registerFlushAfterCommit(boolean mergeAcrossThreads) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            flushImportPending();
+            if (mergeAcrossThreads) {
+                scheduleMergedFlush();
+                AttendanceCalcImportContext.clear();
+            } else {
+                flushImportPending(false);
+            }
             return;
         }
         if (!AttendanceCalcImportContext.markSyncRegistered()) {
@@ -177,7 +219,12 @@ public class AttendanceCalcTrigger {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                flushImportPending();
+                if (mergeAcrossThreads) {
+                    scheduleMergedFlush();
+                    AttendanceCalcImportContext.clear();
+                } else {
+                    flushImportPending(false);
+                }
             }
 
             @Override
@@ -189,12 +236,28 @@ public class AttendanceCalcTrigger {
         });
     }
 
-    private void flushImportPending() {
+    private void scheduleMergedFlush() {
+        String tenant = StringUtils.defaultIfBlank(InvocationInfoProxy.getTenantid(), "_");
+        ScheduledFuture<?> next = mergeFlushExecutor.schedule(
+                YmsContextWrappers.wrapRunnable(() -> {
+                    PENDING_MERGE_FLUSH.remove(tenant);
+                    log.warn("[KQ_CALC] mergedFlush start tenant={}", tenant);
+                    flushImportPending(true);
+                    AttendanceCalcImportContext.endMergeFlush();
+                }),
+                MERGE_FLUSH_DELAY_MS, TimeUnit.MILLISECONDS);
+        ScheduledFuture<?> prev = PENDING_MERGE_FLUSH.put(tenant, next);
+        if (prev != null) {
+            prev.cancel(false);
+        }
+    }
+
+    private void flushImportPending(boolean includeGlobal) {
         String tenant = StringUtils.defaultIfBlank(InvocationInfoProxy.getTenantid(), "_");
         Object lock = TENANT_FLUSH_LOCKS.computeIfAbsent(tenant, k -> new Object());
         synchronized (lock) {
             try {
-                FlushResult result = drainAndProcess();
+                FlushResult result = drainAndProcess(includeGlobal);
                 if (!result.ok()) {
                     AttendanceCalcImportContext.requeueJlRefresh(result.failedJlKeys);
                     log.error("导入/删除后考勤收尾未全部成功，失败人天可到【考勤计算】补齐. empDays={}",
@@ -208,7 +271,7 @@ public class AttendanceCalcTrigger {
         }
     }
 
-    private FlushResult drainAndProcess() {
+    private FlushResult drainAndProcess(boolean includeGlobal) {
         FlushResult result = new FlushResult();
         while (true) {
             List<TcmSheduleShiftsData> schedules = AttendanceCalcImportContext.snapshotSchedules();
@@ -218,16 +281,37 @@ public class AttendanceCalcTrigger {
             correctionSyncService.batchSyncFromSchedules(schedules);
             correctionSyncService.batchSyncFromHolidays(holidays);
             Set<String> jlKeys = AttendanceCalcImportContext.snapshotJlRefresh();
+            if (includeGlobal) {
+                jlKeys.addAll(AttendanceCalcImportContext.snapshotGlobalJlRefresh());
+            }
             jlKeys.addAll(empDayKeys);
-            AttendanceCalcImportContext.drainDates();
-            if (jlKeys.isEmpty() && AttendanceCalcImportContext.isQueueEmpty()) {
+            if (includeGlobal) {
+                AttendanceCalcImportContext.drainDates();
+            } else {
+                AttendanceCalcImportContext.drainLocalDates();
+            }
+            boolean emptyQueue = includeGlobal
+                    ? AttendanceCalcImportContext.isQueueEmpty()
+                    : AttendanceCalcImportContext.isLocalQueueEmpty();
+            if (jlKeys.isEmpty() && emptyQueue) {
                 return result;
             }
-            refreshAndCalcByEmployee(jlKeys, result);
-            if (AttendanceCalcImportContext.isQueueEmpty()) {
+            if (!jlKeys.isEmpty()) {
+                log.warn("[KQ_CALC] flushCalc includeGlobal={} empDays={}", includeGlobal, jlKeys.size());
+                refreshAndCalcByEmployee(jlKeys, result);
+            }
+            emptyQueue = includeGlobal
+                    ? AttendanceCalcImportContext.isQueueEmpty()
+                    : AttendanceCalcImportContext.isLocalQueueEmpty();
+            if (emptyQueue) {
                 return result;
             }
         }
+    }
+
+    @PreDestroy
+    public void shutdownMergeFlush() {
+        mergeFlushExecutor.shutdownNow();
     }
 
     private Set<String> keysFromSchedules(List<TcmSheduleShiftsData> schedules) {

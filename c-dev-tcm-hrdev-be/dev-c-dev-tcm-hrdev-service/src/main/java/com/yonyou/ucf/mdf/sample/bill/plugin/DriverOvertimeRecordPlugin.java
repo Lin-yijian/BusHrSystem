@@ -56,6 +56,12 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     private AttendanceCalcTrigger calcTrigger;
 
     @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
+
+    @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
         TcmDriverOvertimeRecord data = (TcmDriverOvertimeRecord) billContext.getBillDO();
@@ -68,8 +74,7 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
         }
-        AttendanceCalcImportContext.collectJlRefresh(date, data.getEmployee_id());
-        calcTrigger.registerFlushAfterCommit();
+        calcTrigger.collectJlAndFlush(date, data.getEmployee_id());
     }
 
     @Override
@@ -95,10 +100,8 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
         if (entity == null) {
             return;
         }
-        // 平台导入用线程池逐条保存，ThreadLocal 的 isImporting 在工作线程上为 false。
-        // 计粮回写放到提交后，避免 afterSave 里更新修正失败导致整行导入失败。
-        AttendanceCalcImportContext.collectJlRefresh(entity.getOvertime_date(), entity.getEmployee_id());
-        calcTrigger.registerFlushAfterCommit();
+        // 导入工作线程靠 beforeTranslate 的租户级合并标记收尾，避免 afterSave 里更新修正失败导致整行导入失败。
+        calcTrigger.collectJlAndFlush(entity.getOvertime_date(), entity.getEmployee_id());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

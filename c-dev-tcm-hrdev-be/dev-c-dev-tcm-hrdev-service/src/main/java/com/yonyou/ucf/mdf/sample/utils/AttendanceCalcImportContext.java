@@ -32,6 +32,9 @@ public final class AttendanceCalcImportContext {
     /** 导入线程池/批量删除跨线程收集 */
     private static final ConcurrentHashMap<String, Set<String>> GLOBAL_JL_REFRESH = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Set<String>> GLOBAL_DATES = new ConcurrentHashMap<>();
+    /** 导入/批量删除：租户级合并收尾标记，工作线程也能看到 */
+    private static final ConcurrentHashMap<String, Boolean> GLOBAL_IMPORTING = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Boolean> GLOBAL_MERGE = new ConcurrentHashMap<>();
 
     private AttendanceCalcImportContext() {
     }
@@ -68,10 +71,28 @@ public final class AttendanceCalcImportContext {
         PENDING_HOLIDAYS.get().clear();
         PENDING_JL_REFRESH.get().clear();
         SYNC_REGISTERED.set(false);
+        GLOBAL_IMPORTING.put(tenantKey(), Boolean.TRUE);
+        GLOBAL_MERGE.put(tenantKey(), Boolean.TRUE);
+    }
+
+    /** 批量删除入口：后续提交只收集人天，合并后再算。 */
+    public static void beginMergeFlush() {
+        GLOBAL_MERGE.put(tenantKey(), Boolean.TRUE);
+    }
+
+    public static void endMergeFlush() {
+        GLOBAL_MERGE.remove(tenantKey());
+        GLOBAL_IMPORTING.remove(tenantKey());
     }
 
     public static boolean isImporting() {
-        return Boolean.TRUE.equals(IMPORTING.get());
+        return Boolean.TRUE.equals(IMPORTING.get())
+                || Boolean.TRUE.equals(GLOBAL_IMPORTING.get(tenantKey()));
+    }
+
+    /** 导入或批量删除已显式打开合并收尾。 */
+    public static boolean isMergeFlush() {
+        return isImporting() || Boolean.TRUE.equals(GLOBAL_MERGE.get(tenantKey()));
     }
 
     public static void collectDate(String date) {
@@ -99,16 +120,28 @@ public final class AttendanceCalcImportContext {
 
     /**
      * 删除/导入后：提交后再按人重算计粮。
+     * @param shareGlobally true 写入跨线程队列，供导入/批量删除合并收尾
      */
     public static void collectJlRefresh(String date, String employeeId) {
+        collectJlRefresh(date, employeeId, true);
+    }
+
+    public static void collectJlRefresh(String date, String employeeId, boolean shareGlobally) {
         String trimmedDate = normalizeDate(date);
-        collectDate(trimmedDate);
+        if (trimmedDate != null) {
+            DATES.get().add(trimmedDate);
+            if (shareGlobally) {
+                GLOBAL_DATES.computeIfAbsent(tenantKey(), k -> ConcurrentHashMap.newKeySet()).add(trimmedDate);
+            }
+        }
         if (trimmedDate == null || StringUtils.isBlank(employeeId)) {
             return;
         }
         String key = trimmedDate + "\t" + employeeId.trim();
         PENDING_JL_REFRESH.get().add(key);
-        GLOBAL_JL_REFRESH.computeIfAbsent(tenantKey(), k -> ConcurrentHashMap.newKeySet()).add(key);
+        if (shareGlobally) {
+            GLOBAL_JL_REFRESH.computeIfAbsent(tenantKey(), k -> ConcurrentHashMap.newKeySet()).add(key);
+        }
     }
 
     /** 收尾失败时把待算人天放回队列，供延迟重试。 */
@@ -131,8 +164,12 @@ public final class AttendanceCalcImportContext {
 
     /** 丢掉仅日期队列，避免无员工时误判还有待处理。 */
     public static void drainDates() {
-        DATES.get().clear();
+        drainLocalDates();
         GLOBAL_DATES.remove(tenantKey());
+    }
+
+    public static void drainLocalDates() {
+        DATES.get().clear();
     }
 
     public static List<TcmSheduleShiftsData> snapshotSchedules() {
@@ -147,19 +184,29 @@ public final class AttendanceCalcImportContext {
         return list;
     }
 
+    /** 只取当前线程待算人天，不碰跨线程队列。 */
     public static Set<String> snapshotJlRefresh() {
         Set<String> keys = new HashSet<>(PENDING_JL_REFRESH.get());
         PENDING_JL_REFRESH.get().clear();
-        Set<String> global = GLOBAL_JL_REFRESH.remove(tenantKey());
-        if (global != null && !global.isEmpty()) {
-            keys.addAll(global);
-        }
         return keys;
     }
 
+    /** 取出并清空本租户跨线程待算人天。 */
+    public static Set<String> snapshotGlobalJlRefresh() {
+        Set<String> global = GLOBAL_JL_REFRESH.remove(tenantKey());
+        if (global == null || global.isEmpty()) {
+            return new HashSet<>();
+        }
+        return new HashSet<>(global);
+    }
+
+    public static boolean isLocalQueueEmpty() {
+        return DATES.get().isEmpty() && PENDING_JL_REFRESH.get().isEmpty()
+                && PENDING_SCHEDULES.get().isEmpty() && PENDING_HOLIDAYS.get().isEmpty();
+    }
+
     public static boolean isQueueEmpty() {
-        if (!DATES.get().isEmpty() || !PENDING_JL_REFRESH.get().isEmpty()
-                || !PENDING_SCHEDULES.get().isEmpty() || !PENDING_HOLIDAYS.get().isEmpty()) {
+        if (!isLocalQueueEmpty()) {
             return false;
         }
         Set<String> dates = GLOBAL_DATES.get(tenantKey());

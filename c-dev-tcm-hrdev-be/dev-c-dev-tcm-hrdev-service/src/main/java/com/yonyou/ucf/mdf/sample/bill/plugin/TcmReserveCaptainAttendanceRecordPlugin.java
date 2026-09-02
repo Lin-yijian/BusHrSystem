@@ -41,6 +41,12 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
     private AttendanceCalcTrigger calcTrigger;
 
     @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
+
+    @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
@@ -52,8 +58,7 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, false);
         }
-        AttendanceCalcImportContext.collectJlRefresh(date, data.getDriver_no());
-        calcTrigger.registerFlushAfterCommit();
+        calcTrigger.collectJlAndFlush(date, data.getDriver_no());
     }
 
     @Override
@@ -72,8 +77,7 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         if (data == null) {
             return;
         }
-        AttendanceCalcImportContext.collectJlRefresh(data.getDate(), data.getDriver_no());
-        calcTrigger.registerFlushAfterCommit();
+        calcTrigger.collectJlAndFlush(data.getDate(), data.getDriver_no());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
