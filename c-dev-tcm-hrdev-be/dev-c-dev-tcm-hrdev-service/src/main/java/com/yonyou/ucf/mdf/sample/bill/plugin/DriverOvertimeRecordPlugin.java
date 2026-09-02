@@ -11,11 +11,9 @@ import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmDriverOvertimeRecordService;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
-import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
-import com.yonyou.ypd.bill.basic.entity.IBillDO;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -60,52 +58,17 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
-        handleDeleted(billContext);
-    }
-
-    @Override
-    public void afterExclusiveDelete(YpdBillContext billContext) throws Exception {
-        super.afterExclusiveDelete(billContext);
-        handleDeleted(billContext);
-    }
-
-    /**
-     * 删除（含批量）统一收尾：收集全部被删单据的日期+员工，
-     * 一次批量查询日期是否仍存在数据并统一回写核对记录，
-     * 最后只注册一次提交后重算计粮（每人每日期只算一次）。
-     */
-    private void handleDeleted(YpdBillContext billContext) {
-        IBillDO[] billDOs = billContext.getBillDOs();
-        if (billDOs == null || billDOs.length == 0) {
+        TcmDriverOvertimeRecord data = (TcmDriverOvertimeRecord) billContext.getBillDO();
+        if (data == null) {
             return;
         }
-        Set<String> dates = new HashSet<>();
-        for (IBillDO item : billDOs) {
-            if (!(item instanceof TcmDriverOvertimeRecord)) {
-                continue;
-            }
-            TcmDriverOvertimeRecord data = (TcmDriverOvertimeRecord) item;
-            String date = data.getOvertime_date();
-            if (StringUtils.isBlank(date)) {
-                continue;
-            }
-            dates.add(date);
-            AttendanceCalcImportContext.collectJlRefresh(date, data.getEmployee_id());
+        String date = data.getOvertime_date();
+        boolean existFlag = service.checkDataByDate(date);
+        if (!existFlag) {
+            // 更新核对记录
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
         }
-        // 一次批量查询哪些日期仍存在数据，避免按日逐条查库
-        Set<String> remainingDates = service.findDatesWithData(dates);
-        Set<String> emptyDates = new HashSet<>();
-        for (String date : dates) {
-            String normalized = DateUtil.normalizeToYyyyMmDd(date);
-            if (normalized != null && !remainingDates.contains(normalized)) {
-                emptyDates.add(normalized);
-            }
-        }
-        // 无剩余数据的日期统一回写核对记录（批量打叉，单次事务内完成）
-        if (!emptyDates.isEmpty()) {
-            tcmAttendanceCheckRecordService.updateOrSaveRecords(emptyDates, ModuleEnum.TCM_DRIVER_OVERTIME, false);
-        }
-        // 批量删除统一收尾：提交后按人合并重算
+        AttendanceCalcImportContext.collectJlRefresh(date, data.getEmployee_id());
         calcTrigger.registerFlushAfterCommit();
     }
 
