@@ -61,10 +61,10 @@ public interface TcmAttendanceCorrectionService {
 
     /**
      * 是否周假上班
-     * @param ids .
-     * @param isWorkingHoliday .
+     * @param ids 修正数据ID
+     * @param isWorkingHoliday 1 是   2 否
      */
-    void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday);
+    void isWorkingHoliday(List<String> ids,String isWorkingHoliday);
 
     void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);
 }

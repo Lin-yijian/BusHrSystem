@@ -55,7 +55,7 @@ public class TcmAttendanceCorrectionController {
     @PutMapping("/isWorkingHoliday")
     public ResponseEntity<?> isWorkingHoliday(@RequestBody TcmAttendanceCorrectionBo bo) {
 
-        service.isWorkingHoliday(bo.getIds(),true);
+        service.isWorkingHoliday(bo.getIds(),bo.getIsWorkingHoliday());
         return ResponseUtil.success("標記成功");
     }
 

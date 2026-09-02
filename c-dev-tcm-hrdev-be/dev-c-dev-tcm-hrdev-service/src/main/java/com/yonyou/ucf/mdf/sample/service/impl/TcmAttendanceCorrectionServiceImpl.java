@@ -12,6 +12,7 @@ import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -151,8 +152,9 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     }
 
     @Override
-    public void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday) {
-        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, String.valueOf(isWorkingHoliday), ids);
+    public void isWorkingHoliday(List<String> ids, String isWorkingHoliday) {
+        isWorkingHoliday = StringUtils.isBlank(isWorkingHoliday) ? "2" : isWorkingHoliday;
+        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday, ids);
     }
 
 
