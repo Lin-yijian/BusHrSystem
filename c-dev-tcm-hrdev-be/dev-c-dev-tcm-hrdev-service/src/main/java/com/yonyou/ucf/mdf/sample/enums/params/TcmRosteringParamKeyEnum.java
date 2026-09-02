@@ -30,6 +30,10 @@ public enum TcmRosteringParamKeyEnum implements ParamKey {
     PART_TIME_JOB_CODE("PART_TIME_JOB_CODE", "兼職司機崗位編碼", ParamKey.CHECK_TYPE_STRING),
     /** 深宵司机枚举编号 — 对应原 CommonUtil.NIGHT_DIVER_TYPE（默认值 4） */
     NIGHT_DIVER_TYPE("NIGHT_DIVER_TYPE", "深宵司機枚舉編號", ParamKey.CHECK_TYPE_STRING),
+    /** 上下更時間間隔(HH:mm) */
+    SHIFT_INTERVAL_TIME("SHIFT_INTERVAL_TIME", "上下更時間間隔(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM),
+    /** 培训任务关键字 */
+    TASK_CODE_TRAINING("TASK_CODE_TRAINING", "培訓关键字", ParamKey.CHECK_TYPE_STRING),
     /** 培训任务計糧一更發車时间（HH:mm） */
     TRAINING_DEPARTURE_TIME("TRAINING_DEPARTURE_TIME", "培訓任務計糧一更發車時間", ParamKey.CHECK_TYPE_TIME_HH_MM),
     /** 培训任务計糧一更收車时间（HH:mm） */

@@ -867,4 +867,32 @@ public class DateUtil {
         return Double.parseDouble(String.format("%.2f", hours));
     }
 
+
+    /**
+     * 计算两个时间的差
+     *
+     * @param startDate 开始时间
+     * @param endDate   结束时间
+     * @return 时间差，格式为 HH:mm，最大值 99:59
+     */
+    public static String getHoursDiffAsHHmm(Date startDate, Date endDate) {
+        if (startDate == null || endDate == null) {
+            return "00:00";
+        }
+
+        long diffInMillis = endDate.getTime() - startDate.getTime();
+        long totalMinutes = diffInMillis / (1000 * 60);
+
+        // 最大值限制为 99:59（5999分钟）
+        long maxMinutes = 99 * 60 + 59; // 5999
+        if (totalMinutes > maxMinutes) {
+            totalMinutes = maxMinutes;
+        }
+
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+
+        return String.format("%02d:%02d", hours, minutes);
+    }
+
 }

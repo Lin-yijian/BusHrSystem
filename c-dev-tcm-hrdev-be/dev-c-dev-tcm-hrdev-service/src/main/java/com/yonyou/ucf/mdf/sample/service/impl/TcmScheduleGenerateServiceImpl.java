@@ -327,11 +327,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmSheduleShiftsData scheduleExisting = queryExistingSchedule(
                         row.getDate(), row.getEmployee_id(), row.getTask_code(), tenantId);
                 if (scheduleExisting != null) {
-                    fillScheduleFields(scheduleExisting, row, true);
+                    fillScheduleFields(scheduleExisting, row, true, trainingConfig);
                     scheduleUpdateList.add(scheduleExisting);
                     scheduleUpdated++;
                 } else {
-                    scheduleInsertList.add(buildSchedule(row, true, tenantId));
+                    scheduleInsertList.add(buildSchedule(row, true, tenantId, trainingConfig));
                     scheduleInserted++;
                 }
 
@@ -370,13 +370,13 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmSheduleShiftsData scheduleExisting = queryExistingSchedule(
                         earlyRow.getDate(), earlyRow.getEmployee_id(), earlyRow.getTask_code(), tenantId);
                 if (scheduleExisting != null) {
-                    fillScheduleFields(scheduleExisting, earlyRow, true);
-                    fillScheduleFields(scheduleExisting, lateRow, false);
+                    fillScheduleFields(scheduleExisting, earlyRow, true, trainingConfig);
+                    fillScheduleFields(scheduleExisting, lateRow, false, trainingConfig);
                     scheduleUpdateList.add(scheduleExisting);
                     scheduleUpdated++;
                 } else {
-                    TcmSheduleShiftsData data = buildSchedule(earlyRow, true, tenantId);
-                    fillScheduleFields(data, lateRow, false);
+                    TcmSheduleShiftsData data = buildSchedule(earlyRow, true, tenantId, trainingConfig);
+                    fillScheduleFields(data, lateRow, false, trainingConfig);
                     scheduleInsertList.add(data);
                     scheduleInserted++;
                 }
@@ -512,7 +512,8 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
      * @param tenantId
      * @return
      */
-    private TcmSheduleShiftsData buildSchedule(TcmWaybillSheduleShiftsData row, boolean isFirst, String tenantId) {
+    private TcmSheduleShiftsData buildSchedule(TcmWaybillSheduleShiftsData row, boolean isFirst, String tenantId,
+                                                TrainingParamConfig trainingConfig) {
         String id = ymsOidGenerator.nextStrId();
         TcmSheduleShiftsData entity = new TcmSheduleShiftsData();
         entity.setId(id);
@@ -520,7 +521,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setDate(row.getDate());
         entity.setEmployee_id(row.getEmployee_id());
         entity.setTask_code(row.getTask_code());
-        fillScheduleFields(entity, row, isFirst);
+        fillScheduleFields(entity, row, isFirst, trainingConfig);
         return entity;
     }
 
@@ -530,16 +531,17 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
      * @param row
      * @param isFirst
      */
-    private void fillScheduleFields(TcmSheduleShiftsData entity, TcmWaybillSheduleShiftsData row, boolean isFirst) {
+    private void fillScheduleFields(TcmSheduleShiftsData entity, TcmWaybillSheduleShiftsData row, boolean isFirst,
+                                    TrainingParamConfig trainingConfig) {
         entity.setWaybill_employee_id(row.getWaybill_employee_id());
         entity.setName(row.getDriver_name());
         String taskCode = row.getTask_code() == null ? "" : row.getTask_code();
         if (isFirst){
-            // 任務為培訓或跟車培訓的，即任務=培訓/跟車培訓，要自動填寫发出時間10：00，收车时间18:30  ，用膳次數=1次 todo 待转参数
-            if (Objects.equals(taskCode,"培訓") || Objects.equals(taskCode,"跟車培訓")){
-                row.setDeparture_time(DateUtil.stringToDate(DateUtil.YYYY_MM_DD_HH_MM_SS,row.getDate() + " 10:00:00"));
-                row.setFinish_time(DateUtil.stringToDate(DateUtil.YYYY_MM_DD_HH_MM_SS,row.getDate() + " 18:30:00"));
-                row.setMeal_time(1);
+            // 任務包含培訓的，按參數管理配置自動填寫發車/收車時間、用膳次數
+            if (taskCode.contains(trainingConfig.taskCodeTraining)){
+                row.setDeparture_time(combineDateAndTime(row.getDate(), trainingConfig.departureTime));
+                row.setFinish_time(combineDateAndTime(row.getDate(), trainingConfig.returnTime));
+                row.setMeal_time(trainingConfig.mealCount);
             }
             entity.setDeparture_time(row.getDeparture_time());
             entity.setOne_early_line(row.getLine_str());
@@ -552,7 +554,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             entity.setTwo_car(row.getCar_num());
 
             String timeDifference = DateUtil.getTimeDifference(entity.getOne_finish_time(), entity.getTwo_departure_time());
-            String timeOut = "03:00"; // todo 待转参数
+            String timeOut = trainingConfig.shiftIntervalTime;
             boolean isTimeOut = DateUtil.isTimeGreaterOrEqual(timeDifference, timeOut);
             int times = isTimeOut ? 1 : 0;
             entity.setShift_change(times);
@@ -649,9 +651,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
             vehicle_handover_count = vehicle_handover_count + countParkingLotFields(lateRow.getLine_str(),lateRow.getOut_car(), lateRow.getGet_car());
 
-            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次 todo 待转参数
-            double hours = DateUtil.getHoursDiff(earlyRow.getFinish_time(), lateRow.getDeparture_time());
-            if (hours >= 3.0) {
+            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次
+            String hours = DateUtil.getHoursDiffAsHHmm(earlyRow.getFinish_time(), lateRow.getDeparture_time());
+            boolean timeGreaterOrEqual = DateUtil.isTimeGreaterOrEqual(hours, trainingConfig.shiftIntervalTime);
+            if (timeGreaterOrEqual) {
                 entity.setShift_change_count(1);
             }
 
@@ -680,7 +683,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
         // 培训/其他培训：計糧排更一更發車/收車、用膳次数、用膳时长 取参数管理(ROSTERING)配置
         String taskCode = earlyRow.getTask_code();
-        if (TASK_CODE_TRAINING.equals(taskCode) || TASK_CODE_OTHER_TRAINING.equals(taskCode)) {
+        if (taskCode.contains(trainingConfig.taskCodeTraining)) {
             entity.setJl_one_departure_time(combineDateAndTime(earlyRow.getDate(), trainingConfig.departureTime));
             entity.setJl_one_return_time(combineDateAndTime(earlyRow.getDate(), trainingConfig.returnTime));
             entity.setJl_two_departure_time(null);
@@ -689,11 +692,6 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             entity.setMeal_duration(trainingConfig.mealDuration);
         }
     }
-
-    /** 培训类任务代号 */
-    private static final String TASK_CODE_TRAINING = "培训";
-    /** 其他培训任务代号 */
-    private static final String TASK_CODE_OTHER_TRAINING = "其他培训";
 
     /**
      * 培训任务固定值配置（来源：TCMParamManage / ROSTERING 模块，循环外一次性解析）
@@ -707,12 +705,19 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         final int mealCount;
         /** 用膳时长 HH:mm */
         final String mealDuration;
+        /** 培训关键字 */
+        final String taskCodeTraining;
+        /** 上下更時間間隔 HH:mm */
+        final String shiftIntervalTime;
 
-        TrainingParamConfig(String departureTime, String returnTime, int mealCount, String mealDuration) {
+        TrainingParamConfig(String departureTime, String returnTime, int mealCount, String mealDuration,
+                            String taskCodeTraining, String shiftIntervalTime) {
             this.departureTime = departureTime;
             this.returnTime = returnTime;
             this.mealCount = mealCount;
             this.mealDuration = mealDuration;
+            this.taskCodeTraining = taskCodeTraining;
+            this.shiftIntervalTime = shiftIntervalTime;
         }
     }
 
@@ -725,7 +730,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         // checkType=INT:0-99 已保证是范围内整数，直接解析
         int mealCount = Integer.parseInt(requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_COUNT));
         String mealDuration = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_DURATION);
-        return new TrainingParamConfig(departureTime, returnTime, mealCount, mealDuration);
+        String taskCodeTraining = requireRosterParam(params, TcmRosteringParamKeyEnum.TASK_CODE_TRAINING);
+        String shiftIntervalTime = requireRosterParam(params, TcmRosteringParamKeyEnum.SHIFT_INTERVAL_TIME);
+        return new TrainingParamConfig(departureTime, returnTime, mealCount, mealDuration,
+                taskCodeTraining, shiftIntervalTime);
     }
 
     /**
