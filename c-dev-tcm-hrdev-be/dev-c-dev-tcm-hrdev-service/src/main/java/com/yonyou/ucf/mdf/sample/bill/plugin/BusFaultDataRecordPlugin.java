@@ -3,9 +3,10 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmBusFaultDataRecordService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
@@ -42,8 +43,14 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
+    private AttendanceCalcTrigger calcTrigger;
 
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -55,7 +62,7 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,false);
         }
-        correctionSyncService.syncExceptionSources(date, data.getEmployee_id());
+        calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
     }
 
     @Override
@@ -64,7 +71,9 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
 
         TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billContext.getBillDO();
         String date = data.getReport_date();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,true);
+        }
 
     }
 
@@ -75,10 +84,14 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
         if (data == null) {
             return;
         }
-        correctionSyncService.syncExceptionSources(data.getReport_date(), data.getEmployee_id());
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
+        calcTrigger.collectSourceAndFlush(data.getReport_date(), data.getEmployee_id());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
 
         ImportValidateUtil.ValidateContext ctx = importValidateUtil.collectAndQuery(

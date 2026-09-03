@@ -7,10 +7,11 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAbsenceDataRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -50,8 +51,14 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
+    private AttendanceCalcTrigger calcTrigger;
 
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -63,7 +70,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
         }
-        correctionSyncService.syncExceptionSources(date, data.getEmployee_id());
+        calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
     }
 
     @Override
@@ -77,7 +84,9 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD, true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD, true);
+        }
     }
 
     @Override
@@ -87,10 +96,14 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
         if (entity == null) {
             return;
         }
-        correctionSyncService.syncExceptionSources(entity.getDate(), entity.getEmployee_id());
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
+        calcTrigger.collectSourceAndFlush(entity.getDate(), entity.getEmployee_id());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 

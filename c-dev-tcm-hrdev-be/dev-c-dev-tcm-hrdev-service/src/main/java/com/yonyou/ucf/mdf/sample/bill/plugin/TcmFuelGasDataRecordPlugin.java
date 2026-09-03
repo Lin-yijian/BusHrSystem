@@ -5,9 +5,10 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmFuelGasDataRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmFuelGasDataRecordService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
@@ -39,8 +40,14 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
+    private AttendanceCalcTrigger calcTrigger;
 
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -52,7 +59,7 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,false);
         }
-        correctionSyncService.syncFromFuelGas(date, data.getEmployee_id());
+        calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
     }
 
 
@@ -62,7 +69,9 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         String tenantId = InvocationInfoProxy.getTenantid();
 
         TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
+        }
 
     }
 
@@ -73,11 +82,15 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         if (entity == null) {
             return;
         }
-        correctionSyncService.syncFromFuelGas(entity.getAttendance_date(), entity.getEmployee_id());
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
+        calcTrigger.collectSourceAndFlush(entity.getAttendance_date(), entity.getEmployee_id());
     }
 
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
 
 

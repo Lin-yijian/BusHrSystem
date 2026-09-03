@@ -228,10 +228,33 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void syncFromFuelGas(String date, String employeeId) {
         if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeId)) {
             return;
         }
+        doSyncFromFuelGas(date, employeeId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncExceptionSources(String date, String employeeId) {
+        if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeId)) {
+            return;
+        }
+        doSyncExceptionSources(date, employeeId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchSyncFuelAndException(Set<String> empDayKeys) {
+        if (empDayKeys == null || empDayKeys.isEmpty()) {
+            return;
+        }
+        doBatchSyncFuelAndException(empDayKeys);
+    }
+
+    private void doSyncFromFuelGas(String date, String employeeId) {
         String tenantId = InvocationInfoProxy.getTenantid();
         List<TcmAttendanceCorrection> list = queryCorrections(
                 DateUtil.dateQueryVariants(date), Collections.singleton(employeeId), tenantId);
@@ -241,19 +264,19 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         }
         int[] counts = sumFuelCounts(queryFuels(DateUtil.dateQueryVariants(date),
                 Collections.singleton(employeeId), tenantId));
+        List<TcmAttendanceCorrection> changed = new ArrayList<>();
         for (TcmAttendanceCorrection c : list) {
+            String before = sourceDigest(c);
             c.setRefuel_count(counts[0]);
             c.setGas_refill_count(counts[1]);
+            if (!Objects.equals(before, sourceDigest(c))) {
+                changed.add(c);
+            }
         }
-        CommonUtil.fillUpdateAudit(list);
-        billRepository.update(list);
+        updateCorrections(changed);
     }
 
-    @Override
-    public void syncExceptionSources(String date, String employeeId) {
-        if (StringUtils.isBlank(date) || StringUtils.isBlank(employeeId)) {
-            return;
-        }
+    private void doSyncExceptionSources(String date, String employeeId) {
         String tenantId = InvocationInfoProxy.getTenantid();
         List<TcmAttendanceCorrection> list = queryCorrections(
                 DateUtil.dateQueryVariants(date), Collections.singleton(employeeId), tenantId);
@@ -269,15 +292,90 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         String absenceCategory = joinTexts(collectAbsenceCategories(absences));
         String absenceReason = joinTexts(collectAbsenceReasons(absences));
         int absenceCount = absences.size();
+        List<TcmAttendanceCorrection> changed = new ArrayList<>();
         for (TcmAttendanceCorrection c : list) {
+            String before = sourceDigest(c);
             c.setBus_fault(busFault);
             c.setControl_center_log(controlLog);
             c.setAbsence_category(absenceCategory);
             c.setAbsence_reason(absenceReason);
             c.setAbsence_record_count(absenceCount);
+            if (!Objects.equals(before, sourceDigest(c))) {
+                changed.add(c);
+            }
+        }
+        updateCorrections(changed);
+    }
+
+    private void doBatchSyncFuelAndException(Set<String> empDayKeys) {
+        Set<String> dates = new HashSet<>();
+        Set<String> staffIds = new HashSet<>();
+        Set<String> matchKeys = new HashSet<>();
+        for (String key : empDayKeys) {
+            if (StringUtils.isBlank(key)) {
+                continue;
+            }
+            int tab = key.indexOf('\t');
+            if (tab <= 0 || tab >= key.length() - 1) {
+                continue;
+            }
+            String date = key.substring(0, tab);
+            String staffId = key.substring(tab + 1);
+            dates.add(date);
+            staffIds.add(staffId);
+            matchKeys.add(empDateKey(date, staffId));
+        }
+        if (dates.isEmpty() || staffIds.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCorrection> list = queryCorrections(dates, staffIds, tenantId);
+        List<TcmAttendanceCorrection> matched = new ArrayList<>();
+        for (TcmAttendanceCorrection c : list) {
+            if (c != null && matchKeys.contains(empDateKey(c.getDate(), c.getEmployee_id()))) {
+                matched.add(c);
+            }
+        }
+        if (matched.isEmpty()) {
+            return;
+        }
+        Map<String, String> beforeDigest = new HashMap<>();
+        for (TcmAttendanceCorrection c : matched) {
+            if (c != null && StringUtils.isNotBlank(c.getId())) {
+                beforeDigest.put(c.getId(), sourceDigest(c));
+            }
+        }
+        applyFuelAndException(matched, tenantId);
+        List<TcmAttendanceCorrection> changed = new ArrayList<>();
+        for (TcmAttendanceCorrection c : matched) {
+            if (c == null || StringUtils.isBlank(c.getId())) {
+                continue;
+            }
+            if (!Objects.equals(beforeDigest.get(c.getId()), sourceDigest(c))) {
+                changed.add(c);
+            }
+        }
+        updateCorrections(changed);
+    }
+
+    private void updateCorrections(List<TcmAttendanceCorrection> list) {
+        if (list == null || list.isEmpty()) {
+            return;
         }
         CommonUtil.fillUpdateAudit(list);
         billRepository.update(list);
+    }
+
+    private String sourceDigest(TcmAttendanceCorrection c) {
+        StringBuilder sb = new StringBuilder(128);
+        appendDigest(sb, c.getRefuel_count());
+        appendDigest(sb, c.getGas_refill_count());
+        appendDigest(sb, c.getBus_fault());
+        appendDigest(sb, c.getControl_center_log());
+        appendDigest(sb, c.getAbsence_category());
+        appendDigest(sb, c.getAbsence_reason());
+        appendDigest(sb, c.getAbsence_record_count());
+        return sb.toString();
     }
 
     @Override

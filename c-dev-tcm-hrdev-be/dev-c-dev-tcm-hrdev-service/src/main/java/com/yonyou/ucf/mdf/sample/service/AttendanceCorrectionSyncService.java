@@ -4,6 +4,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * 源数据变更后同步考勤修正（计算前置）。
@@ -44,6 +45,11 @@ public interface AttendanceCorrectionSyncService {
      * 巴士故障 / 控制中心日志 / 缺勤 → 修正展示字段（异常核对用）。
      */
     void syncExceptionSources(String date, String employeeId);
+
+    /**
+     * 导入收尾：按人天批量回写入油加气、异常来源到修正（不触发考勤计算）。
+     */
+    void batchSyncFuelAndException(Set<String> empDayKeys);
 
     /**
      * 考勤计算前：按计算范围回写加油加气、异常来源，并按更叠加重算计粮（排更打底 → 后备 → 超时）。

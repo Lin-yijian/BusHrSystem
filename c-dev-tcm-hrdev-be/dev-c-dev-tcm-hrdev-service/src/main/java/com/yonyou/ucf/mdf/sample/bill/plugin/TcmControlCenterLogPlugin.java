@@ -6,10 +6,11 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmControlCenterLogService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportValidateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
@@ -52,9 +53,15 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
+    private AttendanceCalcTrigger calcTrigger;
 
 
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -66,7 +73,7 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,false);
         }
-        correctionSyncService.syncExceptionSources(date, data.getEmployee_id());
+        calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
     }
 
     @Override
@@ -81,7 +88,9 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             entity.setEmployee_id(staffId);
         }
         String date = entity.getDate();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,true);
+        }
 
     }
 
@@ -92,11 +101,15 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
         if (entity == null) {
             return;
         }
-        correctionSyncService.syncExceptionSources(entity.getDate(), entity.getEmployee_id());
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
+        calcTrigger.collectSourceAndFlush(entity.getDate(), entity.getEmployee_id());
     }
 
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
 
         ImportValidateUtil.ValidateContext ctx = importValidateUtil.collectAndQuery(

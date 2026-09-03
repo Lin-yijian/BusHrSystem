@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 考勤计算统一触发入口。
@@ -36,14 +37,18 @@ import java.util.concurrent.TimeUnit;
 public class AttendanceCalcTrigger {
 
     private static final int CALC_RETRY = 5;
+    private static final int FLUSH_RETRY = 2;
     private static final long MERGE_FLUSH_DELAY_MS = 800L;
+    private static final long MERGE_FLUSH_RETRY_DELAY_MS = 2000L;
+    private static final int LOCK_STRIPES = 64;
+    private static final Object[] DATE_LOCKS = createLocks(LOCK_STRIPES);
 
-    private static final ConcurrentHashMap<String, Object> DATE_LOCKS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> TENANT_FLUSH_LOCKS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, ScheduledFuture<?>> PENDING_MERGE_FLUSH = new ConcurrentHashMap<>();
 
-    private final ScheduledExecutorService mergeFlushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "tcm-kq-merge-flush");
+    private final AtomicInteger flushThreadSeq = new AtomicInteger();
+    private final ScheduledExecutorService mergeFlushExecutor = Executors.newScheduledThreadPool(4, r -> {
+        Thread t = new Thread(r, "tcm-kq-merge-flush-" + flushThreadSeq.incrementAndGet());
         t.setDaemon(true);
         return t;
     });
@@ -81,7 +86,7 @@ public class AttendanceCalcTrigger {
             normalized = date.trim();
         }
         String lockKey = InvocationInfoProxy.getTenantid() + "|" + normalized + "|" + employeeCode;
-        Object lock = DATE_LOCKS.computeIfAbsent(lockKey, k -> new Object());
+        Object lock = stripeLock(DATE_LOCKS, lockKey);
         synchronized (lock) {
             for (int i = 0; i < CALC_RETRY; i++) {
                 try {
@@ -117,6 +122,19 @@ public class AttendanceCalcTrigger {
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static Object[] createLocks(int n) {
+        Object[] locks = new Object[n];
+        for (int i = 0; i < n; i++) {
+            locks[i] = new Object();
+        }
+        return locks;
+    }
+
+    private static Object stripeLock(Object[] locks, String key) {
+        int h = key == null ? 0 : key.hashCode();
+        return locks[(h ^ (h >>> 16)) & (locks.length - 1)];
     }
 
     private Date parseDate(String date) {
@@ -193,6 +211,19 @@ public class AttendanceCalcTrigger {
     }
 
     /**
+     * 控制中心日志 / 缺勤 / 故障 / 入油加气：导入时不在 afterSave 更新修正，提交后按人天回写。
+     */
+    public void collectSourceAndFlush(String date, String employeeId) {
+        boolean merge = AttendanceCalcImportContext.isMergeFlush();
+        AttendanceCalcImportContext.collectSourceSync(date, employeeId, merge);
+        if (merge) {
+            registerMergedFlushAfterCommit();
+        } else {
+            registerFlushAfterCommit();
+        }
+    }
+
+    /**
      * 删除/导入：提交后在当前线程收尾，只处理本线程收集的人天。
      */
     public void registerFlushAfterCommit() {
@@ -205,12 +236,9 @@ public class AttendanceCalcTrigger {
 
     private void registerFlushAfterCommit(boolean mergeAcrossThreads) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            if (mergeAcrossThreads) {
-                scheduleMergedFlush();
-                AttendanceCalcImportContext.clear();
-            } else {
-                flushImportPending(false);
-            }
+            AttendanceCalcImportContext.promoteLocalToGlobal();
+            scheduleMergedFlush(0);
+            AttendanceCalcImportContext.clear();
             return;
         }
         if (!AttendanceCalcImportContext.markSyncRegistered()) {
@@ -220,7 +248,7 @@ public class AttendanceCalcTrigger {
             @Override
             public void afterCommit() {
                 if (mergeAcrossThreads) {
-                    scheduleMergedFlush();
+                    scheduleMergedFlush(0);
                     AttendanceCalcImportContext.clear();
                 } else {
                     flushImportPending(false);
@@ -236,16 +264,22 @@ public class AttendanceCalcTrigger {
         });
     }
 
-    private void scheduleMergedFlush() {
+    private void scheduleMergedFlush(int attempt) {
         String tenant = StringUtils.defaultIfBlank(InvocationInfoProxy.getTenantid(), "_");
+        long delay = attempt == 0 ? MERGE_FLUSH_DELAY_MS : MERGE_FLUSH_RETRY_DELAY_MS;
         ScheduledFuture<?> next = mergeFlushExecutor.schedule(
                 YmsContextWrappers.wrapRunnable(() -> {
                     PENDING_MERGE_FLUSH.remove(tenant);
-                    log.warn("[KQ_CALC] mergedFlush start tenant={}", tenant);
+                    log.warn("[KQ_CALC] mergedFlush start tenant={} attempt={}", tenant, attempt);
                     flushImportPending(true);
-                    AttendanceCalcImportContext.endMergeFlush();
+                    if (attempt < FLUSH_RETRY && !AttendanceCalcImportContext.isQueueEmpty()) {
+                        log.warn("[KQ_CALC] mergedFlush retry tenant={} nextAttempt={}", tenant, attempt + 1);
+                        scheduleMergedFlush(attempt + 1);
+                    } else {
+                        AttendanceCalcImportContext.endMergeFlush();
+                    }
                 }),
-                MERGE_FLUSH_DELAY_MS, TimeUnit.MILLISECONDS);
+                delay, TimeUnit.MILLISECONDS);
         ScheduledFuture<?> prev = PENDING_MERGE_FLUSH.put(tenant, next);
         if (prev != null) {
             prev.cancel(false);
@@ -260,8 +294,9 @@ public class AttendanceCalcTrigger {
                 FlushResult result = drainAndProcess(includeGlobal);
                 if (!result.ok()) {
                     AttendanceCalcImportContext.requeueJlRefresh(result.failedJlKeys);
-                    log.error("导入/删除后考勤收尾未全部成功，失败人天可到【考勤计算】补齐. empDays={}",
-                            result.failedJlKeys.size());
+                    AttendanceCalcImportContext.requeueSourceSync(result.failedSourceKeys);
+                    log.error("导入/删除后考勤收尾未全部成功，失败人天可到【考勤计算】补齐. empDays={} sourceDays={}",
+                            result.failedJlKeys.size(), result.failedSourceKeys.size());
                 }
             } catch (Exception e) {
                 log.error("导入/删除后考勤收尾失败 tenant={}", tenant, e);
@@ -280,6 +315,18 @@ public class AttendanceCalcTrigger {
             empDayKeys.addAll(keysFromHolidays(holidays));
             correctionSyncService.batchSyncFromSchedules(schedules);
             correctionSyncService.batchSyncFromHolidays(holidays);
+            Set<String> sourceKeys = AttendanceCalcImportContext.snapshotSourceSync();
+            if (includeGlobal) {
+                sourceKeys.addAll(AttendanceCalcImportContext.snapshotGlobalSourceSync());
+            }
+            if (!sourceKeys.isEmpty()) {
+                try {
+                    syncSourcesWithRetry(sourceKeys);
+                } catch (Exception e) {
+                    result.failSources(sourceKeys);
+                    log.error("导入后入油加气/异常来源回写失败 empDays={}", sourceKeys.size(), e);
+                }
+            }
             Set<String> jlKeys = AttendanceCalcImportContext.snapshotJlRefresh();
             if (includeGlobal) {
                 jlKeys.addAll(AttendanceCalcImportContext.snapshotGlobalJlRefresh());
@@ -305,6 +352,22 @@ public class AttendanceCalcTrigger {
                     : AttendanceCalcImportContext.isLocalQueueEmpty();
             if (emptyQueue) {
                 return result;
+            }
+        }
+    }
+
+    private void syncSourcesWithRetry(Set<String> sourceKeys) {
+        for (int i = 0; i < CALC_RETRY; i++) {
+            try {
+                correctionSyncService.batchSyncFuelAndException(sourceKeys);
+                return;
+            } catch (RuntimeException e) {
+                if (!isConcurrencyConflict(e) || i == CALC_RETRY - 1) {
+                    throw e;
+                }
+                log.warn("入油加气/异常来源回写并发冲突，重试 {}/{} empDays={}",
+                        i + 1, CALC_RETRY, sourceKeys.size());
+                sleepQuietly(50L * (1L << i));
             }
         }
     }
@@ -394,13 +457,20 @@ public class AttendanceCalcTrigger {
 
     private static final class FlushResult {
         private final Set<String> failedJlKeys = new HashSet<>();
+        private final Set<String> failedSourceKeys = new HashSet<>();
 
         boolean ok() {
-            return failedJlKeys.isEmpty();
+            return failedJlKeys.isEmpty() && failedSourceKeys.isEmpty();
         }
 
         void failEmpDay(String key) {
             failedJlKeys.add(key);
+        }
+
+        void failSources(Set<String> keys) {
+            if (keys != null) {
+                failedSourceKeys.addAll(keys);
+            }
         }
     }
 }
