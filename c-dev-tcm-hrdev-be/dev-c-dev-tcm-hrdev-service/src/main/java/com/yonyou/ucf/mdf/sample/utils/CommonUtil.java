@@ -475,6 +475,9 @@ public class CommonUtil {
         // 计算超时时长（计粮 vs 考勤发收车）
         calculateOvertimeDuration(entity);
 
+        // 计算遲到早退次數（勤工獎）= 遲到次數 + 早退次數
+        calculateLateAndEarlyLeaveCount(entity, staffMap);
+
         // 计算是否夜更（计粮发收车完整覆盖 17:00-20:00 且 有效工时>=08:00）
         calculateNightShift(entity);
 
@@ -712,6 +715,75 @@ public class CommonUtil {
             cal.add(Calendar.HOUR_OF_DAY, 24 - LATE_NIGHT_WINDOW_END_HOUR);
         }
         return overlap;
+    }
+
+    /**
+     * 計算遲到早退次數（勤工獎）：late_and_early_leave_count = 遲到次數 + 早退次數。
+     * <p>閾值均取參數管理「考勤核對」模塊（時間參數為 HH:mm 字符串）：
+     * <ul>
+     *   <li>遲到次數：一更/二更各自的遲到時長 &gt;= LATE_COUNT_THRESHOLD（默認 00:10），該更算一次（最多 2 次）；</li>
+     *   <li>有效總工時 &gt;= 標準工時（深宵車長 &gt;= NIGHT_EARLY_LEAVE_STANDARD_TIME 默認 06:00，其餘 &gt;= 標準工時參數）→ 不計早退；</li>
+     *   <li>有效總工時 &lt; 標準工時：一、二更早退時長均 &gt;= EARLY_LEAVE_SINGLE_THRESHOLD（默認 00:30）算 2 次；
+     *       一個達標、一個未達標算 1 次；均未達標但合計 &gt;= EARLY_LEAVE_COMBINED_THRESHOLD（默認 00:40）算 1 次；否則 0 次。</li>
+     * </ul>
+     */
+    private void calculateLateAndEarlyLeaveCount(TcmAttendanceCorrection entity, Map<String, Map<String, Object>> staffMap) {
+        // 閾值參數（HH:mm）：實時查詢，缺失/非法由參數服務統一拋錯
+        int lateThreshold = hhmmToMinutes(requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.LATE_COUNT_THRESHOLD));
+        int singleEarlyThreshold = hhmmToMinutes(requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.EARLY_LEAVE_SINGLE_THRESHOLD));
+        int combinedEarlyThreshold = hhmmToMinutes(requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.EARLY_LEAVE_COMBINED_THRESHOLD));
+        String nightStandardTime = requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.NIGHT_EARLY_LEAVE_STANDARD_TIME);
+
+        // 遲到次數：逐更判定，單更遲到時長 >= 門檻算一次
+        int lateCount = 0;
+        if (hhmmToMinutes(entity.getOne_late_duration()) >= lateThreshold) {
+            lateCount++;
+        }
+        if (hhmmToMinutes(entity.getTwo_late_duration()) >= lateThreshold) {
+            lateCount++;
+        }
+
+        // 早退次數
+        int earlyLeaveCount = 0;
+        String staffType = staffMap == null ? null
+                : (staffMap.get(entity.getEmployee_id()) == null ? null
+                : (String) staffMap.get(entity.getEmployee_id()).get(FIELD_CODE_STAFF_AB_09));
+        boolean nightDriver = getNightDriverType().equals(staffType);
+        // 深宵車長早退判定工時門檻取參數（默認 06:00），其餘用標準工時參數
+        String standardTime = nightDriver ? nightStandardTime : getWorkTime();
+        String validTime = entity.getJl_valid_time();
+        // 有效總工時 >= 標準工時 → 不計早退
+        boolean reachStandard = DateUtil.isTimeGreaterOrEqual(validTime, standardTime);
+        if (!reachStandard) {
+            int d1 = hhmmToMinutes(entity.getOne_early_leave_duration());
+            int d2 = hhmmToMinutes(entity.getTwo_early_leave_duration());
+            boolean e1 = d1 >= singleEarlyThreshold;
+            boolean e2 = d2 >= singleEarlyThreshold;
+            if (e1 && e2) {
+                earlyLeaveCount = 2;                       // 兩更均達單更門檻
+            } else if (e1 || e2) {
+                earlyLeaveCount = 1;                       // 僅一更達單更門檻
+            } else if (d1 + d2 >= combinedEarlyThreshold) {
+                earlyLeaveCount = 1;                       // 兩更均未達標但合計達門檻
+            }
+        }
+        entity.setLate_and_early_leave_count(lateCount + earlyLeaveCount);
+    }
+
+    /** HH:mm 时长字符串转分钟数；null/空白/非法按 0 处理 */
+    private int hhmmToMinutes(String hhmm) {
+        if (StringUtils.isBlank(hhmm)) {
+            return 0;
+        }
+        try {
+            String[] parts = hhmm.trim().split(":");
+            int hours = Integer.parseInt(parts[0].trim());
+            int minutes = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : 0;
+            return hours * 60 + minutes;
+        } catch (Exception e) {
+            log.warn("無法解析時長字符串，按0處理: {}", hhmm);
+            return 0;
+        }
     }
 
     /**

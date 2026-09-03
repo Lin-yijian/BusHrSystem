@@ -17,7 +17,15 @@ public enum TcmAttendanceVerificationParamKeyEnum implements ParamKey {
     /** 夜更判定窗口終點（HH:mm），如 20:00 */
     NIGHT_SHIFT_WINDOW_END("NIGHT_SHIFT_WINDOW_END", "夜更判定窗口終點(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM),
     /** 夜更判定：計量有效工時門檻（HH:mm），如 08:00 */
-    NIGHT_SHIFT_MIN_VALID_TIME("NIGHT_SHIFT_MIN_VALID_TIME", "夜更判定最低有效工時(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM);
+    NIGHT_SHIFT_MIN_VALID_TIME("NIGHT_SHIFT_MIN_VALID_TIME", "夜更判定最低有效工時(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM),
+    /** 勤工獎：單更遲到計次門檻（HH:mm 時長），遲到時長 >= 此值算一次，如 00:10 */
+    LATE_COUNT_THRESHOLD("LATE_COUNT_THRESHOLD", "遲到計次門檻(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM),
+    /** 勤工獎：單更早退計次門檻（HH:mm 時長），早退時長 >= 此值視為該更早退，如 00:30 */
+    EARLY_LEAVE_SINGLE_THRESHOLD("EARLY_LEAVE_SINGLE_THRESHOLD", "單更早退計次門檻(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM),
+    /** 勤工獎：兩更早退合計門檻（HH:mm 時長），兩更均不足單更門檻但合計 >= 此值算一次，如 00:40 */
+    EARLY_LEAVE_COMBINED_THRESHOLD("EARLY_LEAVE_COMBINED_THRESHOLD", "早退合計門檻(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM),
+    /** 勤工獎：深宵車長早退判定有效工時門檻（HH:mm），如 06:00 */
+    NIGHT_EARLY_LEAVE_STANDARD_TIME("NIGHT_EARLY_LEAVE_STANDARD_TIME", "深宵車長早退判定工時門檻(HH:mm)", ParamKey.CHECK_TYPE_TIME_HH_MM);
 
     private final String code;
     private final String name;
