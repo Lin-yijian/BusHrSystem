@@ -79,55 +79,92 @@ public interface ParamKey {
      * @throws RuntimeException 格式非法时抛出："配置非法：name[code]=value，請至【參數管理】菜單修正"
      */
     static String checkValue(ParamKey key, String value) {
-        String name = key.getName();
-        String code = key.getCode();
-        if (value == null || value.trim().isEmpty()) {
-            throw new RuntimeException("配置非法：" + name + "[" + code + "]=空，請至【參數管理】菜單修正");
-        }
-        String v = value.trim();
-        String type = key.getCheckType() == null ? "" : key.getCheckType().trim();
         try {
-            if (type.isEmpty() || CHECK_TYPE_STRING.equals(type)) {
-                return v;
-            }
-            if (CHECK_TYPE_TIME_HH_MM.equals(type)) {
-                if (!TIME_HH_MM_PATTERN.matcher(v).matches()) {
-                    throw new IllegalArgumentException("需 HH:mm 格式（例如 01:00）");
-                }
-                return v;
-            }
-            if (CHECK_TYPE_DATE.equals(type)) {
-                LocalDate.parse(v, DATE_FORMATTER);
-                return v;
-            }
-            if (CHECK_TYPE_DATETIME.equals(type)) {
-                LocalDateTime.parse(v, DATETIME_FORMATTER);
-                return v;
-            }
-            if (type.startsWith(CHECK_TYPE_INT)) {
-                long num = Long.parseLong(v);
-                checkRange(type, num);
-                return v;
-            }
-            if (type.startsWith(CHECK_TYPE_DECIMAL)) {
-                BigDecimal num = new BigDecimal(v);
-                checkRange(type, num);
-                return v;
-            }
-            // checkType 本身维护错误
-            throw new IllegalArgumentException("checkType 未定义：" + type);
+            return doCheck(key, value);
         } catch (RuntimeException e) {
-            if (e.getMessage() != null && e.getMessage().startsWith("配置非法")) {
-                throw e;
+            boolean blank = value == null || value.trim().isEmpty();
+            if (blank) {
+                throw new RuntimeException("配置非法：" + key.getName() + "[" + key.getCode()
+                        + "]=空，請至【參數管理】菜單修正");
             }
-            throw new RuntimeException("配置非法：" + name + "[" + code + "]=" + value
+            throw new RuntimeException("配置非法：" + key.getName() + "[" + key.getCode() + "]=" + value.trim()
                     + "（" + e.getMessage() + "），請至【參數管理】菜單修正");
         }
     }
 
     /**
+     * 参数管理页面【新增/修改保存】时的格式校验入口（提示语面向页面维护操作，与运行时
+     * {@link #checkValue(ParamKey, String)} 的"配置非法...請至【參數管理】菜單修正"提示语不同）。
+     * <p>校验规则与 {@link #checkValue(ParamKey, String)} 完全一致，仅异常提示语不同：
+     * <ul>
+     *   <li>null/空白 → "參數【name】(code) 的參數值不能為空，請填寫後再保存"</li>
+     *   <li>格式/范围非法 → "參數【name】(code) 的參數值格式錯誤：value（原因），請修正後再保存"</li>
+     * </ul>
+     *
+     * @return 校验通过后的去空白值
+     */
+    static String checkValueForSave(ParamKey key, String value) {
+        try {
+            return doCheck(key, value);
+        } catch (RuntimeException e) {
+            boolean blank = value == null || value.trim().isEmpty();
+            if (blank) {
+                throw new RuntimeException("參數【" + key.getName() + "】(" + key.getCode()
+                        + ") 的參數值不能為空，請填寫後再保存");
+            }
+            throw new RuntimeException("參數【" + key.getName() + "】(" + key.getCode() + ") 的參數值格式錯誤："
+                    + value.trim() + "（" + e.getMessage() + "），請修正後再保存");
+        }
+    }
+
+    /**
+     * 核心格式校验（不做提示语包装）：校验失败抛 RuntimeException 族（空值/格式非法抛
+     * {@link IllegalArgumentException}，日期解析失败抛 DateTimeParseException 等），
+     * 消息为具体原因（如"需 HH:mm 格式（例如 01:00）"、"超出范围 [0-99]"、"參數值不能為空"），
+     * 由 {@link #checkValue} / {@link #checkValueForSave} 分别包装成各自场景的提示语。
+     *
+     * @return 校验通过后的去空白值
+     */
+    static String doCheck(ParamKey key, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("參數值不能為空");
+        }
+        String v = value.trim();
+        String type = key.getCheckType() == null ? "" : key.getCheckType().trim();
+        if (type.isEmpty() || CHECK_TYPE_STRING.equals(type)) {
+            return v;
+        }
+        if (CHECK_TYPE_TIME_HH_MM.equals(type)) {
+            if (!TIME_HH_MM_PATTERN.matcher(v).matches()) {
+                throw new IllegalArgumentException("需 HH:mm 格式（例如 01:00）");
+            }
+            return v;
+        }
+        if (CHECK_TYPE_DATE.equals(type)) {
+            LocalDate.parse(v, DATE_FORMATTER);
+            return v;
+        }
+        if (CHECK_TYPE_DATETIME.equals(type)) {
+            LocalDateTime.parse(v, DATETIME_FORMATTER);
+            return v;
+        }
+        if (type.startsWith(CHECK_TYPE_INT)) {
+            long num = Long.parseLong(v);
+            checkRange(type, num);
+            return v;
+        }
+        if (type.startsWith(CHECK_TYPE_DECIMAL)) {
+            BigDecimal num = new BigDecimal(v);
+            checkRange(type, num);
+            return v;
+        }
+        // checkType 本身维护错误
+        throw new IllegalArgumentException("checkType 未定义：" + type);
+    }
+
+    /**
      * 校验 ":min-max" 范围（闭区间）；无范围后缀直接通过。
-     * <p>注意：接口中不支持 private 方法（Java 8 兼容），故为 public，仅供 {@link #checkValue} 内部使用。
+     * <p>注意：接口中不支持 private 方法（Java 8 兼容），故为包级可见，仅供 {@link #doCheck} 内部使用。
      */
     static void checkRange(String type, Number num) {
         int idx = type.indexOf(':');

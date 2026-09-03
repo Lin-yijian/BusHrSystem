@@ -67,8 +67,9 @@ public class TCMParamManagePlugin extends AbstractBillPlugin {
      *   <li>module/key 必填</li>
      *   <li>module 必须是已登记的 ModuleEnum code</li>
      *   <li>key 必须命中该模块 *ParamKeyEnum 的枚举常量</li>
-     *   <li>value 按枚举 checkType 做格式/范围校验（{@link ParamKey#checkValue}），
-     *       非法抛："配置非法：name[code]=value，請至【參數管理】菜單修正"</li>
+     *   <li>value 按枚举 checkType 做格式/范围校验（{@link ParamKey#checkValueForSave}，
+     *       保存场景专用提示语）：空值抛"參數【name】(code) 的參數值不能為空，請填寫後再保存"；
+     *       格式非法抛"參數【name】(code) 的參數值格式錯誤：value（原因），請修正後再保存"</li>
      * </ol>
      */
     private void validateParam(TCMParamManage data) {
@@ -76,24 +77,24 @@ public class TCMParamManagePlugin extends AbstractBillPlugin {
         String key = data.getKey();
 
         if (StringUtils.isBlank(module)) {
-            throw new RuntimeException("所属模块(module)不能为空，請至【參數管理】菜單修正");
+            throw new RuntimeException("所屬模塊(module)不能為空，請選擇後再保存");
         }
         if (StringUtils.isBlank(key)) {
-            throw new RuntimeException("参数键(key)不能为空，請至【參數管理】菜單修正");
+            throw new RuntimeException("參數鍵(key)不能為空，請填寫後再保存");
         }
 
         Function<String, ? extends ParamKey> lookup = PARAM_KEY_LOOKUP.get(module);
         if (lookup == null) {
-            throw new RuntimeException("未登记的参数模块(module)=" + module + "，請在 TCMParamManagePlugin 中補錄對應 ParamKey 枚舉映射");
+            throw new RuntimeException("未登記的參數模塊(module)=" + module + "，請在 TCMParamManagePlugin 中補錄對應 ParamKey 枚舉映射");
         }
 
         ParamKey keyEnum = lookup.apply(key);
         if (keyEnum == null) {
-            throw new RuntimeException("参数键(key)=" + key + " 不属于模块 " + module
-                    + "，請按對應 *ParamKeyEnum 枚舉維護");
+            throw new RuntimeException("參數鍵(key)=" + key + " 不屬於模塊 " + ModuleEnum.getNameByCode(module)
+                    + "，請按對應 *ParamKeyEnum 枚舉維護後再保存");
         }
 
-        // checkType 格式/范围校验（含空值拦截）
-        ParamKey.checkValue(keyEnum, data.getValue());
+        // checkType 格式/范围校验（含空值拦截），保存场景提示语
+        ParamKey.checkValueForSave(keyEnum, data.getValue());
     }
 }
