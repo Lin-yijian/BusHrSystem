@@ -70,4 +70,10 @@ public interface TcmAttendanceCorrectionService {
     void saveTcmAttendanceControlCenterLog(List<TcmAttendanceControlCenterLog> list);
 
     void saveTcmAttendanceDriverOvertimeRecord(List<TcmAttendanceDriverOvertimeRecord> list);
+
+    void delTcmAttendanceAbsenceDataRecord(String... entityId);
+
+    void delTcmAttendanceControlCenterLog(String... entityId);
+
+    void delTcmAttendanceDriverOvertimeRecord(String... entityId);
 }

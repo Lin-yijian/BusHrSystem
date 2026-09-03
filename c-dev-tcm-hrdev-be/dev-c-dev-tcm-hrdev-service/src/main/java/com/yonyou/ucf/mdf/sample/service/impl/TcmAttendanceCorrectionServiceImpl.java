@@ -139,7 +139,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Override
     public void updateEmployeeById(String id, String employeeId) {
-        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.EMPLOYEE_ID,employeeId, Collections.singleton(id));
+        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.EMPLOYEE_ID, employeeId, TcmAttendanceCorrection.ID, Collections.singleton(id));
     }
 
 
@@ -157,7 +157,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     @Override
     public void isWorkingHoliday(List<String> ids, String isWorkingHoliday) {
         isWorkingHoliday = StringUtils.isBlank(isWorkingHoliday) ? "2" : isWorkingHoliday;
-        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday, ids);
+        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday, TcmAttendanceCorrection.ID, ids);
     }
 
 
@@ -199,6 +199,24 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         }
         CommonUtil.fillInsertAudit(list);
         billRepository.insert(list);
+    }
+
+    @Override
+    public void delTcmAttendanceAbsenceDataRecord(String... entityId) {
+        List<String> ids = new ArrayList<>(Arrays.asList(entityId));
+        commonUtil.updateBySql("tcm_attendance_absence_data_record",TcmAttendanceAbsenceDataRecord.DR, "1", TcmAttendanceAbsenceDataRecord.ENTITY, ids);
+    }
+
+    @Override
+    public void delTcmAttendanceControlCenterLog(String... entityId) {
+        List<String> ids = new ArrayList<>(Arrays.asList(entityId));
+        commonUtil.updateBySql("tcm_attendance_control_center_log",TcmAttendanceControlCenterLog.DR, "1", TcmAttendanceControlCenterLog.ENTITY, ids);
+    }
+
+    @Override
+    public void delTcmAttendanceDriverOvertimeRecord(String... entityId) {
+        List<String> ids = new ArrayList<>(Arrays.asList(entityId));
+        commonUtil.updateBySql("tcm_attendance_driver_overtime_record",TcmAttendanceDriverOvertimeRecord.DR, "1", TcmAttendanceDriverOvertimeRecord.ENTITY, ids);
     }
 
     // 辅助方法：构建key，处理null值

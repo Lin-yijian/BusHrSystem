@@ -659,6 +659,35 @@ public class CommonUtil {
     }
 
     /**
+     * 批量更新指定表中某个字段的值
+     *
+     * @param tableName  数据库表名
+     * @param queryField    查询字段名
+     * @param fieldName  要更新的字段名
+     * @param fieldValue 要设置的新值
+     * @param ids        需要更新的记录ID集合
+     * @return 影响的行数
+     */
+    public int updateBySql(String tableName, String fieldName, String fieldValue, String queryField,Collection<String> ids) {
+        // 参数校验
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+
+        // 动态生成占位符：?, ?, ?
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        String sql = "UPDATE " + tableName + " SET " + fieldName + " = ? WHERE " + queryField + " IN (" + placeholders + ")";
+
+        SQLParameter sqlParameter = new SQLParameter();
+        sqlParameter.addParam(fieldValue);
+        for (String id : ids) {
+            sqlParameter.addParam(id);
+        }
+
+        return billRepository.update(sql, sqlParameter);
+    }
+
+    /**
      * 批量更新指定表中多个字段的值
      *
      * @param tableName  数据库表名

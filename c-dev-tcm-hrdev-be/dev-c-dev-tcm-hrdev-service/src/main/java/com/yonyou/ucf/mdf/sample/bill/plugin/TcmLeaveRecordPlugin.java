@@ -80,6 +80,21 @@ public class TcmLeaveRecordPlugin extends AbstractBillPlugin {
         }
     }
 
+
+    @Override
+    public void afterDelete(YpdBillContext billContext) throws Exception {
+        super.afterDelete(billContext);
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmLeaveRecord) {
+            TcmLeaveRecord data = (TcmLeaveRecord) billDo;
+            String id = data.getId();
+            if (StringUtils.isNotBlank(id)) {
+                correctionService.delTcmAttendanceAbsenceDataRecord(id);
+            }
+        }
+
+    }
+
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();

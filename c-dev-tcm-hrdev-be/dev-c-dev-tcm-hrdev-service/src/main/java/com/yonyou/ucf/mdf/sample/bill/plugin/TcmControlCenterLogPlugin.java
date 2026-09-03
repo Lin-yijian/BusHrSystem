@@ -75,6 +75,10 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,false);
         }
         calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
+        String id = data.getId();
+        if (StringUtils.isNotBlank(id)) {
+            attendanceCorrectionService.delTcmAttendanceControlCenterLog(id);
+        }
     }
 
     @Override

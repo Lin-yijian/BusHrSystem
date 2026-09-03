@@ -74,6 +74,11 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_DRIVER_OVERTIME,false);
         }
         calcTrigger.collectJlAndFlush(date, data.getEmployee_id());
+
+        String id = data.getId();
+        if (StringUtils.isNotBlank(id)) {
+            attendanceCorrectionService.delTcmAttendanceDriverOvertimeRecord(id);
+        }
     }
 
     @Override
