@@ -1,7 +1,6 @@
 package com.yonyou.ucf.mdf.sample.service;
 
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 
 import java.util.Collection;
 import java.util.List;
@@ -67,4 +66,8 @@ public interface TcmAttendanceCorrectionService {
     void isWorkingHoliday(List<String> ids,String isWorkingHoliday);
 
     void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);
+
+    void saveTcmAttendanceControlCenterLog(List<TcmAttendanceControlCenterLog> list);
+
+    void saveTcmAttendanceDriverOvertimeRecord(List<TcmAttendanceDriverOvertimeRecord> list);
 }

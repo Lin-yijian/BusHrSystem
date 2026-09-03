@@ -4,8 +4,7 @@ import com.yonyou.iuap.BusinessException;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
@@ -33,6 +32,10 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Override
     public List<TcmAttendanceCorrection> getByDateAndStaffId(String date, String staffId) {
+
+        if (staffId == null || StringUtils.isBlank(date)) {
+            return Collections.emptyList();
+        }
 
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
@@ -165,6 +168,33 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         }
         String tenantId = InvocationInfoProxy.getTenantid();
         for (TcmAttendanceAbsenceDataRecord record : list) {
+            record.setYtenantId(tenantId);
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.insert(list);
+    }
+
+
+    @Override
+    public void saveTcmAttendanceControlCenterLog(List<TcmAttendanceControlCenterLog> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceControlCenterLog record : list) {
+            record.setYtenantId(tenantId);
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.insert(list);
+    }
+
+    @Override
+    public void saveTcmAttendanceDriverOvertimeRecord(List<TcmAttendanceDriverOvertimeRecord> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceDriverOvertimeRecord record : list) {
             record.setYtenantId(tenantId);
         }
         CommonUtil.fillInsertAudit(list);

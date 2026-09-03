@@ -4,6 +4,7 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceControlCenterLog;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
@@ -97,14 +98,33 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
-        TcmControlCenterLog entity = (TcmControlCenterLog) billContext.getBillDO();
-        if (entity == null) {
-            return;
+//        TcmControlCenterLog entity = (TcmControlCenterLog) billContext.getBillDO();
+//        if (entity == null) {
+//            return;
+//        }
+//        if (AttendanceCalcImportContext.isBulkSyncing()) {
+//            return;
+//        }
+//        calcTrigger.collectSourceAndFlush(entity.getDate(), entity.getEmployee_id());
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmControlCenterLog) {
+            TcmControlCenterLog data = (TcmControlCenterLog) billDo;
+            String id = data.getId();
+            String date = data.getDate();
+            String employeeId = data.getEmployee_id();
+            calcTrigger.collectSourceAndFlush(date, employeeId);
+            if (id != null && date != null && employeeId != null) {
+                List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateAndStaffId(date, employeeId);
+                List<TcmAttendanceControlCenterLog> records = new ArrayList<>();
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    TcmAttendanceControlCenterLog record = new TcmAttendanceControlCenterLog();
+                    record.setForeignerKey(correction.getId());
+                    record.setEntity(id);
+                    records.add(record);
+                }
+                attendanceCorrectionService.saveTcmAttendanceControlCenterLog(records);
+            }
         }
-        if (AttendanceCalcImportContext.isBulkSyncing()) {
-            return;
-        }
-        calcTrigger.collectSourceAndFlush(entity.getDate(), entity.getEmployee_id());
     }
 
 
@@ -135,33 +155,33 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
         }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(new HashSet<>(dateList), ModuleEnum.TCM_CONTROL_CENTER_LOG, true);
 
-        try {
-            // 插入考勤修正
-            String tenantId = InvocationInfoProxy.getTenantid();
-            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
-            List<TcmAttendanceControlCenterLog> insertList = new ArrayList<>();
-            if (!map.isEmpty()) {
-                for (ImportSingleData data : dataList) {
-                    String id = ymsOidGenerator.nextStrId();
-                    data.getData().put("id", id);
-                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
-                    String s = map.get(key);
-                    if (!StringUtils.isEmpty(s)) {
-                        TcmAttendanceControlCenterLog centerLog = new TcmAttendanceControlCenterLog();
-                        centerLog.setEntity(id);
-                        centerLog.setForeignerKey(s);
-                        centerLog.setYtenantId(tenantId);
-                        insertList.add(centerLog);
-                    }
-
-                }
-                if (!insertList.isEmpty()) {
-                    billRepository.insert(insertList);
-                }
-            }
-        } catch (Exception e) {
-            log.error("控制中心日志导入生成修正环节报错------->{}",e.getMessage());
-        }
+//        try {
+//            // 插入考勤修正
+//            String tenantId = InvocationInfoProxy.getTenantid();
+//            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
+//            List<TcmAttendanceControlCenterLog> insertList = new ArrayList<>();
+//            if (!map.isEmpty()) {
+//                for (ImportSingleData data : dataList) {
+//                    String id = ymsOidGenerator.nextStrId();
+//                    data.getData().put("id", id);
+//                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
+//                    String s = map.get(key);
+//                    if (!StringUtils.isEmpty(s)) {
+//                        TcmAttendanceControlCenterLog centerLog = new TcmAttendanceControlCenterLog();
+//                        centerLog.setEntity(id);
+//                        centerLog.setForeignerKey(s);
+//                        centerLog.setYtenantId(tenantId);
+//                        insertList.add(centerLog);
+//                    }
+//
+//                }
+//                if (!insertList.isEmpty()) {
+//                    billRepository.insert(insertList);
+//                }
+//            }
+//        } catch (Exception e) {
+//            log.error("控制中心日志导入生成修正环节报错------->{}",e.getMessage());
+//        }
 
     }
 }
