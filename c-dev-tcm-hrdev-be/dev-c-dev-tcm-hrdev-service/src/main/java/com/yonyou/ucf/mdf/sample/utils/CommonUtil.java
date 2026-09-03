@@ -469,6 +469,9 @@ public class CommonUtil {
         // 计算加班时长（根据员工类型）
         calculateOvertimeTime(entity, staffMap);
 
+        // 计算深宵时长（计粮发收车与每日 00:00-06:00 窗口的重叠时长；深宵司机不计）
+        calculateLateNightDuration(entity, staffMap);
+
         // 计算超时时长（计粮 vs 考勤发收车）
         calculateOvertimeDuration(entity);
 
@@ -640,6 +643,75 @@ public class CommonUtil {
         } else {
             entity.setOvertime_time(DateUtil.subtractTimeDifferences(validTime, standardWorkTime));
         }
+    }
+
+    /** 深宵窗口：每日凌晨 00:00 起至 06:00（含頭不含尾） */
+    private static final int LATE_NIGHT_WINDOW_END_HOUR = 6;
+
+    /**
+     * 计算深宵時長（late_night_duration）。
+     * <p>計糧一更/二更的【發車-收車】區間與每日凌晨 00:00-06:00 窗口的重疊時長累加（一更、二更分別計算後合計）：
+     * <ul>
+     *   <li>發車在窗口內、收車不在（如 04:00 發車、08:00 收車）→ 發車至 06:00 計入；</li>
+     *   <li>發車、收車都在窗口內（如 02:00-05:00）→ 發車至收車全額計入；</li>
+     *   <li>跨日（如二更 23:00 發車、次日 05:00 收車）→ 次日 00:00 至收車計入；</li>
+     *   <li>窗口按日展開逐段求交，跨多日也能正確累加。</li>
+     * </ul>
+     * 司機類型為深宵司機時不計算深宵時長，固定 00:00。
+     */
+    private void calculateLateNightDuration(TcmAttendanceCorrection entity, Map<String, Map<String, Object>> staffMap) {
+        Map<String, Object> staff = staffMap == null ? null : staffMap.get(entity.getEmployee_id());
+        if (staff == null) {
+            log.warn("未找到员工信息, 深宵時長按0處理, employeeId: {}", entity.getEmployee_id());
+            entity.setLate_night_duration(DateUtil.HH_MM_ZERO);
+            return;
+        }
+        String staffType = (String) staff.get(FIELD_CODE_STAFF_AB_09);
+        // 深宵司機不計算深宵時長
+        if (getNightDriverType().equals(staffType)) {
+            entity.setLate_night_duration(DateUtil.HH_MM_ZERO);
+            return;
+        }
+        long overlapMillis = 0L;
+        overlapMillis += lateNightOverlapMillis(entity.getJl_one_departure_time(), entity.getJl_one_return_time());
+        overlapMillis += lateNightOverlapMillis(entity.getJl_two_departure_time(), entity.getJl_two_return_time());
+        int minutes = (int) (overlapMillis / 60000L);
+        entity.setLate_night_duration(DateUtil.minutesToHhMm(minutes));
+    }
+
+    /**
+     * 區間 [departure, returnTime] 與每日凌晨 00:00-06:00 窗口的重疊毫秒數。
+     * 從發車當日 00:00 起逐日構造窗口，與工作區間求交集後累加，天然兼容跨日（含跨兩晚）場景。
+     */
+    private long lateNightOverlapMillis(Date departure, Date returnTime) {
+        if (departure == null || returnTime == null || !returnTime.after(departure)) {
+            return 0L;
+        }
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(departure);
+        // 對齊到發車當日 00:00:00.000
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        long overlap = 0L;
+        // 窗口起點不晚於收車時間才可能有交集
+        while (!cal.getTime().after(returnTime)) {
+            long windowStart = cal.getTimeInMillis();
+            cal.add(Calendar.HOUR_OF_DAY, LATE_NIGHT_WINDOW_END_HOUR);
+            long windowEnd = cal.getTimeInMillis();
+
+            // 區間求交：[max(發車, 窗口起), min(收車, 窗口終))
+            long interStart = Math.max(departure.getTime(), windowStart);
+            long interEnd = Math.min(returnTime.getTime(), windowEnd);
+            if (interEnd > interStart) {
+                overlap += interEnd - interStart;
+            }
+            // 推進到次日 00:00（06:00 + 18h）
+            cal.add(Calendar.HOUR_OF_DAY, 24 - LATE_NIGHT_WINDOW_END_HOUR);
+        }
+        return overlap;
     }
 
     /**
