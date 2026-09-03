@@ -45,6 +45,9 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     private static final double SHIFT_CHANGE_HOURS = 3.0;
     private static final String TASK_CODE_TRAINING = "培训";
     private static final String TASK_CODE_OTHER_TRAINING = "其他培训";
+    private static final Comparator<JlSpan> JL_SPAN_ORDER = Comparator
+            .comparing((JlSpan s) -> s.matchTime, Comparator.nullsLast(Date::compareTo))
+            .thenComparing(s -> s.dep, Comparator.nullsLast(Date::compareTo));
 
     @Autowired
     private IBillRepository billRepository;
@@ -519,8 +522,9 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
     }
 
     /**
-     * 按更叠加：先排更打底，后备覆盖其有的更，超时再覆盖其有的更。
-     * 超时仅一更、后备有两更 → 计粮一更用超时、二更用后备；某更都没有则保留排更。
+     * 按更叠加：排更打底 → 后备覆盖其有的更 → 超时再覆盖其有的更。
+     * 一段数据对照当前更次（排更优先，排更缺二更则用已叠上的计粮）判断写一更还是二更；
+     * 来源有两段而当前还没有二更（排更只有一更）时，按早晚拆出计粮二更。
      */
     private void applyJlPriority(List<TcmAttendanceCorrection> corrections, Set<String> dates, Set<String> staffIds,
                                  String tenantId, Map<String, Map<String, Object>> staffMap) {
@@ -605,45 +609,180 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         }
     }
 
-    /**
-     * 同日同人：一条只覆盖一更（二更留给下层）；两条则覆盖一更+二更。
-     * 最早发车→一更发车，最早收车→一更收车，最晚发车→二更发车，最晚收车→二更收车。
-     */
     private void applyReserveJl(TcmAttendanceCorrection correction, List<TcmReserveCaptainAttendanceRecord> reserves) {
-        if (reserves == null || reserves.isEmpty()) {
-            return;
-        }
-        List<Date> deps = new ArrayList<>();
-        List<Date> rets = new ArrayList<>();
-        int recordCount = 0;
+        List<JlSpan> spans = new ArrayList<>();
         for (TcmReserveCaptainAttendanceRecord r : reserves) {
             if (r == null) {
                 continue;
             }
-            recordCount++;
             Date dep = combineDateAndTime(r.getDate(), r.getOut_time());
             Date ret = adjustOvernight(dep, combineDateAndTime(r.getDate(), r.getBack_time()));
-            if (dep != null) {
-                deps.add(dep);
+            if (dep == null && ret == null) {
+                continue;
             }
-            if (ret != null) {
-                rets.add(ret);
+            spans.add(new JlSpan(dep, dep, ret));
+        }
+        overlaySpans(correction, spans);
+    }
+
+    /**
+     * 按编定上班分组后叠加。一组也可能是计粮二更；两组在排更只有一更时拆出计粮二更。
+     */
+    private void applyOvertimeJl(TcmAttendanceCorrection correction, List<List<TcmDriverOvertimeRecord>> groups) {
+        String date = DateUtil.extractDateString(correction.getDate());
+        List<JlSpan> spans = new ArrayList<>();
+        for (List<TcmDriverOvertimeRecord> group : groups) {
+            JlSpan span = overtimeGroupToSpan(date, group);
+            if (span != null) {
+                spans.add(span);
             }
         }
-        if (recordCount == 0) {
+        overlaySpans(correction, spans);
+    }
+
+    /**
+     * 一段：对照当前更次写一更或二更。
+     * 两段及以上且当前还没有二更：最早→一更、最晚→二更（排更只有一更、后备/超时有两更）。
+     * 两段及以上且已有二更：每段对照排更/计粮归位，互不抢另一更。
+     */
+    private void overlaySpans(TcmAttendanceCorrection correction, List<JlSpan> spans) {
+        if (spans == null || spans.isEmpty()) {
             return;
         }
-        Date oneDep = minDate(deps);
-        Date oneRet = adjustOvernight(oneDep, minDate(rets));
-        correction.setJl_one_departure_time(oneDep);
-        correction.setJl_one_return_time(oneRet);
-        if (recordCount == 1) {
+        ShiftFrame frame = currentShiftFrame(correction);
+        if (spans.size() >= 2 && !frame.hasTwo()) {
+            spans.sort(JL_SPAN_ORDER);
+            applySpansToShift(correction, Collections.singletonList(spans.get(0)), true);
+            applySpansToShift(correction, Collections.singletonList(spans.get(spans.size() - 1)), false);
             return;
         }
-        Date twoDep = maxDate(deps);
-        Date twoRet = adjustOvernight(twoDep, maxDate(rets));
-        correction.setJl_two_departure_time(twoDep);
-        correction.setJl_two_return_time(twoRet);
+        List<JlSpan> first = new ArrayList<>();
+        List<JlSpan> second = new ArrayList<>();
+        for (JlSpan span : spans) {
+            if (isFirstShift(span.matchTime, frame)) {
+                first.add(span);
+            } else {
+                second.add(span);
+            }
+        }
+        if (!first.isEmpty()) {
+            applySpansToShift(correction, first, true);
+        }
+        if (!second.isEmpty()) {
+            applySpansToShift(correction, second, false);
+        }
+    }
+
+    private void applySpansToShift(TcmAttendanceCorrection correction, List<JlSpan> spans, boolean firstShift) {
+        List<Date> deps = new ArrayList<>();
+        List<Date> rets = new ArrayList<>();
+        for (JlSpan span : spans) {
+            if (span.dep != null) {
+                deps.add(span.dep);
+            }
+            if (span.ret != null) {
+                rets.add(span.ret);
+            }
+        }
+        Date dep = minDate(deps);
+        Date ret = adjustOvernight(dep, maxDate(rets));
+        if (firstShift) {
+            correction.setJl_one_departure_time(dep);
+            correction.setJl_one_return_time(ret);
+        } else {
+            correction.setJl_two_departure_time(dep);
+            correction.setJl_two_return_time(ret);
+        }
+    }
+
+    /** 更次坐标系：排更优先；排更缺的更用已经叠上的计粮（后备可补出二更供超时对照）。 */
+    private ShiftFrame currentShiftFrame(TcmAttendanceCorrection c) {
+        ShiftFrame frame = new ShiftFrame();
+        frame.oneDep = firstNonNull(c.getPg_one_departure_time(), c.getJl_one_departure_time());
+        frame.oneRet = firstNonNull(c.getPg_one_return_time(), c.getJl_one_return_time());
+        frame.twoDep = firstNonNull(c.getPg_two_departure_time(), c.getJl_two_departure_time());
+        frame.twoRet = firstNonNull(c.getPg_two_return_time(), c.getJl_two_return_time());
+        return frame;
+    }
+
+    private boolean isFirstShift(Date candidate, ShiftFrame frame) {
+        if (!frame.hasTwo()) {
+            return true;
+        }
+        if (!frame.hasOne()) {
+            return false;
+        }
+        if (candidate == null) {
+            return true;
+        }
+        boolean inOne = inShiftWindow(candidate, frame.oneDep, frame.oneRet);
+        boolean inTwo = inShiftWindow(candidate, frame.twoDep, frame.twoRet);
+        if (inOne != inTwo) {
+            return inOne;
+        }
+        int cand = minutesOfDay(candidate);
+        return circularMinutes(cand, minutesOfDay(frame.oneDep)) <= circularMinutes(cand, minutesOfDay(frame.twoDep));
+    }
+
+    private boolean inShiftWindow(Date candidate, Date start, Date end) {
+        if (candidate == null || start == null) {
+            return false;
+        }
+        Date adjEnd = end != null ? adjustOvernight(start, end) : start;
+        Date adjCand = candidate;
+        if (candidate.before(start) && adjEnd.after(start)) {
+            Date plusDay = adjustOvernight(start, candidate);
+            if (plusDay != null && plusDay.after(candidate) && !plusDay.after(adjEnd)) {
+                adjCand = plusDay;
+            }
+        }
+        return !adjCand.before(start) && !adjCand.after(adjEnd);
+    }
+
+    private int minutesOfDay(Date d) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(d);
+        return cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE);
+    }
+
+    private int circularMinutes(int a, int b) {
+        int d = Math.abs(a - b);
+        return Math.min(d, 24 * 60 - d);
+    }
+
+    private JlSpan overtimeGroupToSpan(String date, List<TcmDriverOvertimeRecord> group) {
+        if (group == null || group.isEmpty()) {
+            return null;
+        }
+        Date matchTime = null;
+        List<Date> starts = new ArrayList<>();
+        List<Date> ends = new ArrayList<>();
+        for (TcmDriverOvertimeRecord r : group) {
+            if (r == null) {
+                continue;
+            }
+            String d = date != null ? date : DateUtil.extractDateString(r.getOvertime_date());
+            if (matchTime == null) {
+                matchTime = combineDateAndTime(d, r.getSchedule_start_time());
+                if (matchTime == null) {
+                    matchTime = combineDateAndTime(d, r.getActual_start_time());
+                }
+            }
+            Date start = combineDateAndTime(d, r.getActual_start_time());
+            Date end = adjustOvernight(start, combineDateAndTime(d, r.getActual_end_time()));
+            if (start != null) {
+                starts.add(start);
+            }
+            if (end != null) {
+                ends.add(end);
+            }
+        }
+        Date dep = minDate(starts);
+        Date ret = adjustOvernight(dep, maxDate(ends));
+        if (dep == null && ret == null) {
+            return null;
+        }
+        return new JlSpan(matchTime != null ? matchTime : dep, dep, ret);
     }
 
     private Date minDate(List<Date> dates) {
@@ -666,22 +805,8 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         return max;
     }
 
-    /**
-     * 按编定上班时间分组（空值不参与），组升序。
-     * 第一组：实际上班最早→一更发车，实际下班最晚→一更收车；
-     * 最后一组：实际上班最早→二更发车，实际下班最晚→二更收车。
-     * 仅一组时只覆盖一更，二更保留后备或排更。
-     */
-    private void applyOvertimeJl(TcmAttendanceCorrection correction, List<List<TcmDriverOvertimeRecord>> groups) {
-        if (groups == null || groups.isEmpty()) {
-            return;
-        }
-        String date = DateUtil.extractDateString(correction.getDate());
-        applyOvertimeGroupToShift(correction, date, groups.get(0), true);
-        if (groups.size() == 1) {
-            return;
-        }
-        applyOvertimeGroupToShift(correction, date, groups.get(groups.size() - 1), false);
+    private Date firstNonNull(Date a, Date b) {
+        return a != null ? a : b;
     }
 
     private List<List<TcmDriverOvertimeRecord>> groupOvertimesByScheduleStart(
@@ -707,32 +832,6 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             groups.add(byStart.get(key));
         }
         return groups;
-    }
-
-    private void applyOvertimeGroupToShift(TcmAttendanceCorrection correction, String date,
-                                           List<TcmDriverOvertimeRecord> group, boolean firstShift) {
-        List<Date> starts = new ArrayList<>();
-        List<Date> ends = new ArrayList<>();
-        for (TcmDriverOvertimeRecord r : group) {
-            String d = date != null ? date : DateUtil.extractDateString(r.getOvertime_date());
-            Date start = combineDateAndTime(d, r.getActual_start_time());
-            Date end = adjustOvernight(start, combineDateAndTime(d, r.getActual_end_time()));
-            if (start != null) {
-                starts.add(start);
-            }
-            if (end != null) {
-                ends.add(end);
-            }
-        }
-        Date dep = minDate(starts);
-        Date ret = adjustOvernight(dep, maxDate(ends));
-        if (firstShift) {
-            correction.setJl_one_departure_time(dep);
-            correction.setJl_one_return_time(ret);
-        } else {
-            correction.setJl_two_departure_time(dep);
-            correction.setJl_two_return_time(ret);
-        }
     }
 
     /** 编定上班时间归一成 HH:mm；空值不参与分组 */
@@ -1107,5 +1206,32 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             return h + ":" + m + ":" + s;
         }
         return h + ":" + m;
+    }
+
+    private static final class JlSpan {
+        private final Date matchTime;
+        private final Date dep;
+        private final Date ret;
+
+        private JlSpan(Date matchTime, Date dep, Date ret) {
+            this.matchTime = matchTime;
+            this.dep = dep;
+            this.ret = ret;
+        }
+    }
+
+    private static final class ShiftFrame {
+        private Date oneDep;
+        private Date oneRet;
+        private Date twoDep;
+        private Date twoRet;
+
+        private boolean hasOne() {
+            return oneDep != null || oneRet != null;
+        }
+
+        private boolean hasTwo() {
+            return twoDep != null || twoRet != null;
+        }
     }
 }

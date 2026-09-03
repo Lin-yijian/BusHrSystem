@@ -53,6 +53,8 @@ public interface AttendanceCorrectionSyncService {
 
     /**
      * 考勤计算前：按计算范围回写加油加气、异常来源，并按更叠加重算计粮（排更打底 → 后备 → 超时）。
+     * 一段后备/超时对照排更（缺二更时用已叠上的计粮）判断写一更还是二更；
+     * 来源有两段而排更只有一更时，按早晚拆出计粮二更。
      * 仅 UPDATE 内容有变化的行。
      */
     void refreshCorrectionsBeforeCalc(String dateStr, String employeeCode, boolean singleDate);
