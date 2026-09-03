@@ -77,6 +77,18 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         if (data == null) {
             return;
         }
+        // 海信批量拉取等 bulk 场景不触发收尾
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
+        if (AttendanceCalcImportContext.isImporting()) {
+            // 导入：收集待重算人天（date+driver_no）并注册事务提交后收尾，
+            // 提交后批量按人去重重算计粮/考勤（与排更、假日导入同一路径，避免按条重算）
+            AttendanceCalcImportContext.collectJlRefresh(data.getDate(), data.getDriver_no());
+            calcTrigger.registerImportFlushAfterCommit();
+            return;
+        }
+        // 页面单条保存：收集人天并在提交后立即按人计算
         calcTrigger.collectJlAndFlush(data.getDate(), data.getDriver_no());
     }
 
