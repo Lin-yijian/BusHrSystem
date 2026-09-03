@@ -5,6 +5,7 @@ import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.ParamKey;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmAbsenceDataRecordParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmAttendanceCheckRecordParamKeyEnum;
+import com.yonyou.ucf.mdf.sample.enums.params.TcmAttendanceVerificationParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmBusFaultParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmControlCenterLogParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmDriverOvertimeParamKeyEnum;
@@ -48,6 +49,7 @@ public class TCMParamManagePlugin extends AbstractBillPlugin {
         PARAM_KEY_LOOKUP.put(ModuleEnum.TCM_HI_SENSE_ATTENDANCE.getCode(), TcmHiSenseAttendanceParamKeyEnum::ofCode);
         PARAM_KEY_LOOKUP.put(ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD.getCode(), TcmAttendanceCheckRecordParamKeyEnum::ofCode);
         PARAM_KEY_LOOKUP.put(ModuleEnum.TCM_SHEDULE_SHIFTS.getCode(), TcmRosteringParamKeyEnum::ofCode);
+        PARAM_KEY_LOOKUP.put(ModuleEnum.TCM_ATTENDANCE_VERIFICATION.getCode(), TcmAttendanceVerificationParamKeyEnum::ofCode);
     }
 
     @Override
@@ -87,7 +89,7 @@ public class TCMParamManagePlugin extends AbstractBillPlugin {
 
         ParamKey keyEnum = lookup.apply(key);
         if (keyEnum == null) {
-            throw new RuntimeException("参数键(key)=" + key + " 不属于模块 " + ModuleEnum.getNameByCode(module)
+            throw new RuntimeException("参数键(key)=" + key + " 不属于模块 " + module
                     + "，請按對應 *ParamKeyEnum 枚舉維護");
         }
 

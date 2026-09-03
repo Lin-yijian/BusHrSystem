@@ -7,6 +7,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.ParamKey;
+import com.yonyou.ucf.mdf.sample.enums.params.TcmAttendanceVerificationParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.enums.params.TcmRosteringParamKeyEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmParamManageService;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
@@ -120,24 +121,27 @@ public class CommonUtil {
 
     /** 当前事务内排更参数快照：一次任务只查整表一次，事务结束后丢弃。 */
     private final ThreadLocal<Map<String, String>> rosterParamSnapshot = new ThreadLocal<>();
+    /** 当前事务内考勤核对参数快照：一次任务只查整表一次，事务结束后丢弃。 */
+    private final ThreadLocal<Map<String, String>> verificationParamSnapshot = new ThreadLocal<>();
 
     /**
-     * 读取排更模块参数（统一入口）。
-     * 有事务时整表查一次后复用（避免循环 N+1）；无事务走 {@link TcmParamManageService#queryParamValue}
-     * 实时单键查询（自带缺失抛错 + checkType 格式校验）。
-     * 参数变更在下一次任务（新事务）生效。
+     * 参数读取统一入口（各模块共用）。
+     * 有事务时整表查一次后复用（避免循环 N+1，事务结束自动丢弃快照）；无事务走
+     * {@link TcmParamManageService#queryParamValue} 实时单键查询（自带缺失抛错 + checkType 格式校验）。
+     * 每次任务（新事务）都重新查库，参数变更在下一次任务即生效。
      */
-    private String requireRosterParam(TcmRosteringParamKeyEnum keyEnum) {
+    private <K extends ParamKey> String requireParam(ModuleEnum module, K keyEnum,
+                                                     ThreadLocal<Map<String, String>> snapshotHolder) {
         // 1. 事务内快照：整表一次，循环复用
-        Map<String, String> snapshot = rosterParamSnapshot.get();
+        Map<String, String> snapshot = snapshotHolder.get();
         if (snapshot == null && TransactionSynchronizationManager.isSynchronizationActive()) {
-            Map<String, String> loaded = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
+            Map<String, String> loaded = tcmParamManageService.queryModuleParamMap(module);
             snapshot = (loaded != null) ? new HashMap<>(loaded) : new HashMap<>();
-            rosterParamSnapshot.set(snapshot);
+            snapshotHolder.set(snapshot);
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
-                    rosterParamSnapshot.remove();
+                    snapshotHolder.remove();
                 }
             });
         }
@@ -151,7 +155,17 @@ public class CommonUtil {
             return ParamKey.checkValue(keyEnum, value);
         }
         // 2. 无事务：统一入口实时单键查询
-        return tcmParamManageService.queryParamValue(ModuleEnum.TCM_SHEDULE_SHIFTS, keyEnum);
+        return tcmParamManageService.queryParamValue(module, keyEnum);
+    }
+
+    /** 读取排更(ROSTERING)模块参数 */
+    private String requireRosterParam(TcmRosteringParamKeyEnum keyEnum) {
+        return requireParam(ModuleEnum.TCM_SHEDULE_SHIFTS, keyEnum, rosterParamSnapshot);
+    }
+
+    /** 读取考勤核對(TCM_ATTENDANCE_VERIFICATION)模块参数 */
+    private String requireVerificationParam(TcmAttendanceVerificationParamKeyEnum keyEnum) {
+        return requireParam(ModuleEnum.TCM_ATTENDANCE_VERIFICATION, keyEnum, verificationParamSnapshot);
     }
 
     /** @return 兼职司机岗位编码 — TCMParamManage.key = {@link TcmRosteringParamKeyEnum#PART_TIME_JOB_CODE} */
@@ -458,11 +472,78 @@ public class CommonUtil {
         // 计算超时时长（计粮 vs 考勤发收车）
         calculateOvertimeDuration(entity);
 
+        // 计算是否夜更（计粮发收车完整覆盖 17:00-20:00 且 有效工时>=08:00）
+        calculateNightShift(entity);
+
         // 计算迟到早退状态
         calculateLateEarlyStatus(entity);
 
         // 计算异常核对状态
         calculateAnomalyVerification(entity);
+    }
+
+    /**
+     * 计算是否夜更（is_night_shift），两个条件须同时满足（判定窗口/工时门槛均取参数管理「考勤核對」模块配置）：
+     * <ol>
+     *   <li>（計糧一更發車 至 計糧一更收車）或（計糧二更發車 至 計糧二更收車）<b>完整覆蓋</b> 夜更判定窗口（默認 17:00-20:00）；</li>
+     *   <li>計量有效工時（jl_valid_time）&gt;= 門檻（默認 08:00）。</li>
+     * </ol>
+     * 满足 → is_night_shift = {@link BaseEnum#YES}("1")；否则 = {@link BaseEnum#NO}("2")。
+     */
+    public void calculateNightShift(TcmAttendanceCorrection entity) {
+        if (entity == null) {
+            return;
+        }
+        String windowStart = requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.NIGHT_SHIFT_WINDOW_START);
+        String windowEnd = requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.NIGHT_SHIFT_WINDOW_END);
+        String minValidTime = requireVerificationParam(TcmAttendanceVerificationParamKeyEnum.NIGHT_SHIFT_MIN_VALID_TIME);
+
+        boolean coversNightWindow =
+                coversNightWindow(entity.getJl_one_departure_time(), entity.getJl_one_return_time(), windowStart, windowEnd)
+                || coversNightWindow(entity.getJl_two_departure_time(), entity.getJl_two_return_time(), windowStart, windowEnd);
+        // jl_valid_time 为 null 时按 00:00 处理，比较结果为 false
+        boolean validTimeReached = DateUtil.isTimeGreaterOrEqual(entity.getJl_valid_time(), minValidTime);
+
+        entity.setIs_night_shift((coversNightWindow && validTimeReached)
+                ? BaseEnum.YES.getCode()
+                : BaseEnum.NO.getCode());
+    }
+
+    /**
+     * 判断单个更次区间 [departure, returnTime] 是否完整覆盖 [windowStartHhmm, windowEndHhmm]：
+     * 发车时间 &lt;= 窗口起点 且 收车时间 &gt;= 窗口终点（边界包含；窗口日期以发车日期为准，兼容跨零点收车）。
+     *
+     * @param windowStartHhmm 窗口起点 HH:mm（checkType TIME_HH_MM 已保证格式合法）
+     * @param windowEndHhmm   窗口终点 HH:mm
+     */
+    private boolean coversNightWindow(Date departure, Date returnTime, String windowStartHhmm, String windowEndHhmm) {
+        if (departure == null || returnTime == null) {
+            return false;
+        }
+        int[] start = parseHhMm(windowStartHhmm);
+        int[] end = parseHhMm(windowEndHhmm);
+
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(departure);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        cal.set(Calendar.HOUR_OF_DAY, start[0]);
+        cal.set(Calendar.MINUTE, start[1]);
+        Date windowStart = cal.getTime();
+
+        cal.set(Calendar.HOUR_OF_DAY, end[0]);
+        cal.set(Calendar.MINUTE, end[1]);
+        Date windowEnd = cal.getTime();
+
+        // 發車 <= 窗口起點 且 收車 >= 窗口終點
+        return !departure.after(windowStart) && !returnTime.before(windowEnd);
+    }
+
+    /** 解析 HH:mm 为 [小时, 分钟]；checkType TIME_HH_MM 已在取值时保证格式合法 */
+    private int[] parseHhMm(String hhmm) {
+        String[] parts = hhmm.split(":");
+        return new int[]{Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
     }
 
 
@@ -524,7 +605,8 @@ public class CommonUtil {
         boolean hasLate = !DateUtil.checkIsZeroTime(lateDuration);
         boolean hasEarlyLeave = !DateUtil.checkIsZeroTime(oneEarlyLeaveDuration) || !DateUtil.checkIsZeroTime(twoEarlyLeaveDuration);
 
-        entity.setIs_late_or_early_leave(hasLate || hasEarlyLeave);
+        String is_late_or_early_leave = (hasLate || hasEarlyLeave) ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
+        entity.setIs_late_or_early_leave(is_late_or_early_leave);
     }
 
 
@@ -544,7 +626,7 @@ public class CommonUtil {
 
         // 兼职司机：标准工时不足标记为false，加班时长为0
         if (getPartTimeJobCode().equals(postCode)) {
-            entity.setIs_less_than_8_hours(false);
+            entity.setIs_less_than_8_hours(BaseEnum.NO.getCode());
             entity.setOvertime_time(DateUtil.HH_MM_ZERO);
             return;
         }

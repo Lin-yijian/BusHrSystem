@@ -221,7 +221,8 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             if (h == null || h.getIs_weekend_work() == null) {
                 continue;
             }
-            c.setIs_working_on_weekly_holiday(h.getIs_weekend_work());
+            String isWorking = h.getIs_weekend_work() ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
+            c.setIs_working_on_weekly_holiday(isWorking);
             updateList.add(c);
         }
         if (!updateList.isEmpty()) {

@@ -537,7 +537,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setName(row.getDriver_name());
         String taskCode = row.getTask_code() == null ? "" : row.getTask_code();
         if (isFirst){
-            // 任務包含培訓的，按參數管理配置自動填寫發車/收車時間、用膳次數
+            // 任務為培訓的，按參數管理配置自動填寫發車/收車時間、用膳次數
             if (taskCode.contains(trainingConfig.taskCodeTraining)){
                 row.setDeparture_time(combineDateAndTime(row.getDate(), trainingConfig.departureTime));
                 row.setFinish_time(combineDateAndTime(row.getDate(), trainingConfig.returnTime));
@@ -651,10 +651,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
             vehicle_handover_count = vehicle_handover_count + countParkingLotFields(lateRow.getLine_str(),lateRow.getOut_car(), lateRow.getGet_car());
 
-            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次
-            String hours = DateUtil.getHoursDiffAsHHmm(earlyRow.getFinish_time(), lateRow.getDeparture_time());
-            boolean timeGreaterOrEqual = DateUtil.isTimeGreaterOrEqual(hours, trainingConfig.shiftIntervalTime);
-            if (timeGreaterOrEqual) {
+            // 上下更次数 上下更中间超过或等于3个小时，就算一次 一天上下更次数最多1次 todo 待转参数
+            double hours = DateUtil.getHoursDiff(earlyRow.getFinish_time(), lateRow.getDeparture_time());
+            if (hours >= 3.0) {
                 entity.setShift_change_count(1);
             }
 

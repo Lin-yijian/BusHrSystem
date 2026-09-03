@@ -15,7 +15,8 @@ public enum ModuleEnum {
     TCM_FUEL_GAS_DATA_RECORD("TCM_FUEL_GAS_DATA_RECORD", "入油入氣"),
     TCM_HI_SENSE_ATTENDANCE("TCM_HI_SENSE_ATTENDANCE", "海信考勤"),
     TCM_ATTENDANCE_CHECK_RECORD("TCM_ATTENDANCE_CHECK_RECORD", "海信車載登陸"),
-    TCM_SHEDULE_SHIFTS("ROSTERING", "本地排更");
+    TCM_SHEDULE_SHIFTS("ROSTERING", "本地排更"),
+    TCM_ATTENDANCE_VERIFICATION("TCM_ATTENDANCE_VERIFICATION", "考勤核對");
 
     private final String code;
     private final String name;
