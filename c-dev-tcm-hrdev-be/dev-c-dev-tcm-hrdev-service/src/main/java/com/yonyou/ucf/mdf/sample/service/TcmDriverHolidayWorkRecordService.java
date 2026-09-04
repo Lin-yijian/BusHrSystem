@@ -22,4 +22,16 @@ public interface TcmDriverHolidayWorkRecordService {
      */
     void coverInsert(String date, List<TcmDriverHolidayWorkRecord> list);
 
+
+    /**
+     *
+     * @param date
+     * @param waybillEmployeeId
+     * @return
+     */
+    List<TcmDriverHolidayWorkRecord> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId);
+
+
+    void saveList(List<TcmDriverHolidayWorkRecord> list);
+
 }

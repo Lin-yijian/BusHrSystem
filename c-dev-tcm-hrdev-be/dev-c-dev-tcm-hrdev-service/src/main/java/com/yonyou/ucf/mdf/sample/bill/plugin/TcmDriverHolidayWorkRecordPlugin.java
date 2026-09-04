@@ -1,8 +1,11 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverHolidayWorkRecord;
+import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
@@ -10,6 +13,7 @@ import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
@@ -33,25 +37,45 @@ public class TcmDriverHolidayWorkRecordPlugin extends AbstractBillPlugin {
     private AttendanceCorrectionSyncService correctionSyncService;
 
     @Autowired
+    private TcmAttendanceCorrectionService correctionService;
+
+    @Autowired
     private AttendanceCalcTrigger calcTrigger;
 
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
-        TcmDriverHolidayWorkRecord data = (TcmDriverHolidayWorkRecord) billContext.getBillDO();
-        if (data == null) {
-            return;
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmDriverHolidayWorkRecord) {
+            TcmDriverHolidayWorkRecord data = (TcmDriverHolidayWorkRecord) billContext.getBillDO();
+            if (data == null) {
+                return;
+            }
+            String date = data.getDate();
+            String waybillEmployeeId = data.getWaybill_employee_id();
+            Boolean isWeekendWork = data.getIs_weekend_work();
+            String isWeekendWorkStr = isWeekendWork ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
+            boolean isUpdate = data.getEntityStatus() == YpdEntityStatus.Update;
+            if (isUpdate){
+                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndWaybillEmployeeId(date, waybillEmployeeId);
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    correction.setIs_working_on_weekly_holiday(isWeekendWorkStr);
+                }
+                correctionService.saveList(correctionList);
+            }
+            if (AttendanceCalcImportContext.isBulkSyncing()) {
+                return;
+            }
+            if (AttendanceCalcImportContext.isImporting()) {
+                AttendanceCalcImportContext.collectHoliday(data);
+                calcTrigger.registerImportFlushAfterCommit();
+                return;
+            }
+            correctionSyncService.syncFromHolidayWork(data);
+            calcTrigger.afterDataChanged(data.getDate(), data.getEmployee_id());
         }
-        if (AttendanceCalcImportContext.isBulkSyncing()) {
-            return;
-        }
-        if (AttendanceCalcImportContext.isImporting()) {
-            AttendanceCalcImportContext.collectHoliday(data);
-            calcTrigger.registerImportFlushAfterCommit();
-            return;
-        }
-        correctionSyncService.syncFromHolidayWork(data);
-        calcTrigger.afterDataChanged(data.getDate(), data.getEmployee_id());
+
     }
 
     @Override

@@ -133,32 +133,32 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateList, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
 
-        try {
-            // 插入考勤修正
-            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
-            List<TcmAttendanceAbsenceDataRecord> insertList = new ArrayList<>();
-            if (!map.isEmpty()) {
-                for (ImportSingleData data : dataList) {
-                    String id = ymsOidGenerator.nextStrId();
-                    data.getData().put("id", id);
-                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
-                    String s = map.get(key);
-                    if (!StringUtils.isEmpty(s)) {
-                        TcmAttendanceAbsenceDataRecord centerLog = new TcmAttendanceAbsenceDataRecord();
-                        centerLog.setEntity(id);
-                        centerLog.setForeignerKey(s);
-                        centerLog.setYtenantId(tenantId);
-                        insertList.add(centerLog);
-                    }
-
-                }
-                if (!insertList.isEmpty()) {
-                    billRepository.insert(insertList);
-                }
-            }
-        } catch (Exception e) {
-            log.error("缺勤记录导入生成修正环节报错------->{}",e.getMessage());
-        }
+//        try {
+//            // 插入考勤修正
+//            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
+//            List<TcmAttendanceAbsenceDataRecord> insertList = new ArrayList<>();
+//            if (!map.isEmpty()) {
+//                for (ImportSingleData data : dataList) {
+//                    String id = ymsOidGenerator.nextStrId();
+//                    data.getData().put("id", id);
+//                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
+//                    String s = map.get(key);
+//                    if (!StringUtils.isEmpty(s)) {
+//                        TcmAttendanceAbsenceDataRecord centerLog = new TcmAttendanceAbsenceDataRecord();
+//                        centerLog.setEntity(id);
+//                        centerLog.setForeignerKey(s);
+//                        centerLog.setYtenantId(tenantId);
+//                        insertList.add(centerLog);
+//                    }
+//
+//                }
+//                if (!insertList.isEmpty()) {
+//                    billRepository.insert(insertList);
+//                }
+//            }
+//        } catch (Exception e) {
+//            log.error("缺勤记录导入生成修正环节报错------->{}",e.getMessage());
+//        }
 
     }
 }

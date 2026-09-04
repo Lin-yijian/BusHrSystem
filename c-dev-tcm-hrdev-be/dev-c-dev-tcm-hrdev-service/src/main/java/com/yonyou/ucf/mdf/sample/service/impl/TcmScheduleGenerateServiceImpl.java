@@ -270,7 +270,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         }
     }
 
-    /** 成功备注：同步成功，排更新增 X 条、更新 Y 条，修正新增 M 条、更新 N 条 */
+    /** 成功备注：同步成功，排更新增 X 条、更新 Y 条，修正新增 M 条、更新 N 条，假期工作新增 P 条、更新 Q 条 */
     private String buildScheduleSuccessRemark(Map<String, Object> result) {
         if (result == null) {
             return TcmSyncLogServiceImpl.remarkSuccess();
@@ -278,7 +278,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         return "同步成功，本地排更新增 " + result.getOrDefault("scheduleInserted", 0)
                 + " 条、更新 " + result.getOrDefault("scheduleUpdated", 0)
                 + " 条，修正新增 " + result.getOrDefault("correctionInserted", 0)
-                + " 条、更新 " + result.getOrDefault("correctionUpdated", 0) + " 条";
+                + " 条、更新 " + result.getOrDefault("correctionUpdated", 0)
+                + " 条，假期工作新增 " + result.getOrDefault("holidayInserted", 0)
+                + " 条、更新 " + result.getOrDefault("holidayUpdated", 0) + " 条";
     }
 
     private Map<String, Object> doGenerateScheduleInternal(String date) throws Exception {
@@ -310,6 +312,8 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         int correctionInserted = 0;
         int correctionUpdated = 0;
         int correctionFail = 0;
+        int holidayInserted = 0;
+        int holidayUpdated = 0;
 
         List<TcmSheduleShiftsData> scheduleInsertList = new ArrayList<>();
         List<TcmSheduleShiftsData> scheduleUpdateList = new ArrayList<>();
@@ -417,6 +421,13 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             billRepository.update(correctionUpdateList);
         }
 
+        // 按照生成修正后的数据对应生成车长假期工作记录（须在 processDate 之后，取已计算的有效计量工时）
+        List<TcmAttendanceCorrection> mergedCorrections = new ArrayList<>(correctionInsertList);
+        mergedCorrections.addAll(correctionUpdateList);
+        int[] holidayCounts = upsertDriverHolidayWorkRecords(date, mergedCorrections, tenantId);
+        holidayInserted = holidayCounts[0];
+        holidayUpdated = holidayCounts[1];
+
         // 更新核对记录
         tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS, true);
 
@@ -436,7 +447,89 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         result.put("correctionInserted", correctionInserted);
         result.put("correctionUpdated", correctionUpdated);
         result.put("correctionFailed", correctionFail);
+        result.put("holidayInserted", holidayInserted);
+        result.put("holidayUpdated", holidayUpdated);
         return result;
+    }
+
+    /**
+     * 按照生成修正后的数据对应生成車長假期工作記錄（TcmDriverHolidayWorkRecord）。
+     * <ul>
+     *   <li>日期、工號、姓名、澳巴工號從修正數據複製；</li>
+     *   <li>is_weekend_work 默認 true、weekend_work_compensation 默認 "1"、is_forced_leave_work 默認 false；</li>
+     *   <li>有效總工時 = 有效計量工時(jl_valid_time) - 用膳時長(meal_duration)，均為 HH:mm 字符串；</li>
+     *   <li>以 date+employee_id 為唯一鍵：當日已存在則更新（複製字段與工時同步刷新），否則新增。</li>
+     * </ul>
+     *
+     * @param date        排更日期（yyyy-MM-dd）
+     * @param corrections 本輪生成的修正數據（新增 + 更新合併）
+     * @param tenantId    租戶 id
+     * @return int[]{新增數, 更新數}
+     */
+    private int[] upsertDriverHolidayWorkRecords(String date, List<TcmAttendanceCorrection> corrections, String tenantId) {
+        if (corrections == null || corrections.isEmpty()) {
+            return new int[]{0, 0};
+        }
+        // 同一員工去重（按 employee_id，先出現者優先）
+        Map<String, TcmAttendanceCorrection> correctionMap = new LinkedHashMap<>();
+        for (TcmAttendanceCorrection correction : corrections) {
+            if (correction != null && correction.getEmployee_id() != null) {
+                correctionMap.putIfAbsent(correction.getEmployee_id(), correction);
+            }
+        }
+        if (correctionMap.isEmpty()) {
+            return new int[]{0, 0};
+        }
+
+        // 一次查詢當日已有假期工作記錄，按 employee_id 建索引，避免逐條查庫
+        LambdaQueryCondition<TcmDriverHolidayWorkRecord> condition = new LambdaQueryCondition<>(new TcmDriverHolidayWorkRecord());
+        condition.eq(TcmDriverHolidayWorkRecord::getDate, date)
+                .eq(TcmDriverHolidayWorkRecord::getYtenantId, tenantId)
+                .eq(TcmDriverHolidayWorkRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        Map<String, TcmDriverHolidayWorkRecord> existingMap = new LinkedHashMap<>();
+        for (TcmDriverHolidayWorkRecord record : billRepository.queryByClause(condition)) {
+            if (record.getEmployee_id() != null) {
+                existingMap.putIfAbsent(record.getEmployee_id(), record);
+            }
+        }
+
+        List<TcmDriverHolidayWorkRecord> insertList = new ArrayList<>();
+        List<TcmDriverHolidayWorkRecord> updateList = new ArrayList<>();
+        for (TcmAttendanceCorrection correction : correctionMap.values()) {
+            TcmDriverHolidayWorkRecord existing = existingMap.get(correction.getEmployee_id());
+            boolean isNew = existing == null;
+            TcmDriverHolidayWorkRecord record = isNew ? new TcmDriverHolidayWorkRecord() : existing;
+            if (isNew) {
+                record.setId(ymsOidGenerator.nextStrId());
+                record.setYtenantId(tenantId);
+            }
+            // 複製基礎字段
+            record.setDate(correction.getDate());
+            record.setEmployee_id(correction.getEmployee_id());
+            record.setDriver_name(correction.getDriver_name());
+            record.setWaybill_employee_id(correction.getWaybill_employee_id());
+            // 默認值
+            record.setIs_weekend_work(Boolean.TRUE);
+            record.setWeekend_work_compensation("1");
+            record.setIs_forced_leave_work(Boolean.FALSE);
+            // 有效總工時 = 有效計量工時 - 用膳時長（subtractTimeDifferences 對空值/非法值按 00:00 處理）
+            record.setEffective_total_work_hours(DateUtil.subtractTimeDifferences(
+                    correction.getJl_valid_time(), correction.getMeal_duration()));
+            if (isNew) {
+                insertList.add(record);
+            } else {
+                updateList.add(record);
+            }
+        }
+        if (!insertList.isEmpty()) {
+            CommonUtil.fillInsertAudit(insertList);
+            billRepository.insert(insertList);
+        }
+        if (!updateList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateList);
+            billRepository.update(updateList);
+        }
+        return new int[]{insertList.size(), updateList.size()};
     }
 
     /**
