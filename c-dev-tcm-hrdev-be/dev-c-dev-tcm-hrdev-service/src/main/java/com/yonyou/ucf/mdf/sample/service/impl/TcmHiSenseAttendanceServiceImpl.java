@@ -1162,12 +1162,33 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 }
             }
 
-            log.info("【海信考勤接口】业务日期：【{}】，分页获取完成，总记录数：【{}】", runDate, allData.size());
-            return allData;
+            int rawCount = allData.size();
+            List<HiSenseAttendanceDataDTO> uniqueData = deduplicateByAllFields(allData);
+            int dupCount = rawCount - uniqueData.size();
+            log.info("【海信考勤接口】业务日期：【{}】，分页获取完成，接口返回{}条，全字段去重后{}条，剔除重复{}条",
+                    runDate, rawCount, uniqueData.size(), dupCount);
+            return uniqueData;
 
         } catch (Exception e) {
             throw new RuntimeException("解析海信考勤数据失败", e);
         }
+    }
+
+    /**
+     * 海信分页可能在相邻页返回字段完全相同的记录（页码不同、业务字段一致）。
+     * 所有字段都相同时只保留第一条，再进入后续合并/落库。
+     */
+    private List<HiSenseAttendanceDataDTO> deduplicateByAllFields(List<HiSenseAttendanceDataDTO> dataList) {
+        if (dataList == null || dataList.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<HiSenseAttendanceDataDTO> seen = new LinkedHashSet<>();
+        for (HiSenseAttendanceDataDTO item : dataList) {
+            if (item != null) {
+                seen.add(item);
+            }
+        }
+        return new ArrayList<>(seen);
     }
 
     /**
