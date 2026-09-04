@@ -53,12 +53,12 @@ public class TcmDriverHolidayWorkRecordPlugin extends AbstractBillPlugin {
                 return;
             }
             String date = data.getDate();
-            String waybillEmployeeId = data.getWaybill_employee_id();
+            String employeeId = data.getEmployee_id();
             Boolean isWeekendWork = data.getIs_weekend_work();
             String isWeekendWorkStr = isWeekendWork ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
             boolean isUpdate = data.getEntityStatus() == YpdEntityStatus.Update;
             if (isUpdate){
-                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndWaybillEmployeeId(date, waybillEmployeeId);
+                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
                 for (TcmAttendanceCorrection correction : correctionList) {
                     correction.setIs_working_on_weekly_holiday(isWeekendWorkStr);
                 }

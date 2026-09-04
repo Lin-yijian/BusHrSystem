@@ -107,6 +107,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
 
+
         List<String> wayBillIds  = new ArrayList<>();
         for (ImportSingleData data : dataList) {
             wayBillIds.add((String) data.getData().get("waybill_employee_id"));

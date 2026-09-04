@@ -69,11 +69,11 @@ public class TcmVehicleDutyRecordPlugin extends AbstractBillPlugin {
         Object billDo = billContext.getBillDO();
         if (billDo instanceof TcmVehicleDutyRecord) {
             TcmVehicleDutyRecord data = (TcmVehicleDutyRecord) billDo;
-            String date = data.getWaybill_employee_id();
-            String waybillEmployeeId = data.getWaybill_employee_id();
+            String date = data.getDate();
+            String employeeId = data.getEmployee_id();
             Integer times = data.getVehicle_exchange_count();
-            if (date != null && waybillEmployeeId != null && times != null) {
-                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndWaybillEmployeeId(date, waybillEmployeeId);
+            if (date != null && employeeId != null && times != null) {
+                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
                 for (TcmAttendanceCorrection correction : correctionList) {
                     correction.setVehicle_handover_count(times);
                 }
