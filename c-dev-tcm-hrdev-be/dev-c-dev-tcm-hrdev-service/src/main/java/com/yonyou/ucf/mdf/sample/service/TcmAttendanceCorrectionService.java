@@ -19,6 +19,14 @@ public interface TcmAttendanceCorrectionService {
      */
     List<TcmAttendanceCorrection> getByDateAndStaffId(String date, String staffId);
 
+    /**
+     * 查询修正数据
+     * @param date 日期 yyyy-MM-dd
+     * @param waybillEmployeeId 海信工号
+     * @return .
+     */
+    List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId);
+
 
     /**
      * 查詢考勤修正數據
@@ -64,6 +72,8 @@ public interface TcmAttendanceCorrectionService {
      * @param isWorkingHoliday 1 是   2 否
      */
     void isWorkingHoliday(List<String> ids,String isWorkingHoliday);
+
+    void saveList(List<TcmAttendanceCorrection> list);
 
     void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);
 

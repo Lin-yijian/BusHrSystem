@@ -3,6 +3,7 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 import com.yonyou.iuap.BusinessException;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.SQLParameter;
+import com.yonyou.iuap.yms.param.condtition.SFunction;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
@@ -32,15 +33,32 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Override
     public List<TcmAttendanceCorrection> getByDateAndStaffId(String date, String staffId) {
+        return getByDateAndField(date, staffId, TcmAttendanceCorrection::getEmployee_id);
+    }
 
-        if (staffId == null || StringUtils.isBlank(date)) {
+
+    @Override
+    public List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId) {
+        return getByDateAndField(date, waybillEmployeeId, TcmAttendanceCorrection::getWaybill_employee_id);
+    }
+
+    /**
+     * 查询
+     * @param date 。
+     * @param fieldValue 。
+     * @param fieldGetter 。
+     * @return 。
+     */
+    private List<TcmAttendanceCorrection> getByDateAndField(String date, String fieldValue,
+                                                            SFunction<TcmAttendanceCorrection, String> fieldGetter) {
+        if (StringUtils.isBlank(fieldValue) || StringUtils.isBlank(date)) {
             return Collections.emptyList();
         }
 
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
         routeCondition.eq(TcmAttendanceCorrection::getDate, date)
-                .eq(TcmAttendanceCorrection::getEmployee_id, staffId)
+                .eq(fieldGetter, fieldValue)
                 .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
                 .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(routeCondition);
@@ -160,6 +178,19 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday, TcmAttendanceCorrection.ID, ids);
     }
 
+
+    @Override
+    public void saveList(List<TcmAttendanceCorrection> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceCorrection record : list) {
+            record.setYtenantId(tenantId);
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.insert(list);
+    }
 
     @Override
     public void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list) {
