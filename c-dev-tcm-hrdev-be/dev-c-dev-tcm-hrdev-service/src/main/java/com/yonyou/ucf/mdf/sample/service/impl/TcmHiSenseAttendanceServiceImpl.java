@@ -1296,7 +1296,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     /**
      * 在分组内执行合并逻辑
      * 遍历排序后的记录，判断相邻记录是否需要合并
-     * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔不超过1小时
+     * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔小于合并阈值（等于阈值不合并）
      *
      * @param sortedGroup    已按实际发车时间排序的分组数据
      * @param mergeGapMillis 本次拉取已解析的合并间隔（毫秒）
@@ -1375,7 +1375,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 判断两条记录是否需要合并
-     * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔不超过参数配置的合并阈值（格式 HH:mm），且时间顺序正确（非负数）
+     * 合并条件：上一条的实际到达时间与下一条的实际发车时间间隔小于参数配置的合并阈值（格式 HH:mm），刚好等于阈值不合并，且时间顺序正确（非负数）
      *
      * @param prev           上一条记录
      * @param curr           当前记录
@@ -1393,8 +1393,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 计算时间间隔（毫秒）
         long gap = currLeave.getTime() - prevArrive.getTime();
-        // 间隔 >= 0（时间顺序正确）且 <= 参数配置的合并间隔（HH:mm 解析得到的毫秒数）则合并
-        return gap >= 0 && gap <= mergeGapMillis;
+        // 间隔 >= 0（时间顺序正确）且 < 参数配置的合并间隔（HH:mm 解析得到的毫秒数）则合并；刚好等于阈值不合并
+        return gap >= 0 && gap < mergeGapMillis;
     }
 
     /**
