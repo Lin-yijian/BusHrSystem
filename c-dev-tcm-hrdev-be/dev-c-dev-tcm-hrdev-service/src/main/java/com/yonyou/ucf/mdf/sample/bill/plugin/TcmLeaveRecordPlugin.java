@@ -11,6 +11,7 @@ import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
@@ -66,7 +67,8 @@ public class TcmLeaveRecordPlugin extends AbstractBillPlugin {
             String id = data.getId();
             String date = data.getStart_date();
             String employeeId = data.getEmployee_id();
-            if (id != null && date != null && employeeId != null) {
+            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+            if (id != null && date != null && employeeId != null && isInsert) {
                 List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
                 List<TcmAttendanceAbsenceDataRecord> records = new ArrayList<>();
                 for (TcmAttendanceCorrection correction : correctionList) {

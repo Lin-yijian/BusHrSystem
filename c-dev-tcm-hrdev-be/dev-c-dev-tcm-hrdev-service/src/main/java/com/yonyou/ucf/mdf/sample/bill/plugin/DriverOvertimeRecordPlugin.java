@@ -14,6 +14,7 @@ import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
@@ -115,7 +116,8 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             String date = data.getOvertime_date();
             String employeeId = data.getEmployee_id();
             calcTrigger.collectJlAndFlush(date, employeeId);
-            if (id != null && date != null && employeeId != null) {
+            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+            if (id != null && date != null && employeeId != null && isInsert) {
                 List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateAndStaffId(date, employeeId);
                 List<TcmAttendanceDriverOvertimeRecord> records = new ArrayList<>();
                 for (TcmAttendanceCorrection correction : correctionList) {
