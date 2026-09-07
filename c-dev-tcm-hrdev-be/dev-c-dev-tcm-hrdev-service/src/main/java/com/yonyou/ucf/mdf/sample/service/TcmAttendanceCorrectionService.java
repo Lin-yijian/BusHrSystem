@@ -71,7 +71,7 @@ public interface TcmAttendanceCorrectionService {
      * @param ids 修正数据ID
      * @param isWorkingHoliday 1 是   2 否
      */
-    void isWorkingHoliday(List<String> ids,String isWorkingHoliday);
+    void isWorkingHoliday(List<String> ids,String isWorkingHoliday, String date);
 
     void saveList(List<TcmAttendanceCorrection> list);
 

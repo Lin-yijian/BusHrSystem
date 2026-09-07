@@ -517,10 +517,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             record.setWaybill_employee_id(correction.getWaybill_employee_id());
             // 默認值：若當日為強制假期（法定假期上班），標記為強制假上班，不視為假日上班、無補休；
             // 否則視為假日上班，補休標記為 "1"
-            if (isForcedHoliday) {
+
+            if (isForcedHoliday && DateUtil.isTimeGreater(correction.getJl_valid_time(),DateUtil.HH_MM_ZERO)) {
                 record.setIs_forced_leave_work(Boolean.TRUE);
                 record.setIs_weekend_work(Boolean.FALSE);
-                record.setWeekend_work_compensation(null);
+                record.setForced_leave_work_compensation("1");
             } else {
                 record.setIs_weekend_work(Boolean.TRUE);
                 record.setWeekend_work_compensation("1");

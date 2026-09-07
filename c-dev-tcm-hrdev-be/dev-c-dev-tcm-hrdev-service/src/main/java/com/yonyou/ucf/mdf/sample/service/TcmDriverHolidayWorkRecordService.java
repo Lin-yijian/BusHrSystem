@@ -29,7 +29,16 @@ public interface TcmDriverHolidayWorkRecordService {
      * @param waybillEmployeeId
      * @return
      */
-    List<TcmDriverHolidayWorkRecord> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId);
+    List<TcmDriverHolidayWorkRecord> getByDateAndEmployeeId(String date, String employeeId);
+
+    /**
+     * 修改假期工作类型
+     * @param date
+     * @param employeeIds
+     * @param isForcedHoliday true 强制假期， false 周假工作
+     *
+     */
+    void changeWorkStatus(String date, Collection<String> employeeIds, boolean isForcedHoliday, String type);
 
 
     void saveList(List<TcmDriverHolidayWorkRecord> list);

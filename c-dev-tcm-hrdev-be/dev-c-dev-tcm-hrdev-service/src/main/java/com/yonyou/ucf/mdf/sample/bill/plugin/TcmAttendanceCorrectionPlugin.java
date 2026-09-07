@@ -44,10 +44,10 @@ public class TcmAttendanceCorrectionPlugin extends AbstractBillPlugin {
                 return;
             }
             String date = data.getDate();
-            String waybillEmployeeId = data.getWaybill_employee_id();
+            String employeeId = data.getEmployee_id();
             String isWeekendWork = data.getIs_working_on_weekly_holiday();
             boolean isWeekend = isWeekendWork != null && isWeekendWork.equals(BaseEnum.YES.getCode());
-            List<TcmDriverHolidayWorkRecord> recordList = service.getByDateAndWaybillEmployeeId(date, waybillEmployeeId);
+            List<TcmDriverHolidayWorkRecord> recordList = service.getByDateAndEmployeeId(date, employeeId);
             for (TcmDriverHolidayWorkRecord record : recordList) {
                 record.setIs_weekend_work(isWeekend);
             }

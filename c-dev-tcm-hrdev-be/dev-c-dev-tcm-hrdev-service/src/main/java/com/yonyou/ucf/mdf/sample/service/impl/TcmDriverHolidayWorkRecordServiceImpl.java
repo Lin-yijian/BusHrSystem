@@ -10,6 +10,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmDriverHolidayWorkRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.apache.commons.lang3.StringUtils;
 import org.imeta.core.base.ConditionOperator;
@@ -47,10 +48,33 @@ public class TcmDriverHolidayWorkRecordServiceImpl implements TcmDriverHolidayWo
     }
 
     @Override
-    public List<TcmDriverHolidayWorkRecord> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId) {
-        return getByDateAndField(date, waybillEmployeeId, TcmDriverHolidayWorkRecord::getWaybill_employee_id);
+    public List<TcmDriverHolidayWorkRecord> getByDateAndEmployeeId(String date, String employeeId) {
+        return getByDateAndField(date, employeeId, TcmDriverHolidayWorkRecord::getEmployee_id);
     }
 
+    @Override
+    public void changeWorkStatus(String date, Collection<String> employeeIds, boolean isForcedHoliday, String type) {
+        List<TcmDriverHolidayWorkRecord> list = getListByDateAndField(date, employeeIds, TcmDriverHolidayWorkRecord::getEmployee_id);
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        for (TcmDriverHolidayWorkRecord record : list) {
+            if (isForcedHoliday) {
+                record.setIs_forced_leave_work(Boolean.TRUE);
+                record.setIs_weekend_work(Boolean.FALSE);
+                record.setForced_leave_work_compensation(type);
+                record.setWeekend_work_compensation(null);
+            } else {
+                record.setIs_weekend_work(Boolean.TRUE);
+                record.setWeekend_work_compensation(type);
+                record.setIs_forced_leave_work(Boolean.FALSE);
+                record.setForced_leave_work_compensation(null);
+            }
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.update(list);
+
+    }
 
     @Override
     public void saveList(List<TcmDriverHolidayWorkRecord> list) {
@@ -82,6 +106,29 @@ public class TcmDriverHolidayWorkRecordServiceImpl implements TcmDriverHolidayWo
         LambdaQueryCondition<TcmDriverHolidayWorkRecord> routeCondition = new LambdaQueryCondition<>(new TcmDriverHolidayWorkRecord());
         routeCondition.eq(TcmDriverHolidayWorkRecord::getDate, date)
                 .eq(fieldGetter, fieldValue)
+                .eq(TcmDriverHolidayWorkRecord::getYtenantId, tenantId)
+                .eq(TcmDriverHolidayWorkRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(routeCondition);
+    }
+
+
+    /**
+     * 查询
+     * @param date 。
+     * @param fieldValue 。
+     * @param fieldGetter 。
+     * @return 。
+     */
+    private List<TcmDriverHolidayWorkRecord> getListByDateAndField(String date, Collection<String> fieldValue,
+                                                               SFunction<TcmDriverHolidayWorkRecord, String> fieldGetter) {
+        if (fieldValue.isEmpty() || StringUtils.isBlank(date)) {
+            return Collections.emptyList();
+        }
+
+        String tenantId = InvocationInfoProxy.getTenantid();
+        LambdaQueryCondition<TcmDriverHolidayWorkRecord> routeCondition = new LambdaQueryCondition<>(new TcmDriverHolidayWorkRecord());
+        routeCondition.eq(TcmDriverHolidayWorkRecord::getDate, date)
+                .in(fieldGetter, fieldValue)
                 .eq(TcmDriverHolidayWorkRecord::getYtenantId, tenantId)
                 .eq(TcmDriverHolidayWorkRecord::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
         return billRepository.queryByClause(routeCondition);

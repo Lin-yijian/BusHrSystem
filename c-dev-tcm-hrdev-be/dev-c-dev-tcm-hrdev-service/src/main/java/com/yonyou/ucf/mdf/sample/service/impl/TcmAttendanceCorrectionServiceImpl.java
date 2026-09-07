@@ -9,6 +9,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.service.TcmDriverHolidayWorkRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -28,6 +29,9 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Autowired
     private CommonUtil commonUtil;
+
+    @Autowired
+    private TcmDriverHolidayWorkRecordService driverHolidayWorkRecordService;
 
     public static final String TABLE_NAME = "tcm_attendance_correction";
 
@@ -173,9 +177,21 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     }
 
     @Override
-    public void isWorkingHoliday(List<String> ids, String isWorkingHoliday) {
-        isWorkingHoliday = StringUtils.isBlank(isWorkingHoliday) ? "2" : isWorkingHoliday;
+    public void isWorkingHoliday(List<String> ids, String isWorkingHoliday, String date) {
+        isWorkingHoliday = StringUtils.isBlank(isWorkingHoliday) ? BaseEnum.NO.getCode() : isWorkingHoliday;
         commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday, TcmAttendanceCorrection.ID, ids);
+
+        String tenantId = InvocationInfoProxy.getTenantid();
+        LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        routeCondition.in(TcmAttendanceCorrection::getId, ids)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmAttendanceCorrection> list = billRepository.queryByClause(routeCondition);
+        Set<String> employeeIds = list.stream().map(TcmAttendanceCorrection::getEmployee_id).collect(Collectors.toSet());
+
+        boolean flag = !Objects.equals(BaseEnum.YES.getCode(), isWorkingHoliday);
+        driverHolidayWorkRecordService.changeWorkStatus(date,employeeIds,flag,"1");
+
     }
 
 
