@@ -393,6 +393,8 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             entity.setTwo_departure_time(row.getDeparture_time());
             entity.setTwo_early_line(row.getLine_str());
             entity.setTwo_car(row.getCar_num());
+            // 對應更位 = 對應下更-對應上更（一更 parking_space 存「對應下更」，二更存「對應上更」）
+            entity.setDesignated_parking_bay(joinParkingBay(entity.getDesignated_parking_bay(), row.getParking_space()));
 
             String timeDifference = DateUtil.getTimeDifference(entity.getOne_finish_time(), entity.getTwo_departure_time());
             String timeOut = "03:00"; // todo 待转参数
@@ -445,6 +447,18 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 .count();
     }
 
+    /**
+     * 拼接對應更位：對應下更-對應上更；任一方为空时返回另一方
+     */
+    private String joinParkingBay(String first, String second) {
+        if (StringUtils.isEmpty(first)) {
+            return second;
+        }
+        if (StringUtils.isEmpty(second)) {
+            return first;
+        }
+        return first + "-" + second;
+    }
     private TcmSheduleShiftsData queryExistingSchedule(String date, String employeeId, String taskCode, String tenantId) {
         LambdaQueryCondition<TcmSheduleShiftsData> condition = new LambdaQueryCondition<>(new TcmSheduleShiftsData());
         condition.eq(TcmSheduleShiftsData::getDate, date)
