@@ -410,6 +410,20 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             CommonUtil.fillUpdateAudit(scheduleUpdateList);
             billRepository.update(scheduleUpdateList);
         }
+        // 判斷當日是否為強制假期（同一天只需查詢一次），按 BaseEnum 是否枚舉賦值修正記錄字段
+        // is_forced_leave_work / is_working_on_weekly_holiday 為 String 類型，取 BaseEnum.YES("1")/NO("2")
+        boolean isForcedHoliday = commonUtil.checkHoliday(date, tenantId);
+        String forcedLeaveWorkFlag = isForcedHoliday ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
+        String workingOnWeeklyHolidayFlag = isForcedHoliday ? BaseEnum.NO.getCode() : BaseEnum.YES.getCode();
+        for (TcmAttendanceCorrection c : correctionInsertList) {
+            c.setIs_forced_leave_work(forcedLeaveWorkFlag);
+            c.setIs_working_on_weekly_holiday(workingOnWeeklyHolidayFlag);
+        }
+        for (TcmAttendanceCorrection c : correctionUpdateList) {
+            c.setIs_forced_leave_work(forcedLeaveWorkFlag);
+            c.setIs_working_on_weekly_holiday(workingOnWeeklyHolidayFlag);
+        }
+
         if (!correctionInsertList.isEmpty()) {
             processDate(correctionInsertList, staffMap);
             CommonUtil.fillInsertAudit(correctionInsertList);
@@ -424,7 +438,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         // 按照生成修正后的数据对应生成车长假期工作记录（须在 processDate 之后，取已计算的有效计量工时）
         List<TcmAttendanceCorrection> mergedCorrections = new ArrayList<>(correctionInsertList);
         mergedCorrections.addAll(correctionUpdateList);
-        int[] holidayCounts = upsertDriverHolidayWorkRecords(date, mergedCorrections, tenantId);
+        int[] holidayCounts = upsertDriverHolidayWorkRecords(date, mergedCorrections, tenantId, isForcedHoliday);
         holidayInserted = holidayCounts[0];
         holidayUpdated = holidayCounts[1];
 
@@ -456,20 +470,21 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
      * 按照生成修正后的数据对应生成車長假期工作記錄（TcmDriverHolidayWorkRecord）。
      * <ul>
      *   <li>日期、工號、姓名、澳巴工號從修正數據複製；</li>
-     *   <li>通過 {@link CommonUtil#checkHoliday(String, String)} 判斷當日是否為強制假期
-     *     （date 落在假期工作日歷任一 begintime~endtime 區間內）：
+     *   <li>強制假期判斷由上層 {@code doGenerateScheduleInternal} 統一調用
+     *     {@link CommonUtil#checkHoliday(String, String)} 後傳入，避免重複查詢；
      *     若為假期則 is_forced_leave_work=true、is_weekend_work=false、weekend_work_compensation=null；
      *     否則 is_weekend_work=true、weekend_work_compensation="1"、is_forced_leave_work=false；</li>
      *   <li>有效總工時 = 有效計量工時(jl_valid_time) - 用膳時長(meal_duration)，均為 HH:mm 字符串；</li>
      *   <li>以 date+employee_id 為唯一鍵：當日已存在則更新（複製字段與工時同步刷新），否則新增。</li>
      * </ul>
      *
-     * @param date        排更日期（yyyy-MM-dd）
-     * @param corrections 本輪生成的修正數據（新增 + 更新合併）
-     * @param tenantId    租戶 id
+     * @param date           排更日期（yyyy-MM-dd）
+     * @param corrections    本輪生成的修正數據（新增 + 更新合併）
+     * @param tenantId       租戶 id
+     * @param isForcedHoliday 上層已判斷的當日是否為強制假期
      * @return int[]{新增數, 更新數}
      */
-    private int[] upsertDriverHolidayWorkRecords(String date, List<TcmAttendanceCorrection> corrections, String tenantId) {
+    private int[] upsertDriverHolidayWorkRecords(String date, List<TcmAttendanceCorrection> corrections, String tenantId, boolean isForcedHoliday) {
         if (corrections == null || corrections.isEmpty()) {
             return new int[]{0, 0};
         }
@@ -483,10 +498,6 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         if (correctionMap.isEmpty()) {
             return new int[]{0, 0};
         }
-
-        // 查詢假期工作日歷，判斷當日 date 是否為強制假期（落在任一 begintime~endtime 區間內）
-        // 同一批次日期固定，只需查詢一次；若為假期則覆蓋默認值
-        boolean isForcedHoliday = commonUtil.checkHoliday(date, tenantId);
 
         // 一次查詢當日已有假期工作記錄，按 employee_id 建索引，避免逐條查庫
         LambdaQueryCondition<TcmDriverHolidayWorkRecord> condition = new LambdaQueryCondition<>(new TcmDriverHolidayWorkRecord());
