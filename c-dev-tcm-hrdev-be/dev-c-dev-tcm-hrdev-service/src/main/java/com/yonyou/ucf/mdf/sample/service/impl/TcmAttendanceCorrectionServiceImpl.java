@@ -179,7 +179,14 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     @Override
     public void isWorkingHoliday(List<String> ids, String isWorkingHoliday, String date) {
         isWorkingHoliday = StringUtils.isBlank(isWorkingHoliday) ? BaseEnum.NO.getCode() : isWorkingHoliday;
-        commonUtil.updateBySql(TABLE_NAME,TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday, TcmAttendanceCorrection.ID, ids);
+
+
+        Map<String,Object> map = new HashMap<>();
+        map.put(TcmAttendanceCorrection.IS_WORKING_ON_WEEKLY_HOLIDAY, isWorkingHoliday);
+        if (BaseEnum.YES.getCode().equals(isWorkingHoliday)) {
+            map.put(TcmAttendanceCorrection.IS_FORCED_LEAVE_WORK, BaseEnum.NO.getCode());
+        }
+        commonUtil.updateBySql(TABLE_NAME,map, ids);
 
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());

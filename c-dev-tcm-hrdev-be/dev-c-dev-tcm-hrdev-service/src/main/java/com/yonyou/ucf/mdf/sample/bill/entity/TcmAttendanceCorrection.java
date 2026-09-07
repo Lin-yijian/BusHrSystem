@@ -64,6 +64,7 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     public static final String IS_NIGHT_SHIFT = "is_night_shift";
     public static final String SUBSTITUTE_SHIFT_TYPE = "substitute_shift_type";
     public static final String IS_WORKING_ON_WEEKLY_HOLIDAY = "is_working_on_weekly_holiday";
+    public static final String IS_FORCED_LEAVE_WORK = "is_forced_leave_work";
     public static final String SHIFT_CHANGE_ALLOWANCE = "shift_change_allowance";
     public static final String MINIBUS_DRIVING_HOURS = "minibus_driving_hours";
     public static final String MEDIUM_BUS_DRIVING_HOURS = "medium_bus_driving_hours";
@@ -202,6 +203,8 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     private String substitute_shift_type;
     /* 是否周假上班 */
     private String is_working_on_weekly_holiday;
+    /* 是否強制假上班 */
+    private String is_forced_leave_work;
     /* 上下更津貼 */
     private String shift_change_allowance;
     /* 小巴行車工時 */
@@ -285,6 +288,14 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     /* 租户id */
     private String ytenantId;
 
+
+    public String getIs_forced_leave_work() {
+        return is_forced_leave_work;
+    }
+
+    public void setIs_forced_leave_work(String is_forced_leave_work) {
+        this.is_forced_leave_work = is_forced_leave_work;
+    }
 
     public String getOne_late_duration() {
         return one_late_duration;

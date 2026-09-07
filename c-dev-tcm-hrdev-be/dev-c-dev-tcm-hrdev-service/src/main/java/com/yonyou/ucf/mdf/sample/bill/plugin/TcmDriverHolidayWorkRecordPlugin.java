@@ -61,6 +61,9 @@ public class TcmDriverHolidayWorkRecordPlugin extends AbstractBillPlugin {
                 List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
                 for (TcmAttendanceCorrection correction : correctionList) {
                     correction.setIs_working_on_weekly_holiday(isWeekendWorkStr);
+                    if (isWeekendWork) {
+                        correction.setIs_forced_leave_work(BaseEnum.NO.getCode());
+                    }
                 }
                 correctionService.saveList(correctionList);
             }
