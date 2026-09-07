@@ -13,6 +13,8 @@ public enum UrlEnum {
     WAYBILL_LOGIN_RECORD("TCMCaptainAttendance.CJ26030001.tcmHisenseWaybillLoginRecord", "c-dev-tcm-hrdev"),
     // 员工信息
     BD_STAFF("hred.staff.Staff", "hrcloud-staff-mgr"),
+    // 时间管理-工作日历-假日定义
+    TS_HOLIDAY("hrtm.workingCalendar.Holiday", "yonbip-hr-tm"),
     // 车辆信息
     CAR_INFO("TCMBaseInfo.TCMBaseInfo.TCMCar", "c-dev-tcm-hrdev"),
     // 海信排更

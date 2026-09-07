@@ -433,6 +433,72 @@ public class DateUtil {
     }
 
     /**
+     * 将任意日期值兼容转换为 {@link LocalDate}（按日期粒度比较，忽略时分秒）。
+     * <p>支持的取值类型：
+     * <ul>
+     *   <li>{@link LocalDate} / {@link LocalDateTime}：直接取日期部分</li>
+     *   <li>{@link Date}：按系统时区取日期部分</li>
+     *   <li>{@link Number}：视为时间戳毫秒，先转 Date 再取日期部分</li>
+     *   <li>{@link String}：优先按 {@code yyyy-MM-dd HH:mm:ss} 解析，失败再按 {@code yyyy-MM-dd} 解析</li>
+     * </ul>
+     *
+     * @param value 原始日期值
+     * @return 转换后的日期；值为 null、空串或无法解析时返回 null
+     */
+    public static LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).toLocalDate();
+        }
+        if (value instanceof Date) {
+            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        }
+        if (value instanceof Number) {
+            return new Date(((Number) value).longValue()).toInstant()
+                    .atZone(ZoneId.systemDefault()).toLocalDate();
+        }
+        String text = value.toString().trim();
+        if (text.isEmpty() || "null".equalsIgnoreCase(text)) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(text, DateTimeFormatter.ofPattern(YYYY_MM_DD_HH_MM_SS)).toLocalDate();
+        } catch (DateTimeParseException ignore) {
+            // 退化为纯日期格式
+        }
+        try {
+            return LocalDate.parse(text, FORMATTER_YYYY_MM_DD);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 判断目标日期是否落在 [beginTime, endTime] 区间内（按日期粒度闭区间比较，忽略时分秒）。
+     * <p>{@code date} 为 yyyy-MM-dd 字符串；{@code beginTime}/{@code endTime} 通常为
+     * yyyy-MM-dd HH:mm:ss 字符串，也兼容 Date、时间戳、LocalDate 等类型（见 {@link #toLocalDate(Object)}）。
+     *
+     * @param date      目标日期，格式 yyyy-MM-dd
+     * @param beginTime 区间起点（含），如 begintime
+     * @param endTime   区间终点（含），如 endtime
+     * @return true 表示 beginTime 的日期 &lt;= date &lt;= endTime 的日期；任一参数无法解析时返回 false
+     */
+    public static boolean isDateInRange(String date, Object beginTime, Object endTime) {
+        LocalDate target = toLocalDate(date);
+        LocalDate begin = toLocalDate(beginTime);
+        LocalDate end = toLocalDate(endTime);
+        if (target == null || begin == null || end == null) {
+            return false;
+        }
+        return !target.isBefore(begin) && !target.isAfter(end);
+    }
+
+    /**
      * from - to 的有符号分钟差。任一为空返回 null。
      */
     public static Integer signedDiffMinutes(Date from, Date to) {

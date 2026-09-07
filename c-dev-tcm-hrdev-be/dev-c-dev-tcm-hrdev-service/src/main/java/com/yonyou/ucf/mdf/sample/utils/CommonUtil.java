@@ -361,6 +361,37 @@ public class CommonUtil {
         return result;
     }
 
+
+    /**
+     * 检查日期是否处于强制假期范围内
+     * @param date  yyyy-MM-dd
+     * @param tenantId .
+     * @return true 表示该日期为强制假期（假期上班）；无数据或不在任何区间内返回 false
+     */
+    public boolean checkHoliday(String date, String tenantId) {
+        if (StringUtils.isEmpty(date)) {
+            return false;
+        }
+
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, begintime, endtime, holidyname, ispreset");
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        List<Map<String, Object>> mapList = queryService.queryMapBySchema(
+                UrlEnum.TS_HOLIDAY.getUrl(), querySchema, UrlEnum.TS_HOLIDAY.getDomainKey());
+        if (mapList == null || mapList.isEmpty()) {
+            return false;
+        }
+
+        for (Map<String, Object> map : mapList) {
+            // 日期区间判断（date 为 yyyy-MM-dd，begintime/endtime 为 yyyy-MM-dd HH:mm:ss），按日期粒度闭区间比较
+            if (DateUtil.isDateInRange(date, map.get("begintime"), map.get("endtime"))) {
+                log.info("【假期判斷】日期【{}】命中假期【{}】", date, map.get("holidyname"));
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * 按员工主键 ID 批量查询员工信息。key = staff.id，供修正表 employee_id 匹配。
      */

@@ -456,7 +456,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
      * 按照生成修正后的数据对应生成車長假期工作記錄（TcmDriverHolidayWorkRecord）。
      * <ul>
      *   <li>日期、工號、姓名、澳巴工號從修正數據複製；</li>
-     *   <li>is_weekend_work 默認 true、weekend_work_compensation 默認 "1"、is_forced_leave_work 默認 false；</li>
+     *   <li>通過 {@link CommonUtil#checkHoliday(String, String)} 判斷當日是否為強制假期
+     *     （date 落在假期工作日歷任一 begintime~endtime 區間內）：
+     *     若為假期則 is_forced_leave_work=true、is_weekend_work=false、weekend_work_compensation=null；
+     *     否則 is_weekend_work=true、weekend_work_compensation="1"、is_forced_leave_work=false；</li>
      *   <li>有效總工時 = 有效計量工時(jl_valid_time) - 用膳時長(meal_duration)，均為 HH:mm 字符串；</li>
      *   <li>以 date+employee_id 為唯一鍵：當日已存在則更新（複製字段與工時同步刷新），否則新增。</li>
      * </ul>
@@ -480,6 +483,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         if (correctionMap.isEmpty()) {
             return new int[]{0, 0};
         }
+
+        // 查詢假期工作日歷，判斷當日 date 是否為強制假期（落在任一 begintime~endtime 區間內）
+        // 同一批次日期固定，只需查詢一次；若為假期則覆蓋默認值
+        boolean isForcedHoliday = commonUtil.checkHoliday(date, tenantId);
 
         // 一次查詢當日已有假期工作記錄，按 employee_id 建索引，避免逐條查庫
         LambdaQueryCondition<TcmDriverHolidayWorkRecord> condition = new LambdaQueryCondition<>(new TcmDriverHolidayWorkRecord());
@@ -508,10 +515,17 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             record.setEmployee_id(correction.getEmployee_id());
             record.setDriver_name(correction.getDriver_name());
             record.setWaybill_employee_id(correction.getWaybill_employee_id());
-            // 默認值
-            record.setIs_weekend_work(Boolean.TRUE);
-            record.setWeekend_work_compensation("1");
-            record.setIs_forced_leave_work(Boolean.FALSE);
+            // 默認值：若當日為強制假期（法定假期上班），標記為強制假上班，不視為假日上班、無補休；
+            // 否則視為假日上班，補休標記為 "1"
+            if (isForcedHoliday) {
+                record.setIs_forced_leave_work(Boolean.TRUE);
+                record.setIs_weekend_work(Boolean.FALSE);
+                record.setWeekend_work_compensation(null);
+            } else {
+                record.setIs_weekend_work(Boolean.TRUE);
+                record.setWeekend_work_compensation("1");
+                record.setIs_forced_leave_work(Boolean.FALSE);
+            }
             // 有效總工時 = 有效計量工時 - 用膳時長（subtractTimeDifferences 對空值/非法值按 00:00 處理）
             record.setEffective_total_work_hours(DateUtil.subtractTimeDifferences(
                     correction.getJl_valid_time(), correction.getMeal_duration()));
