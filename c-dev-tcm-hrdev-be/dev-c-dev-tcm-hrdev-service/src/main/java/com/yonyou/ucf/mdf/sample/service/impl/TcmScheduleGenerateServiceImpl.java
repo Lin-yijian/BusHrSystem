@@ -412,7 +412,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         }
         // 判斷當日是否為強制假期（同一天只需查詢一次），按 BaseEnum 是否枚舉賦值修正記錄字段
         // is_forced_leave_work / is_working_on_weekly_holiday 為 String 類型，取 BaseEnum.YES("1")/NO("2")
-        boolean isForcedHoliday = commonUtil.checkHoliday(date, tenantId);
+        boolean isForcedHoliday = commonUtil.checkHoliday(date, tenantId,"澳巴-強制性假");
         String forcedLeaveWorkFlag = isForcedHoliday ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
         String workingOnWeeklyHolidayFlag = isForcedHoliday ? BaseEnum.NO.getCode() : BaseEnum.YES.getCode();
         for (TcmAttendanceCorrection c : correctionInsertList) {
@@ -471,7 +471,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
      * <ul>
      *   <li>日期、工號、姓名、澳巴工號從修正數據複製；</li>
      *   <li>強制假期判斷由上層 {@code doGenerateScheduleInternal} 統一調用
-     *     {@link CommonUtil#checkHoliday(String, String)} 後傳入，避免重複查詢；
+     *     {@link CommonUtil#checkHoliday(String, String, String)} 後傳入，避免重複查詢；
      *     若為假期則 is_forced_leave_work=true、is_weekend_work=false、weekend_work_compensation=null；
      *     否則 is_weekend_work=true、weekend_work_compensation="1"、is_forced_leave_work=false；</li>
      *   <li>有效總工時 = 有效計量工時(jl_valid_time) - 用膳時長(meal_duration)，均為 HH:mm 字符串；</li>

@@ -368,14 +368,15 @@ public class CommonUtil {
      * @param tenantId .
      * @return true 表示该日期为强制假期（假期上班）；无数据或不在任何区间内返回 false
      */
-    public boolean checkHoliday(String date, String tenantId) {
+    public boolean checkHoliday(String date, String tenantId,String workingCalendarName) {
         if (StringUtils.isEmpty(date)) {
             return false;
         }
 
-        QuerySchema querySchema = QuerySchema.create().addSelect("id, begintime, endtime, holidyname, ispreset");
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, begintime, endtime, holidyname, ispreset ");
         querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
-        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        querySchema.appendQueryCondition(QueryCondition.name("parentid.workingcalendarname").eq("澳巴-強制性假")); // todo 待转参数
+//        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
         List<Map<String, Object>> mapList = queryService.queryMapBySchema(
                 UrlEnum.TS_HOLIDAY.getUrl(), querySchema, UrlEnum.TS_HOLIDAY.getDomainKey());
         if (mapList == null || mapList.isEmpty()) {
