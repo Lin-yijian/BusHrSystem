@@ -2,6 +2,7 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 
 import com.yonyou.iuap.BusinessException;
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.SQLParameter;
 import com.yonyou.iuap.yms.param.condtition.SFunction;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
@@ -32,6 +33,9 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     @Autowired
     private TcmDriverHolidayWorkRecordService driverHolidayWorkRecordService;
+
+    @Autowired
+    private YmsOidGenerator ymsOidGenerator;
 
     public static final String TABLE_NAME = "tcm_attendance_correction";
 
@@ -201,6 +205,60 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
     }
 
+    @Override
+    public void sheduleShiftsChangeCorrection(TcmSheduleShiftsData data) {
+        if (null == data || StringUtils.isBlank(data.getDate()) || StringUtils.isBlank(data.getEmployee_id())) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+
+        // 以 日期 + 員工 + 任務 查找已有修正記錄：有則在原記錄上更新排更(pg)/計糧(jl)時間（保留考勤 kq 等欄位），無則新增
+        LambdaQueryCondition<TcmAttendanceCorrection> condition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        condition.eq(TcmAttendanceCorrection::getDate, data.getDate())
+                .eq(TcmAttendanceCorrection::getEmployee_id, data.getEmployee_id())
+                .eq(TcmAttendanceCorrection::getTask_code, data.getTask_code())
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        List<TcmAttendanceCorrection> existList = billRepository.queryByClause(condition);
+        boolean isNew = existList.isEmpty();
+        TcmAttendanceCorrection c = isNew ? new TcmAttendanceCorrection() : existList.get(0);
+        if (isNew) {
+            c.setId(ymsOidGenerator.nextStrId());
+            c.setYtenantId(tenantId);
+            c.setDate(data.getDate());
+            c.setEmployee_id(data.getEmployee_id());
+            c.setTask_code(data.getTask_code());
+        }
+
+        // 基礎信息
+        c.setWaybill_employee_id(data.getWaybill_employee_id());
+        c.setDriver_name(data.getName());
+        // 排更(pg)時間：一更發車/收車、二更發車/收車
+        c.setPg_one_departure_time(data.getDeparture_time());
+        c.setPg_one_return_time(data.getOne_finish_time());
+        c.setPg_two_departure_time(data.getTwo_departure_time());
+        c.setPg_two_return_time(data.getFinish_time());
+        // 計糧(jl)時間默認取排更時間（後續可由後備車長/加班等邏輯覆蓋）
+        c.setJl_one_departure_time(data.getDeparture_time());
+        c.setJl_one_return_time(data.getOne_finish_time());
+        c.setJl_two_departure_time(data.getTwo_departure_time());
+        c.setJl_two_return_time(data.getFinish_time());
+
+        // 員工信息（key=員工工號 code；processDate 內按 employee_id 取用工類型等）
+        Set<String> idSet = Collections.singleton(data.getEmployee_id());
+        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(idSet, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
+        // 重新計算有效工時、遲到早退、夜更、異常核對等
+        commonUtil.processDate(c, staffMap);
+
+        // 新增/更新落庫
+        if (isNew) {
+            CommonUtil.fillInsertAudit(c);
+            billRepository.insert(Collections.singletonList(c));
+        } else {
+            CommonUtil.fillUpdateAudit(c);
+            billRepository.update(Collections.singletonList(c));
+        }
+    }
 
     @Override
     public void saveList(List<TcmAttendanceCorrection> list) {
