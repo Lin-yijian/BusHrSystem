@@ -1195,7 +1195,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 合并考勤数据
      * 步骤：
      *  0. 过滤：实际发车时间 和 实际到达时间 同时为空 的数据直接剔除（不参与合并、不进行保存）
-     *  1. 按 工号 + 车牌 + 线路 + 日期 分组
+     *  1. 按 工号 + 车牌 + 日期 分组
      *  2. 组内按实际发车时间排序
      *  3. 判断相邻记录是否合并（满足1小时间隔则合并）
      *  4. 对合并后结果再次过滤：若某条合并记录 发车时间 和 到达时间 同时为空，则不加入最终返回列表（不保存）
@@ -1218,8 +1218,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return Collections.emptyList();
         }
 
-        // ============ 1. 分组：工号 + 车牌 + 线路 + 运行日期（去掉方向 segmentid） ============
-        // 确保不会跨天、跨线路合并
+        // ============ 1. 分组：工号 + 车牌 + 运行日期（允许跨线路合并） ============
         Map<String, List<HiSenseAttendanceDataDTO>> groupedMap = validList.stream()
                 .collect(Collectors.groupingBy(this::buildGroupKey));
 
@@ -1247,7 +1246,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
     /**
      * 构建分组键
-     * 分组维度：工号 + 车牌 + 线路 + 运行日期
+     * 分组维度：工号 + 车牌 + 运行日期
      *
      * @param data 考勤数据
      * @return 分组键字符串
@@ -1255,9 +1254,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     private String buildGroupKey(HiSenseAttendanceDataDTO data) {
         String employeeId = parseEmployeeId(data.getDrivername());
         String buscardid = data.getBuscardid();
-        String routename = data.getRoutename();
         String rundate = data.getRundate() != null ? String.valueOf(data.getRundate().getTime()) : "";
-        return employeeId + "|" + buscardid + "|" + routename + "|" + rundate;
+        return employeeId + "|" + buscardid + "|" + rundate;
     }
 
     /**
