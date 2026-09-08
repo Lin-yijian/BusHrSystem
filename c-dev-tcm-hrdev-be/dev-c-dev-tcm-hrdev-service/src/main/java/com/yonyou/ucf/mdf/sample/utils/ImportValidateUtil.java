@@ -125,11 +125,11 @@ public class ImportValidateUtil {
                             String routeCodeKey, String routeIdKey) {
         // 姓名
         String name = (String) data.getValueByKey(nameKey);
-        if (name == null || name.isEmpty()) {
-            data.addImportError("數據中姓名為空，請檢查");
-            return;
-//            throw new RuntimeException("數據中姓名為空，請檢查");
-        }
+//        if (name == null || name.isEmpty()) {
+//            data.addImportError("數據中姓名為空，請檢查");
+//            return;
+////            throw new RuntimeException("數據中姓名為空，請檢查");
+//        }
         // 工号 → 员工ID
         String cardId = (String) data.getValueByKey(cardIdKey);
         if (cardId != null && !cardId.isEmpty()) {
