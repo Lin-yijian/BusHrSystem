@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 考勤计算服务实现
+ * 日考勤結果匯總服务实现
  * @author aze
  */
 @Slf4j
@@ -152,7 +152,6 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
                     newCalRecord.setAttendance_type(existing.getAttendance_type());
                     newCalRecord.setWork_time(existing.getWork_time());
                     newCalRecord.setLate_early_leave_period(existing.getLate_early_leave_period());
-                    newCalRecord.setCode(existing.getCode());
                     newCalRecord.setId(existing.getId());
                     newCalRecord.setYtenantId(existing.getYtenantId());
                     newCalRecord.setDr(existing.getDr());

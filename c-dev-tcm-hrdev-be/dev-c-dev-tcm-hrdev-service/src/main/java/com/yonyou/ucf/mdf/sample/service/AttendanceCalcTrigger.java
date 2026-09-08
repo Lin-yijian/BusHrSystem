@@ -295,7 +295,7 @@ public class AttendanceCalcTrigger {
                 if (!result.ok()) {
                     AttendanceCalcImportContext.requeueJlRefresh(result.failedJlKeys);
                     AttendanceCalcImportContext.requeueSourceSync(result.failedSourceKeys);
-                    log.error("导入/删除后考勤收尾未全部成功，失败人天可到【考勤计算】补齐. empDays={} sourceDays={}",
+                    log.error("导入/删除后考勤收尾未全部成功，失败人天可到【日考勤結果匯總】补齐. empDays={} sourceDays={}",
                             result.failedJlKeys.size(), result.failedSourceKeys.size());
                 }
             } catch (Exception e) {

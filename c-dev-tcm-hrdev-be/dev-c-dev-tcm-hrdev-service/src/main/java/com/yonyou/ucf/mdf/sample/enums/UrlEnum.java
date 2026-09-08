@@ -29,7 +29,7 @@ public enum UrlEnum {
     TCM_BA_TYPE_ATTENDANCE_DATA("unitfyEnum.TCMCaptainAttendance.tcmBaTypeAttendanceData", "c-dev-tcm-hrdev"),
     // 考勤修正
     ATTENDANCE_CORRECTION("unitfyEnum.TCMCaptainAttendance.tcmAttendanceCorrection", "c-dev-tcm-hrdev"),
-    // 考勤計算
+    // 日考勤結果匯總
     ATTENDANCE_CALCULATION("unitfyEnum.TCMCaptainAttendance.tcmAttendanceCalculation", "c-dev-tcm-hrdev"),
     // 考勤统计
     ATTENDANCE_STATISTICS("unitfyEnum.TCMCaptainAttendance.tcmAttendanceStatistics", "c-dev-tcm-hrdev");
