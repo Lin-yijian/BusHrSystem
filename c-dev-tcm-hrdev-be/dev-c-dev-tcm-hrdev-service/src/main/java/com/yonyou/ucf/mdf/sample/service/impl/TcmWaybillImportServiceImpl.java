@@ -98,7 +98,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
             if (data.getEmployee_id() == null) {
                 errorRemark = "海信工號匹配失敗；";
             }
-            if (data.getCar_num() == null){
+            if (StringUtils.isNotBlank(data.getLine_str()) && StringUtils.isBlank(data.getCar_num())) {
                 errorRemark = errorRemark + "車輛編號缺失；";
             }
 
