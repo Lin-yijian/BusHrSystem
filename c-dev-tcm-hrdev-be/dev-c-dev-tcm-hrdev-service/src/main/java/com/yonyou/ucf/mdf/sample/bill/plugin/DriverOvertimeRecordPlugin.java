@@ -94,6 +94,8 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             entity.setEmployee_id(staffId);
         }
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(entity.getOvertime_date());
             tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getOvertime_date(), ModuleEnum.TCM_DRIVER_OVERTIME, true);
         }
     }
@@ -162,6 +164,13 @@ public class DriverOvertimeRecordPlugin extends AbstractBillPlugin {
             String overtime_date = (String) data.getData().get("overtime_date");
             dateList.add(overtime_date);
             dateSet.add(overtime_date);
+        }
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateSet);
+        for (ImportSingleData data : dataList) {
+            String overtime_date = (String) data.getData().get("overtime_date");
+            if (!importedDateSet.contains(overtime_date)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
         }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_DRIVER_OVERTIME, true);
 

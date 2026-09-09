@@ -121,6 +121,8 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
      * 车载机登入记录同步主逻辑（内部私有，不携带 @SyncLog 避免 AOP 切入）。
      */
     private int doSyncByActDateInternal(String actDate) {
+        // 同步前校驗：該日期排更數據必須已導入
+        checkRecordService.validateScheduleDataImported(actDate);
         List<HiSenseLoginRecordDataDTO> hiSenseDataList = getHiSenseDataByActDate(actDate);
         if (hiSenseDataList.isEmpty()) {
             throw new RuntimeException("當前日期數據爲空，請稍後再試");

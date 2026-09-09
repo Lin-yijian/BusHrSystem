@@ -66,6 +66,8 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         super.beforeSave(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(data.getDate());
             tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
         }
     }
@@ -113,7 +115,15 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
                 data.addImportError("員工不存在，澳巴工號：【" + waybill_employee_id + "】");
             }
             data.getData().put("driver_no", employee_id);
-            dateSet.add((String) data.getData().get("date"));
+            String scheduleDate = (String) data.getData().get("date");
+            dateSet.add(scheduleDate);
+        }
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateSet);
+        for (ImportSingleData data : dataList) {
+            String scheduleDate = (String) data.getData().get("date");
+            if (!importedDateSet.contains(scheduleDate)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
         }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
     }

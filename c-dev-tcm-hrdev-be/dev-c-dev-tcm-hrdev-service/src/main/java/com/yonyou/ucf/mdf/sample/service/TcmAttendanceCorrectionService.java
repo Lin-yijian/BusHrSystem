@@ -80,7 +80,7 @@ public interface TcmAttendanceCorrectionService {
      */
     void sheduleShiftsChangeCorrection(TcmSheduleShiftsData data);
 
-    void saveList(List<TcmAttendanceCorrection> list);
+    void updateList(List<TcmAttendanceCorrection> list);
 
     void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);
 

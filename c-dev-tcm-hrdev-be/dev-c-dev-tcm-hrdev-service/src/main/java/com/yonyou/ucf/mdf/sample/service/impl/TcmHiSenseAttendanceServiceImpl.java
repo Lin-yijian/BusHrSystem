@@ -239,6 +239,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * 内部方法直接调用不会触发 AOP（基于 Spring 代理机制，需走代理才会切入）。
      */
     private int doSyncDataInternal(String runDate) {
+        // 同步前校驗：該日期排更數據必須已導入
+        tcmAttendanceCheckRecordService.validateScheduleDataImported(runDate);
         long totalStart = System.currentTimeMillis();
         AttendanceCalcImportContext.beginBulkSync();
         try {
@@ -1169,7 +1171,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             int dupCount = rawCount - uniqueData.size();
             // 统一拆分 drivername（"姓名|工号"）回填 driverName/employeeId，避免下游多处重复解析
             for (HiSenseAttendanceDataDTO dto : uniqueData) {
-                dto.setDriverName(parseDriverName(dto.getDrivername()));
+                dto.setName(parseDriverName(dto.getDrivername()));
                 dto.setEmployeeId(parseEmployeeId(dto.getDrivername()));
             }
             log.info("【海信考勤接口】业务日期：【{}】，分页获取完成，接口返回{}条，全字段去重后{}条，剔除重复{}条",
@@ -1436,7 +1438,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         merged.setBusselfid(first.getBusselfid());
         merged.setBuscardid(first.getBuscardid());
         // 驾驶员信息（姓名/工号已在拉取数据时由 drivername 拆分回填）
-        merged.setDriverName(first.getDriverName());
+        merged.setDriverName(first.getName());
         merged.setEmployeeId(first.getEmployeeId());
         // 时间字段：发车时间取第一条，到达时间取最后一条
         merged.setLeavetime(first.getLeavetime());

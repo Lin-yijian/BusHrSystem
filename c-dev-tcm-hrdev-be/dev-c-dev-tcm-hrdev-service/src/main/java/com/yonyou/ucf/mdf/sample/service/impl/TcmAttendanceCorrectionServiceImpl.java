@@ -261,16 +261,12 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     }
 
     @Override
-    public void saveList(List<TcmAttendanceCorrection> list) {
+    public void updateList(List<TcmAttendanceCorrection> list) {
         if (list == null || list.isEmpty()) {
             return;
         }
-        String tenantId = InvocationInfoProxy.getTenantid();
-        for (TcmAttendanceCorrection record : list) {
-            record.setYtenantId(tenantId);
-        }
-        CommonUtil.fillInsertAudit(list);
-        billRepository.insert(list);
+        CommonUtil.fillUpdateAudit(list);
+        billRepository.update(list);
     }
 
     @Override

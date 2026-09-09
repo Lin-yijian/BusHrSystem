@@ -85,6 +85,8 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             entity.setEmployee_id(staffId);
         }
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(entity.getDate());
             tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD, true);
         }
     }
@@ -131,6 +133,13 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             dateList.add(overtime_date);
         }
 
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateList);
+        for (ImportSingleData data : dataList) {
+            String overtime_date = (String) data.getData().get("date");
+            if (!importedDateSet.contains(overtime_date)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
+        }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateList, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
 
