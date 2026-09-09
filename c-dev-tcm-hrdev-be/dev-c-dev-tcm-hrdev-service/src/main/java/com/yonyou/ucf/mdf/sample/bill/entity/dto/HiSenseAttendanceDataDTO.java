@@ -77,4 +77,20 @@ public class HiSenseAttendanceDataDTO {
 
     /** 是否已确认 */
     private String isconfirm;
+
+    public String getDriverName() {
+        return driverName;
+    }
+
+    public void setDriverName(String driverName) {
+        this.driverName = driverName;
+    }
+
+    public String getDrivername() {
+        return drivername;
+    }
+
+    public void setDrivername(String drivername) {
+        this.drivername = drivername;
+    }
 }
