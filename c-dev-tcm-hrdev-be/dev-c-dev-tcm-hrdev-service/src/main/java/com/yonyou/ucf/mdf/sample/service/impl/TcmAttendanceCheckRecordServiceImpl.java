@@ -112,6 +112,32 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
         }
     }
 
+    @Override
+    public void validateNoOtherRawDataImported(String date) {
+        String normalizedDate = DateUtil.normalizeToYyyyMmDd(date);
+        if (StringUtil.isEmpty(normalizedDate)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> records = findRecordsByDate(normalizedDate, tenantId);
+        if (records.isEmpty()) {
+            return;
+        }
+        // 除排更數據(schedule_data)外，任一原始數據布爾標記為 true，則不允許刪除排更數據
+        for (TcmAttendanceCheckRecord record : records) {
+            if (Boolean.TRUE.equals(record.getAbsenteeism_record())
+                    || Boolean.TRUE.equals(record.getFirst_station_punch())
+                    || Boolean.TRUE.equals(record.getHisense_attendance())
+                    || Boolean.TRUE.equals(record.getBus_fault())
+                    || Boolean.TRUE.equals(record.getReserve_driver_absenteeism())
+                    || Boolean.TRUE.equals(record.getDriver_overtime())
+                    || Boolean.TRUE.equals(record.getControl_center_log())
+                    || Boolean.TRUE.equals(record.getRefueling_times())) {
+                throw new BusinessException("100", "已有其他原始数据导入，不允许删除排更数据。");
+            }
+        }
+    }
+
     private Set<String> normalizeDateSet(Set<String> checkDateList) {
         if (CollectionUtils.isEmpty(checkDateList)) {
             return Collections.emptySet();

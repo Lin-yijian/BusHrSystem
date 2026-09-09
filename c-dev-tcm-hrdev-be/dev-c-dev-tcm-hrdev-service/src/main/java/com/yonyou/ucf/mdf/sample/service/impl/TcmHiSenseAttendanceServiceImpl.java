@@ -180,7 +180,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     .filter(id -> !StringUtil.isEmpty(id))
                     .distinct()
                     .collect(Collectors.toList());
-            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
+            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByWayBillEmployeeIds(waybillIds, tenantId);
             if (staffInfoList != null) {
                 for (Map<String, Object> map : staffInfoList) {
                     String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
@@ -284,7 +284,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             Map<String, String> staffIdMap = new HashMap<>();
             Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
             Map<String, TCMRoute> stringTCMRouteMap = groupRouteMapByPlateNumber(routeNameList, tenantId);
-            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
+            List<Map<String, Object>> staffInfoList = commonUtil.getStaffByWayBillEmployeeIds(employeeIdList, tenantId);
             if (staffInfoList != null && !staffInfoList.isEmpty()) {
                 for (Map<String, Object> map : staffInfoList) {
                     staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID),
@@ -489,7 +489,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                         .filter(id -> !StringUtil.isEmpty(id))
                         .distinct()
                         .collect(Collectors.toList());
-                List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(waybillIds, tenantId);
+                List<Map<String, Object>> staffInfoList = commonUtil.getStaffByWayBillEmployeeIds(waybillIds, tenantId);
                 if (staffInfoList != null) {
                     for (Map<String, Object> map : staffInfoList) {
                         String sid = (String) map.get(commonUtil.FIELD_CODE_STAFF_ID);
@@ -577,8 +577,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 .filter(id -> !StringUtil.isEmpty(id))
                 .distinct()
                 .collect(Collectors.toList());
+        // 工号已在拉取数据时由 drivername 拆分回填到 employeeId，直接收集即可（与 doSyncDataInternal 一致）
         List<String> employeeIdList = hiSenseDTOList.stream()
-                .map(dto -> parseEmployeeId(dto.getDrivername()))
+                .map(HiSenseAttendanceDataDTO::getEmployeeId)
                 .filter(id -> !StringUtil.isEmpty(id))
                 .distinct()
                 .collect(Collectors.toList());
@@ -586,7 +587,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Map<String, TCMCar> stringTCMCarMap = tcmCarService.groupCarMapByPlateNumber(busCardIdList);
         Map<String, String> staffIdMap = new HashMap<>();
         Map<String, String> staffPostMap = new HashMap<>();
-        List<Map<String, Object>> staffInfoList = commonUtil.getStaffByEmployeeIds(employeeIdList, tenantId);
+        List<Map<String, Object>> staffInfoList = commonUtil.getStaffByWayBillEmployeeIds(employeeIdList, tenantId);
         if (staffInfoList != null && !staffInfoList.isEmpty()) {
             for (Map<String, Object> map : staffInfoList) {
                 staffIdMap.put((String) map.get(commonUtil.FIELD_CODE_WAYBILL_EMPLOYEE_ID), (String) map.get(commonUtil.FIELD_CODE_STAFF_ID));
@@ -604,9 +605,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap = new HashMap<>();
         // 收集缺失数据
         List<String> missingCarNumbers = new ArrayList<>();
+        // 按员工工号分组（工号取拆分回填的 employeeId）
         Map<String, List<HiSenseAttendanceDataDTO>> groupedByEmployee = hiSenseDTOList.stream()
-                .filter(dto -> !StringUtil.isEmpty(parseEmployeeId(dto.getDrivername())))
-                .collect(Collectors.groupingBy(dto -> parseEmployeeId(dto.getDrivername())));
+                .filter(dto -> !StringUtil.isEmpty(dto.getEmployeeId()))
+                .collect(Collectors.groupingBy(HiSenseAttendanceDataDTO::getEmployeeId));
 
         for (Map.Entry<String, List<HiSenseAttendanceDataDTO>> entry : groupedByEmployee.entrySet()) {
             String employeeId = entry.getKey();
@@ -1165,6 +1167,11 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             int rawCount = allData.size();
             List<HiSenseAttendanceDataDTO> uniqueData = deduplicateByAllFields(allData);
             int dupCount = rawCount - uniqueData.size();
+            // 统一拆分 drivername（"姓名|工号"）回填 driverName/employeeId，避免下游多处重复解析
+            for (HiSenseAttendanceDataDTO dto : uniqueData) {
+                dto.setDriverName(parseDriverName(dto.getDrivername()));
+                dto.setEmployeeId(parseEmployeeId(dto.getDrivername()));
+            }
             log.info("【海信考勤接口】业务日期：【{}】，分页获取完成，接口返回{}条，全字段去重后{}条，剔除重复{}条",
                     runDate, rawCount, uniqueData.size(), dupCount);
             return uniqueData;
@@ -1252,7 +1259,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @return 分组键字符串
      */
     private String buildGroupKey(HiSenseAttendanceDataDTO data) {
-        String employeeId = parseEmployeeId(data.getDrivername());
+        // 工号已在拉取数据时由 drivername 拆分回填到 employeeId
+        String employeeId = data.getEmployeeId();
         String buscardid = data.getBuscardid();
         String rundate = data.getRundate() != null ? String.valueOf(data.getRundate().getTime()) : "";
         return employeeId + "|" + buscardid + "|" + rundate;
@@ -1427,9 +1435,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         merged.setEndstationname(last.getEndstationname());
         merged.setBusselfid(first.getBusselfid());
         merged.setBuscardid(first.getBuscardid());
-        // 驾驶员信息拆分
-        merged.setDriverName(parseDriverName(first.getDrivername()));
-        merged.setEmployeeId(parseEmployeeId(first.getDrivername()));
+        // 驾驶员信息（姓名/工号已在拉取数据时由 drivername 拆分回填）
+        merged.setDriverName(first.getDriverName());
+        merged.setEmployeeId(first.getEmployeeId());
         // 时间字段：发车时间取第一条，到达时间取最后一条
         merged.setLeavetime(first.getLeavetime());
         merged.setArrivetime(last.getArrivetime());

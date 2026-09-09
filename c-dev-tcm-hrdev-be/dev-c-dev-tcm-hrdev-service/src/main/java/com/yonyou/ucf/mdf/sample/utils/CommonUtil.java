@@ -203,7 +203,7 @@ public class CommonUtil {
      */
     public Map<String,String> getStaffByCardIds(Collection<String> ids, String tenantId) {
 
-        List<Map<String, Object>> mapList = getStaffByEmployeeIds(ids,tenantId);
+        List<Map<String, Object>> mapList = getStaffByWayBillEmployeeIds(ids,tenantId);
 
         if (mapList == null || mapList.isEmpty()) {
             return new HashMap<>();
@@ -229,7 +229,7 @@ public class CommonUtil {
      */
     public Map<String,String> getStaffMapByCardIds(Collection<String> ids, String tenantId, String fieldKeyName, String fieldValueName) {
 
-        List<Map<String, Object>> mapList = getStaffByEmployeeIds(ids,tenantId);
+        List<Map<String, Object>> mapList = getStaffByWayBillEmployeeIds(ids,tenantId);
 
         if (mapList == null || mapList.isEmpty()) {
             return new HashMap<>();
@@ -246,8 +246,8 @@ public class CommonUtil {
 
 
     /**
-     * 根据澳巴工号获取员工信息
-     * @param ids 澳巴工号集合
+     * 根据BIP工号获取员工信息
+     * @param ids BIP工号集合
      * @param tenantId 租户ID
      * @param tenantId 租户ID
      * @param fieldKeyName 键字段名
@@ -272,19 +272,44 @@ public class CommonUtil {
 
 
     /**
+     * .
+     * @param ids 工号集合
+     * @param fieldName 查询字段
+     * @param tenantId 租户ID
+     * @return .
+     */
+    public List<Map<String, Object>> getStaff(Collection<String> ids,String fieldName, String tenantId) {
+        QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as waybill_employeeId, staffDefines.ab_09 as diverType, postId, postId.code as postCode,code");
+        querySchema.appendQueryCondition(QueryCondition.name(fieldName).in(ids));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
+        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+
+        return queryService.queryMapBySchema(UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+
+    }
+
+
+    /**
      * 根据澳巴工号查询员工信息
      * @param ids 澳巴工号集合
      * @param tenantId 租户ID
      * @return .
      */
-    public List<Map<String, Object>> getStaffByEmployeeIds(Collection<String> ids, String tenantId) {
-        QuerySchema querySchema = QuerySchema.create().addSelect("id, staffDefines.ab_01 as waybill_employeeId, staffDefines.ab_09 as diverType, postId, postId.code as postCode,code");
-        querySchema.appendQueryCondition(QueryCondition.name("staffDefines.ab_01").in(ids));
-        querySchema.appendQueryCondition(QueryCondition.name("ytenant").eq(tenantId));
-        querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
-        List<Map<String, Object>> mapList = queryService.queryMapBySchema(UrlEnum.BD_STAFF.getUrl(), querySchema, UrlEnum.BD_STAFF.getDomainKey());
+    public List<Map<String, Object>> getStaffByWayBillEmployeeIds(Collection<String> ids, String tenantId) {
 
-        return mapList;
+        return getStaff(ids,"staffDefines.ab_01",tenantId);
+
+    }
+
+    /**
+     * 根据BIP工号查询员工信息
+     * @param ids BIP工号集合
+     * @param tenantId 租户ID
+     * @return .
+     */
+    public List<Map<String, Object>> getStaffByEmployeeIds(Collection<String> ids, String tenantId) {
+
+        return getStaff(ids,"id",tenantId);
 
     }
 

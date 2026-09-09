@@ -73,6 +73,13 @@ public interface TcmAttendanceCorrectionService {
      */
     void isWorkingHoliday(List<String> ids,String isWorkingHoliday, String date);
 
+
+    /**
+     * 通过本地排更数据转成修正数据
+     * @param data 本地排更数据
+     */
+    void sheduleShiftsChangeCorrection(TcmSheduleShiftsData data);
+
     void saveList(List<TcmAttendanceCorrection> list);
 
     void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);

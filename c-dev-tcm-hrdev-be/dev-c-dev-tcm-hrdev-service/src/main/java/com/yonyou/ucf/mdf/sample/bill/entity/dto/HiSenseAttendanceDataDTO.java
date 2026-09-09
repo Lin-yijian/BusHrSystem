@@ -33,8 +33,14 @@ public class HiSenseAttendanceDataDTO {
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date realarrivetime;
 
-    /** 驾驶员|工号（格式：姓名|工号） */
+    /** 驾驶员|工号（格式：姓名|工号，接口原始字段） */
     private String drivername;
+
+    /** 驾驶员姓名（由 drivername 按 "|" 拆分得到，非接口字段，拉取后统一回填） */
+    private String driverName;
+
+    /** 驾驶员工号（由 drivername 按 "|" 拆分得到，非接口字段，拉取后统一回填） */
+    private String employeeId;
 
     /** 调度到达时间 */
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
