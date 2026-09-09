@@ -6,8 +6,7 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.aop.SyncLog;
-import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseWaybillLoginRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseAttendanceMergedDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseLoginRecordDataDTO;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.HiSenseResponseDTO;
@@ -15,10 +14,7 @@ import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.enums.TaskTypeEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
-import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
-import com.yonyou.ucf.mdf.sample.service.TcmCarService;
-import com.yonyou.ucf.mdf.sample.service.TcmHiSenseWaybillLoginRecordService;
-import com.yonyou.ucf.mdf.sample.service.TcmSyncLogService;
+import com.yonyou.ucf.mdf.sample.service.*;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
@@ -33,6 +29,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 海信车载机登入记录同步服务实现类
@@ -70,6 +67,9 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
 
     @Autowired
     private TcmSyncLogService tcmSyncLogService;
+
+    @Autowired
+    private TcmAttendanceCorrectionService correctionService;
 
     /**
      * 构造函数，初始化ObjectMapper并配置反序列化特性
@@ -187,7 +187,46 @@ public class TcmHiSenseWaybillLoginRecordServiceImpl implements TcmHiSenseWaybil
         if (!list.isEmpty()) {
             CommonUtil.fillInsertAudit(list);
             billRepository.insert(list);
-            checkRecordService.updateOrSaveRecord(actDate, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD,true);
+            checkRecordService.updateOrSaveRecord(actDate, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD, true);
+
+            // 工号分组
+            Map<String, List<TcmHisenseWaybillLoginRecord>> wayBillRecordMap = list.stream()
+                    .collect(Collectors.groupingBy(TcmHisenseWaybillLoginRecord::getWaybill_employee_id));
+
+            if (wayBillRecordMap.isEmpty()) {
+                log.warn("海信数据中工号均为空，日期: {}", actDate);
+                return list.size();
+            }
+
+            List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndWaybillEmployeeIds(
+                    actDate, wayBillRecordMap.keySet());
+
+            // 批量构建关联数据
+            List<TcmAttendanceHisenseWaybillLogin> records = correctionList.stream()
+                    .flatMap(correction -> {
+                        List<TcmHisenseWaybillLoginRecord> sonList = wayBillRecordMap.get(correction.getWaybill_employee_id());
+                        if (sonList == null) {
+                            return Stream.empty();
+                        }
+                        return sonList.stream().map(record -> {
+                            TcmAttendanceHisenseWaybillLogin son = new TcmAttendanceHisenseWaybillLogin();
+                            son.setForeignerKey(correction.getId());
+                            son.setEntity(record.getId());
+                            return son;
+                        });
+                    })
+                    .collect(Collectors.toList());
+
+            // 6. 批量保存
+            if (!records.isEmpty()) {
+                correctionService.saveTcmAttendanceHisenseWaybillLogin(records);
+                log.info("成功同步海信数据，日期: {}, 记录数: {}, 关联记录数: {}",
+                        actDate, list.size(), records.size());
+            } else {
+                log.warn("没有生成关联记录，日期: {}, 可能修正数据与海信数据不匹配", actDate);
+            }
+
+            checkRecordService.updateOrSaveRecord(actDate, ModuleEnum.TCM_ATTENDANCE_CHECK_RECORD, true);
             log.info("成功同步海信数据，日期: {}, 记录数: {}", actDate, list.size());
         } else {
             log.warn("没有可同步的数据，日期: {}", actDate);

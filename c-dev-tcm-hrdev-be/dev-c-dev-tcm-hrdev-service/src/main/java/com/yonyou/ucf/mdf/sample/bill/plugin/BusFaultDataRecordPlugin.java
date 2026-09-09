@@ -1,10 +1,10 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmBusFaultDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.service.TcmBusFaultDataRecordService;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
@@ -14,9 +14,11 @@ import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
@@ -43,6 +45,9 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
+    private TcmAttendanceCorrectionService attendanceCorrectionService;
+
+    @Autowired
     private AttendanceCalcTrigger calcTrigger;
 
 
@@ -63,6 +68,11 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_BUS_FAULT_DATA_RECORD,false);
         }
         calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
+
+        String id = data.getId();
+        if (StringUtils.isNotBlank(id)) {
+            attendanceCorrectionService.delTcmAttendanceBusFaultData(id);
+        }
     }
 
     @Override
@@ -82,14 +92,30 @@ public class BusFaultDataRecordPlugin extends AbstractBillPlugin {
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
-        TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billContext.getBillDO();
-        if (data == null) {
-            return;
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmBusFaultDataRecord) {
+            TcmBusFaultDataRecord data = (TcmBusFaultDataRecord) billDo;
+            if (AttendanceCalcImportContext.isBulkSyncing()) {
+                return;
+            }
+            String id = data.getId();
+            String date = data.getReport_date();
+            String employeeId = data.getEmployee_id();
+            calcTrigger.collectSourceAndFlush(date, employeeId);
+            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+            if (id != null && date != null && employeeId != null && isInsert) {
+                List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateAndStaffId(date, employeeId);
+                List<TcmAttendanceBusFaultData> records = new ArrayList<>();
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    TcmAttendanceBusFaultData record = new TcmAttendanceBusFaultData();
+                    record.setForeignerKey(correction.getId());
+                    record.setEntity(id);
+                    records.add(record);
+                }
+                attendanceCorrectionService.saveTcmAttendanceBusFaultData(records);
+            }
         }
-        if (AttendanceCalcImportContext.isBulkSyncing()) {
-            return;
-        }
-        calcTrigger.collectSourceAndFlush(data.getReport_date(), data.getEmployee_id());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

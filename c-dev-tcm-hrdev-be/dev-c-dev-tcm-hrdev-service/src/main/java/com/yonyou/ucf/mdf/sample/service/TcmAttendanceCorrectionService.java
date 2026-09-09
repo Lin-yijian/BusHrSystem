@@ -27,6 +27,14 @@ public interface TcmAttendanceCorrectionService {
      */
     List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId);
 
+    /**
+     * 查询修正数据
+     * @param date 日期 yyyy-MM-dd
+     * @param waybillEmployeeIdList 海信工号
+     * @return .
+     */
+    List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeIds(String date, Collection<String> waybillEmployeeIdList);
+
 
     /**
      * 查詢考勤修正數據
@@ -82,15 +90,30 @@ public interface TcmAttendanceCorrectionService {
 
     void updateList(List<TcmAttendanceCorrection> list);
 
+
+
     void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);
 
     void saveTcmAttendanceControlCenterLog(List<TcmAttendanceControlCenterLog> list);
 
     void saveTcmAttendanceDriverOvertimeRecord(List<TcmAttendanceDriverOvertimeRecord> list);
 
+    void saveTcmAttendanceBusFaultData(List<TcmAttendanceBusFaultData> list);
+
+    void saveTcmAttendanceHisenseWaybillLogin(List<TcmAttendanceHisenseWaybillLogin> list);
+
+    void saveTcmAttendanceLeaveRecord(List<TcmAttendanceLeaveRecord> list);
+
+
     void delTcmAttendanceAbsenceDataRecord(String... entityId);
 
     void delTcmAttendanceControlCenterLog(String... entityId);
 
     void delTcmAttendanceDriverOvertimeRecord(String... entityId);
+
+    void delTcmAttendanceBusFaultData(String... entityId);
+
+    void delTcmAttendanceHisenseWaybillLogin(String... entityId);
+
+    void delTcmAttendanceLeaveRecord(String... entityId);
 }
