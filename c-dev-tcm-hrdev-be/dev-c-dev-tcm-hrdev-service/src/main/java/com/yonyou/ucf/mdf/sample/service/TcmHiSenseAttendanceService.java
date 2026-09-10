@@ -9,6 +9,13 @@ public interface TcmHiSenseAttendanceService {
      */
     void syncData(String runDate);
 
+    /**
+     *【两阶段日志】使用预创建的同步日志ID执行海信考勤同步，执行完成后回填日志结束时间和状态。
+     * @param runDate   业务日期
+     * @param syncLogId initSyncLog创建的日志ID（为空时回退到AOP方式记录）
+     */
+    void syncData(String runDate, String syncLogId);
+
 
     /**
      * 生成本地考勤
@@ -17,10 +24,24 @@ public interface TcmHiSenseAttendanceService {
     void generate(String runDate);
 
     /**
+     *【两阶段日志】使用预创建的同步日志ID执行生成本地考勤，执行完成后回填日志结束时间和状态。
+     * @param runDate   业务日期
+     * @param syncLogId initSyncLog创建的日志ID（为空时回退到AOP方式记录）
+     */
+    void generate(String runDate, String syncLogId);
+
+    /**
      * 同步巴型转数
      * @param runDate 业务日期
      */
     void syncBaType(String runDate);
+
+    /**
+     *【两阶段日志】使用预创建的同步日志ID执行同步巴型转数，执行完成后回填日志结束时间和状态。
+     * @param runDate   业务日期
+     * @param syncLogId initSyncLog创建的日志ID（为空时回退到AOP方式记录）
+     */
+    void syncBaType(String runDate, String syncLogId);
 
 
     /**

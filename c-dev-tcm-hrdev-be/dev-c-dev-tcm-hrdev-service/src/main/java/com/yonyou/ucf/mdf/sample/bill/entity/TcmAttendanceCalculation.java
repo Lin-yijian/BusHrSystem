@@ -1,4 +1,4 @@
-/*--------------------JavaPOJO for 考勤計算(tcmAttendanceCalculation)--------------------*/
+/*--------------------JavaPOJO for 日考勤結果匯總(tcmAttendanceCalculation)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -8,12 +8,12 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 
 /**
  * @author root
- * @description 考勤計算
+ * @description 日考勤結果匯總
  * @Date 2026-07-21 19:31:33
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceCalculation", domain = "c-dev-tcm-hrdev")
-public class TcmAttendanceCalculation extends SuperDO implements ICode,ILogicDelete {
+public class TcmAttendanceCalculation extends SuperDO implements ILogicDelete {
     public static final String ENTITY_NAME = "unitfyEnum.TCMCaptainAttendance.tcmAttendanceCalculation";
     public static final String DATE = "date";
     public static final String EMPLOYEE_ID = "employee_id";
@@ -43,7 +43,6 @@ public class TcmAttendanceCalculation extends SuperDO implements ICode,ILogicDel
     public static final String MEDIUM_BUS_DRIVING_HOURS = "medium_bus_driving_hours";
     public static final String LARGE_BUS_DRIVING_HOURS = "large_bus_driving_hours";
     public static final String EXTRA_LARGE_BUS_DRIVING_HOURS = "extra_large_bus_driving_hours";
-    public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
     public static final String DR = "dr";
@@ -107,8 +106,6 @@ public class TcmAttendanceCalculation extends SuperDO implements ICode,ILogicDel
     private String large_bus_driving_hours;
     /* 特大巴行車工時 */
     private String extra_large_bus_driving_hours;
-    /* 编码 */
-    private String code;
     /* 创建时间 */
     private Date createTime;
     /* 创建人 */
@@ -232,10 +229,6 @@ public class TcmAttendanceCalculation extends SuperDO implements ICode,ILogicDel
 
     public void setExtra_large_bus_driving_hours(String extra_large_bus_driving_hours) {
         this.extra_large_bus_driving_hours = extra_large_bus_driving_hours;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
     }
 
     public void setCreateTime(Date createTime) {
@@ -376,10 +369,6 @@ public class TcmAttendanceCalculation extends SuperDO implements ICode,ILogicDel
 
     public String getExtra_large_bus_driving_hours() {
         return extra_large_bus_driving_hours;
-    }
-
-    public String getCode() {
-        return code;
     }
 
     public Date getCreateTime() {

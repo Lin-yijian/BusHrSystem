@@ -1,5 +1,6 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
@@ -8,6 +9,7 @@ import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
@@ -33,21 +35,28 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
     @Autowired
     private AttendanceCalcTrigger calcTrigger;
 
+    @Autowired
+    private TcmAttendanceCorrectionService attendanceCorrectionService;;
+
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
-        TcmSheduleShiftsData data = (TcmSheduleShiftsData) billContext.getBillDO();
-        if (data == null) {
-            return;
-        }
-        if (AttendanceCalcImportContext.isImporting()) {
+
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmSheduleShiftsData) {
+            TcmSheduleShiftsData data = (TcmSheduleShiftsData) billDo;
+
+            if (AttendanceCalcImportContext.isBulkSyncing()) {
+                return;
+            }
+            if (!AttendanceCalcImportContext.isImporting()) {
+                tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_SHEDULE_SHIFTS, true);
+                attendanceCorrectionService.sheduleShiftsChangeCorrection(data);
+            }
             AttendanceCalcImportContext.collectSchedule(data);
-            calcTrigger.registerImportFlushAfterCommit();
-            return;
+            calcTrigger.registerFlushAfterCommit();
         }
-        correctionSyncService.syncFromSchedule(data);
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_SHEDULE_SHIFTS, true);
-        calcTrigger.afterDataChanged(data.getDate(), data.getEmployee_id());
     }
 
     @Override
@@ -58,6 +67,8 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
             return;
         }
         String date = data.getDate();
+        // 刪除排更前置校驗：該日期若已有其他原始數據導入（考勤核對記錄中除排更外的標記為 true），則阻止刪除
+        tcmAttendanceCheckRecordService.validateNoOtherRawDataImported(date);
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS, false);

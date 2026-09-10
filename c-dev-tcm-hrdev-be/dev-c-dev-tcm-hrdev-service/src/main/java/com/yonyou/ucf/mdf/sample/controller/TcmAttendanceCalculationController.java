@@ -12,8 +12,8 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * 考勤计算控制器
- * 提供考勤修正数据同步到计算表的API
+ * 日考勤結果匯總控制器
+ * 提供考勤修正数据同步到日考勤結果匯總的API
  *
  * @author aze
  */
@@ -27,7 +27,7 @@ public class TcmAttendanceCalculationController {
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
 
     /**
-     * 根据日期同步修正数据到考勤计算表
+     * 根据日期同步修正数据到日考勤結果匯總
      * 从tcmAttendanceCorrection读取修正数据，映射后新增或更新到tcmAttendanceCalculation
      *
      * @param dateStr      日期 (yyyy-MM-dd)

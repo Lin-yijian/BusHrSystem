@@ -1,7 +1,10 @@
 package com.yonyou.ucf.mdf.sample.aop;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSyncLog;
+import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
+import com.yonyou.ucf.mdf.sample.service.impl.TcmSyncLogServiceImpl;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -28,10 +31,11 @@ import java.util.Date;
  * <ul>
  *   <li>queue_start_time：目标方法开始时间</li>
  *   <li>queue_end_time：目标方法结束时间</li>
- *   <li>task_status：目标方法报错为 2，正常为 1</li>
- *   <li>sync_status：与 task_status 逻辑一致</li>
+ *   <li>task_status / sync_status：成功=1，异常=2（与 TcmSyncLogServiceImpl 常量对齐）</li>
  *   <li>date：从目标方法参数动态传入</li>
  *   <li>model：从 @SyncLog 注解传入</li>
+ *   <li>remark：成功=同步成功；失败=简述（「同步失败：异常类名: message」）</li>
+ *   <li>error_info：成功=null；失败=完整堆栈（含 cause 链路）</li>
  * </ul>
  */
 @Aspect
@@ -39,12 +43,15 @@ import java.util.Date;
 @Slf4j
 public class TcmSyncLogAspect {
 
-    /** 任务/同步状态 - 正常 */
+    /** 任务/同步状态 - 正常（与 TcmSyncLogServiceImpl.TASK_STATUS_NORMAL / SYNC_STATUS_SYNCED_SUCCESS 对齐） */
     private static final String STATUS_NORMAL = "1";
-    /** 任务/同步状态 - 异常 */
+    /** 任务/同步状态 - 异常（与 TcmSyncLogServiceImpl.TASK_STATUS_ABNORMAL / SYNC_STATUS_SYNCED_FAIL 对齐） */
     private static final String STATUS_ABNORMAL = "2";
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
+    @Autowired
+    private YmsOidGenerator ymsOidGenerator;
 
     /**
      * 切点：标注了 @SyncLog 的方法
@@ -101,7 +108,7 @@ public class TcmSyncLogAspect {
         } finally {
             Date endTime = new Date();
             long costMs = endTime.getTime() - startTime.getTime();
-            TcmSyncLog entity = buildSyncLog(date, model, startTime, endTime, taskStatus);
+            TcmSyncLog entity = buildSyncLog(date, model, startTime, endTime, taskStatus, error);
 
             // 2. 无论正常/异常，先打印"方法结束"结构化日志（含报错、耗时）
             logExit(fullMethodName, businessDesc, date, model, taskStatus, costMs, error,
@@ -218,18 +225,37 @@ public class TcmSyncLogAspect {
     }
 
     /**
-     * 组装同步日志
+     * 组装同步日志（补齐主键/租户/审计字段 + 拆分 remark / error_info）。
      */
-    private TcmSyncLog buildSyncLog(String date, String model, Date startTime, Date endTime, String status) {
+    private TcmSyncLog buildSyncLog(String date, String model, Date startTime, Date endTime, String status, Throwable error) {
+        Date now = new Date();
+        String userId = InvocationInfoProxy.getUserid();
+        String tenantId = InvocationInfoProxy.getTenantid();
+
         TcmSyncLog syncLog = new TcmSyncLog();
+        syncLog.setId(ymsOidGenerator.nextStrId());
         syncLog.setDate(date);
         syncLog.setModel(model);
         syncLog.setQueue_start_time(startTime);
         syncLog.setQueue_end_time(endTime);
-        // sync_status 与 task_status 逻辑一致
+        // sync_status 与 task_status 逻辑一致（成功1 / 异常2）
         syncLog.setTask_status(status);
         syncLog.setSync_status(status);
-        syncLog.setYtenantId(InvocationInfoProxy.getTenantid());
+        syncLog.setYtenantId(tenantId);
+        syncLog.setDr(BaseEnum.IS_NOT_DELETED.getIntCode().shortValue());
+        syncLog.setCreator(userId);
+        syncLog.setCreateTime(now);
+        syncLog.setModifier(userId);
+        syncLog.setModifyTime(now);
+
+        // 拆分：remark 写入简述；error_info 写入完整堆栈（失败时）
+        if (STATUS_NORMAL.equals(status) || error == null) {
+            syncLog.setRemark(TcmSyncLogServiceImpl.remarkSuccess());
+            syncLog.setError_info(null);
+        } else {
+            syncLog.setRemark(TcmSyncLogServiceImpl.buildErrorRemark(error, null));
+            syncLog.setError_info(TcmSyncLogServiceImpl.buildFullStackTrace(error));
+        }
         return syncLog;
     }
 
@@ -244,7 +270,7 @@ public class TcmSyncLogAspect {
             return null;
         }
         for (int i = 0; i < parameterNames.length; i++) {
-            if (dateParam.equals(parameterNames[i]) && args[i] != null) {
+            if (dateParam != null && dateParam.equals(parameterNames[i]) && args[i] != null) {
                 return args[i].toString();
             }
         }

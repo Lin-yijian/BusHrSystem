@@ -2,19 +2,19 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAbsenceDataRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
@@ -48,6 +48,15 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
+    @Autowired
+    private AttendanceCalcTrigger calcTrigger;
+
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -58,6 +67,12 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
         if (!existFlag) {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
+        }
+        calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
+
+        String id = data.getId();
+        if (StringUtils.isNotBlank(id)) {
+            attendanceCorrectionService.delTcmAttendanceLeaveRecord(id);
         }
     }
 
@@ -72,12 +87,48 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             String staffId = util.getStaffByCardId(entity.getWaybill_employee_id(), tenantId);
             entity.setEmployee_id(staffId);
         }
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD, true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(entity.getDate());
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD, true);
+        }
+    }
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmAbsenceDataRecord) {
+            TcmAbsenceDataRecord data = (TcmAbsenceDataRecord) billDo;
+            if (AttendanceCalcImportContext.isBulkSyncing()) {
+                return;
+            }
+            String id = data.getId();
+            String date = data.getDate();
+            String employeeId = data.getEmployee_id();
+            calcTrigger.collectSourceAndFlush(date, employeeId);
+            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+            if (id != null && date != null && employeeId != null && isInsert) {
+                List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateAndStaffId(date, employeeId);
+                List<TcmAttendanceLeaveRecord> records = new ArrayList<>();
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    TcmAttendanceLeaveRecord record = new TcmAttendanceLeaveRecord();
+                    record.setForeignerKey(correction.getId());
+                    record.setEntity(id);
+                    records.add(record);
+                }
+                attendanceCorrectionService.saveTcmAttendanceLeaveRecord(records);
+            }
+        }
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
         String tenantId = InvocationInfoProxy.getTenantid();
+
 
         List<String> wayBillIds  = new ArrayList<>();
         for (ImportSingleData data : dataList) {
@@ -102,35 +153,42 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             dateList.add(overtime_date);
         }
 
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateList);
+        for (ImportSingleData data : dataList) {
+            String overtime_date = (String) data.getData().get("date");
+            if (!importedDateSet.contains(overtime_date)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
+        }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateList, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
 
-        try {
-            // 插入考勤修正
-            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
-            List<TcmAttendanceAbsenceDataRecord> insertList = new ArrayList<>();
-            if (!map.isEmpty()) {
-                for (ImportSingleData data : dataList) {
-                    String id = ymsOidGenerator.nextStrId();
-                    data.getData().put("id", id);
-                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
-                    String s = map.get(key);
-                    if (!StringUtils.isEmpty(s)) {
-                        TcmAttendanceAbsenceDataRecord centerLog = new TcmAttendanceAbsenceDataRecord();
-                        centerLog.setEntity(id);
-                        centerLog.setForeignerKey(s);
-                        centerLog.setYtenantId(tenantId);
-                        insertList.add(centerLog);
-                    }
-
-                }
-                if (!insertList.isEmpty()) {
-                    billRepository.insert(insertList);
-                }
-            }
-        } catch (Exception e) {
-            log.error("缺勤记录导入生成修正环节报错------->{}",e.getMessage());
-        }
+//        try {
+//            // 插入考勤修正
+//            Map<String, String> map = attendanceCorrectionService.getByDateListAndStaffIds(dateList, employeeIdList);
+//            List<TcmAttendanceAbsenceDataRecord> insertList = new ArrayList<>();
+//            if (!map.isEmpty()) {
+//                for (ImportSingleData data : dataList) {
+//                    String id = ymsOidGenerator.nextStrId();
+//                    data.getData().put("id", id);
+//                    String key = data.getValueByKey("date") + "_" + data.getValueByKey("employee_id");
+//                    String s = map.get(key);
+//                    if (!StringUtils.isEmpty(s)) {
+//                        TcmAttendanceAbsenceDataRecord centerLog = new TcmAttendanceAbsenceDataRecord();
+//                        centerLog.setEntity(id);
+//                        centerLog.setForeignerKey(s);
+//                        centerLog.setYtenantId(tenantId);
+//                        insertList.add(centerLog);
+//                    }
+//
+//                }
+//                if (!insertList.isEmpty()) {
+//                    billRepository.insert(insertList);
+//                }
+//            }
+//        } catch (Exception e) {
+//            log.error("缺勤记录导入生成修正环节报错------->{}",e.getMessage());
+//        }
 
     }
 }

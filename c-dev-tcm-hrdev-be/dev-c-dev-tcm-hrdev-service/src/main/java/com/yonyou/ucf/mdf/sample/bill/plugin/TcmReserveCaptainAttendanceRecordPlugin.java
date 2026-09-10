@@ -4,7 +4,6 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmReserveCaptainAttendanceRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
-import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmReserveCaptainAttendanceRecordService;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
@@ -39,21 +38,27 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
     @Autowired
-    private AttendanceCorrectionSyncService correctionSyncService;
-
-    @Autowired
     private AttendanceCalcTrigger calcTrigger;
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
         super.afterDelete(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
+        if (data == null) {
+            return;
+        }
         String date = data.getDate();
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, false);
         }
-        calcTrigger.afterDataChanged(date, data.getDriver_no());
+        calcTrigger.collectJlAndFlush(date, data.getDriver_no());
     }
 
     @Override
@@ -61,6 +66,8 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         super.beforeSave(billContext);
         TcmReserveCaptainAttendanceRecord data = (TcmReserveCaptainAttendanceRecord) billContext.getBillDO();
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(data.getDate());
             tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
         }
     }
@@ -72,13 +79,19 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
         if (data == null) {
             return;
         }
+        // 海信批量拉取等 bulk 场景不触发收尾
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
         if (AttendanceCalcImportContext.isImporting()) {
-            AttendanceCalcImportContext.collectReserve(data);
+            // 导入：收集待重算人天（date+driver_no）并注册事务提交后收尾，
+            // 提交后批量按人去重重算计粮/考勤（与排更、假日导入同一路径，避免按条重算）
+            AttendanceCalcImportContext.collectJlRefresh(data.getDate(), data.getDriver_no());
             calcTrigger.registerImportFlushAfterCommit();
             return;
         }
-        correctionSyncService.syncFromReserve(data);
-        calcTrigger.afterDataChanged(data.getDate(), data.getDriver_no());
+        // 页面单条保存：收集人天并在提交后立即按人计算
+        calcTrigger.collectJlAndFlush(data.getDate(), data.getDriver_no());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
@@ -102,7 +115,15 @@ public class TcmReserveCaptainAttendanceRecordPlugin extends AbstractBillPlugin 
                 data.addImportError("員工不存在，澳巴工號：【" + waybill_employee_id + "】");
             }
             data.getData().put("driver_no", employee_id);
-            dateSet.add((String) data.getData().get("date"));
+            String scheduleDate = (String) data.getData().get("date");
+            dateSet.add(scheduleDate);
+        }
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateSet);
+        for (ImportSingleData data : dataList) {
+            String scheduleDate = (String) data.getData().get("date");
+            if (!importedDateSet.contains(scheduleDate)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
         }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_RESERVE_CAPTAIN_ATTENDANCE_RECORD, true);
     }

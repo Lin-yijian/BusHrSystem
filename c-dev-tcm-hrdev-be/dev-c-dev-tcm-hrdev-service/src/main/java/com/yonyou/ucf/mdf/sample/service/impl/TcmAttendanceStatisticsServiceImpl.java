@@ -5,6 +5,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceStatistics;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceStatisticsService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import org.imeta.core.base.ConditionOperator;
@@ -114,6 +115,7 @@ public class TcmAttendanceStatisticsServiceImpl implements TcmAttendanceStatisti
         // 批量插入
         List<TcmAttendanceStatistics> insertResult = null;
         if (!addList.isEmpty()) {
+            CommonUtil.fillInsertAudit(addList);
             billRepository.insert(addList);
             insertResult = addList;
         }

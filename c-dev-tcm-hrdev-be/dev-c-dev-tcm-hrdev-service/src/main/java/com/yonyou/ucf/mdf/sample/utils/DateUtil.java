@@ -412,6 +412,112 @@ public class DateUtil {
         return variants;
     }
 
+    /**
+     * 从实体字段中取出 yyyy-MM-dd。兼容 Date、yyyy-MM-dd、yyyy-MM-dd HH:mm:ss。
+     */
+    public static String extractDateString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Date) {
+            return formatDate((Date) value, YYYY_MM_DD);
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value).format(FORMATTER_YYYY_MM_DD);
+        }
+        String s = String.valueOf(value).trim();
+        if (s.isEmpty() || "null".equalsIgnoreCase(s)) {
+            return null;
+        }
+        return normalizeToYyyyMmDd(s);
+    }
+
+    /**
+     * 将任意日期值兼容转换为 {@link LocalDate}（按日期粒度比较，忽略时分秒）。
+     * <p>支持的取值类型：
+     * <ul>
+     *   <li>{@link LocalDate} / {@link LocalDateTime}：直接取日期部分</li>
+     *   <li>{@link Date}：按系统时区取日期部分</li>
+     *   <li>{@link Number}：视为时间戳毫秒，先转 Date 再取日期部分</li>
+     *   <li>{@link String}：优先按 {@code yyyy-MM-dd HH:mm:ss} 解析，失败再按 {@code yyyy-MM-dd} 解析</li>
+     * </ul>
+     *
+     * @param value 原始日期值
+     * @return 转换后的日期；值为 null、空串或无法解析时返回 null
+     */
+    public static LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).toLocalDate();
+        }
+        if (value instanceof Date) {
+            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        }
+        if (value instanceof Number) {
+            return new Date(((Number) value).longValue()).toInstant()
+                    .atZone(ZoneId.systemDefault()).toLocalDate();
+        }
+        String text = value.toString().trim();
+        if (text.isEmpty() || "null".equalsIgnoreCase(text)) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(text, DateTimeFormatter.ofPattern(YYYY_MM_DD_HH_MM_SS)).toLocalDate();
+        } catch (DateTimeParseException ignore) {
+            // 退化为纯日期格式
+        }
+        try {
+            return LocalDate.parse(text, FORMATTER_YYYY_MM_DD);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 判断目标日期是否落在 [beginTime, endTime] 区间内（按日期粒度闭区间比较，忽略时分秒）。
+     * <p>{@code date} 为 yyyy-MM-dd 字符串；{@code beginTime}/{@code endTime} 通常为
+     * yyyy-MM-dd HH:mm:ss 字符串，也兼容 Date、时间戳、LocalDate 等类型（见 {@link #toLocalDate(Object)}）。
+     *
+     * @param date      目标日期，格式 yyyy-MM-dd
+     * @param beginTime 区间起点（含），如 begintime
+     * @param endTime   区间终点（含），如 endtime
+     * @return true 表示 beginTime 的日期 &lt;= date &lt;= endTime 的日期；任一参数无法解析时返回 false
+     */
+    public static boolean isDateInRange(String date, Object beginTime, Object endTime) {
+        LocalDate target = toLocalDate(date);
+        LocalDate begin = toLocalDate(beginTime);
+        LocalDate end = toLocalDate(endTime);
+        if (target == null || begin == null || end == null) {
+            return false;
+        }
+        return !target.isBefore(begin) && !target.isAfter(end);
+    }
+
+    /**
+     * from - to 的有符号分钟差。任一为空返回 null。
+     */
+    public static Integer signedDiffMinutes(Date from, Date to) {
+        if (from == null || to == null) {
+            return null;
+        }
+        return (int) TimeUnit.MILLISECONDS.toMinutes(from.getTime() - to.getTime());
+    }
+
+    /**
+     * 分钟数转 HH:mm。负数按 0 处理。
+     */
+    public static String minutesToHhMm(int minutes) {
+        if (minutes < 0) {
+            minutes = 0;
+        }
+        return String.format("%02d:%02d", minutes / 60, minutes % 60);
+    }
+
 
 
     /**
@@ -825,6 +931,34 @@ public class DateUtil {
         long diffInMillis = endDate.getTime() - startDate.getTime();
         double hours = diffInMillis / (1000.0 * 60 * 60);
         return Double.parseDouble(String.format("%.2f", hours));
+    }
+
+
+    /**
+     * 计算两个时间的差
+     *
+     * @param startDate 开始时间
+     * @param endDate   结束时间
+     * @return 时间差，格式为 HH:mm，最大值 99:59
+     */
+    public static String getHoursDiffAsHHmm(Date startDate, Date endDate) {
+        if (startDate == null || endDate == null) {
+            return "00:00";
+        }
+
+        long diffInMillis = endDate.getTime() - startDate.getTime();
+        long totalMinutes = diffInMillis / (1000 * 60);
+
+        // 最大值限制为 99:59（5999分钟）
+        long maxMinutes = 99 * 60 + 59; // 5999
+        if (totalMinutes > maxMinutes) {
+            totalMinutes = maxMinutes;
+        }
+
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+
+        return String.format("%02d:%02d", hours, minutes);
     }
 
 }

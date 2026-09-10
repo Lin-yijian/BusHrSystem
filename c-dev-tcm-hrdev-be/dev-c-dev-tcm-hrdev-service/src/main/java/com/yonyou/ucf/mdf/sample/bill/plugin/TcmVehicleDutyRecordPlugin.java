@@ -1,15 +1,22 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmLeaveRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.TcmVehicleDutyRecord;
+import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
@@ -22,6 +29,9 @@ public class TcmVehicleDutyRecordPlugin extends AbstractBillPlugin {
 
     @Autowired
     private CommonUtil util;
+
+    @Autowired
+    private TcmAttendanceCorrectionService correctionService;
 
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
@@ -51,5 +61,25 @@ public class TcmVehicleDutyRecordPlugin extends AbstractBillPlugin {
             data.getData().put("employee_id",employee_id);
         }
 
+    }
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmVehicleDutyRecord) {
+            TcmVehicleDutyRecord data = (TcmVehicleDutyRecord) billDo;
+            String date = data.getDate();
+            String employeeId = data.getEmployee_id();
+            Integer times = data.getVehicle_exchange_count();
+            if (date != null && employeeId != null && times != null) {
+                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    correction.setVehicle_handover_count(times);
+                }
+                correctionService.updateList(correctionList);
+
+            }
+        }
     }
 }

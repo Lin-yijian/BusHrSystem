@@ -3,7 +3,6 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMDriverSafe;
-import com.yonyou.ucf.mdf.sample.bill.entity.TCMDriverService;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMSafety;
 import com.yonyou.ucf.mdf.sample.bill.entity.TCMSerivceIndex;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
@@ -90,7 +89,7 @@ public class TCMDriverSafePlugin extends AbstractBillPlugin {
         Set<Integer> indexCodes = new HashSet<>();
         Map<ImportSingleData, String> invalidIndexRows = new LinkedHashMap<>();
         for (ImportSingleData data : dataList) {
-            String codeStr = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
+            String codeStr = (String) data.getValueByKey(TCMDriverSafe.INDEX_NO_INDEX_CODE);
             if (codeStr != null && !codeStr.isEmpty()) {
                 try {
                     indexCodes.add(Integer.parseInt(codeStr.trim()));
@@ -112,13 +111,13 @@ public class TCMDriverSafePlugin extends AbstractBillPlugin {
         // 逐行校验
         for (ImportSingleData data : dataList) {
             importValidateUtil.validateRow(data, ctx,
-                    TCMDriverService.DIVER_NAME,
-                    TCMDriverService.WAYBILL_EMPLOYEE_ID, TCMDriverService.EMPLOYEE_ID,
-                    TCMDriverService.CAR_PLATE_NUMBER, TCMDriverService.CAR,
-                    TCMDriverService.ROUTE_ROUTE_CODE, TCMDriverService.ROUTE
+                    TCMDriverSafe.DIVER_NAME,
+                    TCMDriverSafe.WAYBILL_EMPLOYEE_ID, TCMDriverSafe.EMPLOYEE_ID,
+                    TCMDriverSafe.CAR_PLATE_NUMBER, TCMDriverSafe.CAR,
+                    TCMDriverSafe.ROUTE_ROUTE_CODE, TCMDriverSafe.ROUTE
             );
             // 指标校验（使用 Integer key 匹配 Map）
-            String indexCodeStr = (String) data.getValueByKey(TCMDriverService.INDEX_NO_INDEX_CODE);
+            String indexCodeStr = (String) data.getValueByKey(TCMDriverSafe.INDEX_NO_INDEX_CODE);
             if (indexCodeStr != null && !indexCodeStr.isEmpty()) {
                 if (invalidIndexRows.containsKey(data)) {
                     data.addImportError("指標編號【" + invalidIndexRows.get(data) + "】不是有效的整數");
@@ -128,8 +127,8 @@ public class TCMDriverSafePlugin extends AbstractBillPlugin {
                         data.addImportError("指標編號【" + indexCode + "】在指標檔案中不存在");
 //                        throw new RuntimeException("指標編號【" + indexCode + "】在指標檔案中不存在");
                     } else {
-                        data.getData().put(TCMDriverService.INDEX_NO, indexMap.get(indexCode).getId());
-                        data.getData().put(TCMDriverService.INDEX_DESC, indexMap.get(indexCode).getContent());
+                        data.getData().put(TCMDriverSafe.INDEX_NO, indexMap.get(indexCode).getId());
+                        data.getData().put(TCMDriverSafe.INDEX_DESC, indexMap.get(indexCode).getContent());
                     }
                 }
             }

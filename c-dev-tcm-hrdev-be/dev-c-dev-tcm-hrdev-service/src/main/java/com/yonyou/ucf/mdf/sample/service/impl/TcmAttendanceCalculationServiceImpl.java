@@ -5,10 +5,14 @@ import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCalculation;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.UrlEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCorrectionSyncService;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCalculationService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillQueryRepository;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.imeta.core.base.ConditionOperator;
 import org.imeta.orm.schema.QueryCondition;
 import org.imeta.orm.schema.QuerySchema;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,12 +21,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * 考勤计算服务实现
+ * 日考勤結果匯總服务实现
  * @author aze
  */
+@Slf4j
 @Service
 public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalculationService {
 
@@ -31,6 +41,9 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
     @Autowired
     protected IBillQueryRepository queryService;
+
+    @Autowired
+    private AttendanceCorrectionSyncService correctionSyncService;
 
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -57,13 +70,22 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
      * @param singleDate true=仅该日；false=该日所在整月（employeeCode 必须为空）
      */
     private Map<String, Object> getAndUpdateAssessReviseByDateInternal(String dateStr, String employeeCode, boolean singleDate) {
+        long t0 = System.currentTimeMillis();
         String tenantId = InvocationInfoProxy.getTenantid();
 
-        // 查询修正数据
-        List<Map<String, Object>> correctionData = queryCorrectionData(dateStr, employeeCode, tenantId, singleDate);
+        long step = t0;
+        correctionSyncService.refreshCorrectionsBeforeCalc(dateStr, employeeCode, singleDate);
+        log.warn("[KQ_CALC] date={} employee={} step=refreshCorrections costMs={}",
+                dateStr, employeeCode, System.currentTimeMillis() - step);
 
-        // 查询计算数据
+        step = System.currentTimeMillis();
+        List<Map<String, Object>> correctionData = queryCorrectionData(dateStr, employeeCode, tenantId, singleDate);
         List<TcmAttendanceCalculation> calData = queryCalculationData(dateStr, employeeCode, tenantId, singleDate);
+        log.warn("[KQ_CALC] date={} employee={} step=query corr={} calc={} costMs={}",
+                dateStr, employeeCode,
+                correctionData != null ? correctionData.size() : 0,
+                calData != null ? calData.size() : 0,
+                System.currentTimeMillis() - step);
 
         // 构建计算数据Map，key为employee_id
         Map<String, TcmAttendanceCalculation> calMap = new HashMap<>();
@@ -125,13 +147,17 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
                 // 处理计算表特有字段
                 if (existing != null) {
-                    // 保留原有特殊字段
+                    // 保留原有特殊字段和乐观锁版本，避免批量删除并发 UPDATE 触发 PolarDB MVCC
                     newCalRecord.setDepartment_summary(existing.getDepartment_summary());
                     newCalRecord.setAttendance_type(existing.getAttendance_type());
                     newCalRecord.setWork_time(existing.getWork_time());
                     newCalRecord.setLate_early_leave_period(existing.getLate_early_leave_period());
-                    newCalRecord.setCode(existing.getCode());
                     newCalRecord.setId(existing.getId());
+                    newCalRecord.setYtenantId(existing.getYtenantId());
+                    newCalRecord.setDr(existing.getDr());
+                    newCalRecord.setCreator(existing.getCreator());
+                    newCalRecord.setCreateTime(existing.getCreateTime());
+                    newCalRecord.setPubts(existing.getPubts());
                     updateCalList.add(newCalRecord);
                 } else {
                     // 新记录设置租户ID
@@ -144,15 +170,20 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         // 批量新增和更新
         Map<String, Object> result = new HashMap<>();
         if (!newCalList.isEmpty()) {
+            CommonUtil.fillInsertAudit(newCalList);
             billRepository.insert(newCalList);
             result.put("insertCount", newCalList.size());
         }
         if (!updateCalList.isEmpty()) {
+            CommonUtil.fillUpdateAudit(updateCalList);
             billRepository.update(updateCalList);
             result.put("updateCount", updateCalList.size());
         }
         result.put("correctionCount", correctionData != null ? correctionData.size() : 0);
-
+        log.warn("[KQ_CALC] date={} employee={} step=total insert={} update={} costMs={}",
+                dateStr, employeeCode,
+                newCalList.size(), updateCalList.size(),
+                System.currentTimeMillis() - t0);
         return result;
     }
 
@@ -171,11 +202,12 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
 
         QuerySchema querySchema = QuerySchema.create().addSelect(selectFields);
         querySchema.appendQueryCondition(QueryCondition.name("dr").eq(BaseEnum.IS_NOT_DELETED.getIntCode()));
+        querySchema.appendQueryCondition(QueryCondition.name("ytenantId").eq(tenantId));
         if (employeeCode != null && !employeeCode.isEmpty()) {
-            querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
+            querySchema.appendQueryCondition(new QueryCondition<>("date", ConditionOperator.in, DateUtil.dateQueryVariants(dateStr)));
             querySchema.appendQueryCondition(QueryCondition.name("employee_id.code").eq(employeeCode));
         } else if (singleDate) {
-            querySchema.appendQueryCondition(QueryCondition.name("date").eq(dateStr));
+            querySchema.appendQueryCondition(new QueryCondition<>("date", ConditionOperator.in, DateUtil.dateQueryVariants(dateStr)));
         } else {
             String[] monthRange = getMonthRange(dateStr);
             querySchema.appendQueryCondition(QueryCondition.name("date").egt(monthRange[0]));
@@ -198,10 +230,10 @@ public class TcmAttendanceCalculationServiceImpl implements TcmAttendanceCalcula
         condition.eq(TcmAttendanceCalculation::getDr, BaseEnum.IS_NOT_DELETED.getIntCode())
                 .eq(TcmAttendanceCalculation::getYtenantId, tenantId);
         if (employeeCode != null && !employeeCode.isEmpty()) {
-            condition.eq(TcmAttendanceCalculation::getDate, dateStr)
+            condition.in(TcmAttendanceCalculation::getDate, DateUtil.dateQueryVariants(dateStr))
                     .eq(TcmAttendanceCalculation::getEmployee_id, employeeCode);
         } else if (singleDate) {
-            condition.eq(TcmAttendanceCalculation::getDate, dateStr);
+            condition.in(TcmAttendanceCalculation::getDate, DateUtil.dateQueryVariants(dateStr));
         } else {
             String[] monthRange = getMonthRange(dateStr);
             condition.ge(TcmAttendanceCalculation::getDate, monthRange[0])

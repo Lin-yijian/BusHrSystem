@@ -53,7 +53,16 @@ public enum BaseEnum {
     /**
      * 同步状态 - 失败
      */
-    SYNC_STATUS_FAILURE("2", "失败");
+    SYNC_STATUS_FAILURE("2", "失败"),
+
+    /**
+     * TCM_YES_NO_C - 是
+     */
+    YES("1", "是"),
+    /**
+     * TCM_YES_NO_C - 否
+     */
+    NO("2", "否");
 
     private final String code;
     private final String name;

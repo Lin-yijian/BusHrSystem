@@ -55,12 +55,12 @@ public class ImportExtendProcessor implements ImportEventExtendProcessor {
 
         strategyMap.put("tcmFuelGasDataRecord", p15::beforeTranslate);
 
-        strategyMap.put("tcmReserveCaptainAttendanceRecord", p16::beforeTranslate);
         strategyMap.put("tcmLeaveRecord", p17::beforeTranslate);
 
         // 需触发考勤计算的导入
         strategyMap.put("tcmSheduleShiftsData", p18::beforeTranslate);
         strategyMap.put("tcmDriverHolidayWorkRecord", p19::beforeTranslate);
+        strategyMap.put("tcmReserveCaptainAttendanceRecord", p16::beforeTranslate);
     }
 
     @Override

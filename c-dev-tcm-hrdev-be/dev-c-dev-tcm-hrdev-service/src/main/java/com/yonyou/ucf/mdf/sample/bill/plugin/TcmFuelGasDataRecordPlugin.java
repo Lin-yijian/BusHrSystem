@@ -5,8 +5,10 @@ import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmFuelGasDataRecord;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
+import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
 import com.yonyou.ucf.mdf.sample.service.TcmFuelGasDataRecordService;
+import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.ImportDateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
@@ -37,6 +39,15 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCheckRecordService tcmAttendanceCheckRecordService;
 
+    @Autowired
+    private AttendanceCalcTrigger calcTrigger;
+
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        AttendanceCalcImportContext.beginMergeFlush();
+    }
 
     @Override
     public void afterDelete(YpdBillContext billContext) throws Exception {
@@ -48,6 +59,7 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
             // 更新核对记录
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,false);
         }
+        calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
     }
 
 
@@ -57,12 +69,30 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
         String tenantId = InvocationInfoProxy.getTenantid();
 
         TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
-        tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
+        if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(entity.getAttendance_date());
+            tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
+        }
 
+    }
+
+    @Override
+    public void afterSave(YpdBillContext billContext) throws Exception {
+        super.afterSave(billContext);
+        TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
+        if (entity == null) {
+            return;
+        }
+        if (AttendanceCalcImportContext.isBulkSyncing()) {
+            return;
+        }
+        calcTrigger.collectSourceAndFlush(entity.getAttendance_date(), entity.getEmployee_id());
     }
 
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
+        AttendanceCalcImportContext.beginImport();
         List<ImportSingleData> dataList = importBatchData.getData();
 
 
@@ -81,7 +111,15 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
                     TcmFuelGasDataRecord.WAYBILL_EMPLOYEE_ID,
                     TcmFuelGasDataRecord.EMPLOYEE_ID
                     );
-            dateSet.add((String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE));
+            String attendanceDate = (String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE);
+            dateSet.add(attendanceDate);
+        }
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateSet);
+        for (ImportSingleData data : dataList) {
+            String attendanceDate = (String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE);
+            if (!importedDateSet.contains(attendanceDate)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
         }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD, true);
 

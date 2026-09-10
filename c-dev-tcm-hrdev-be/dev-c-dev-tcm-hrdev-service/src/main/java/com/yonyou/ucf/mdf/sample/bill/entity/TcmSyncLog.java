@@ -1,3 +1,4 @@
+/*--------------------JavaPOJO for 同步日志(tcmSyncLog)--------------------*/
 package com.yonyou.ucf.mdf.sample.bill.entity;
 
 import com.yonyou.iuap.yms.annotation.YMSEntity;
@@ -8,7 +9,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 /**
  * @author root
  * @description 同步日志
- * @Date 2026-08-18 17:37:03
+ * @Date 2026-08-30 18:28:29
  * @since 2023/11/28
  **/
 @YMSEntity(name = "unitfyEnum.TCMCaptainAttendance.tcmSyncLog", domain = "c-dev-tcm-hrdev")
@@ -20,6 +21,8 @@ public class TcmSyncLog extends SuperDO implements ICode,ILogicDelete {
     public static final String TASK_STATUS = "task_status";
     public static final String QUEUE_START_TIME = "queue_start_time";
     public static final String QUEUE_END_TIME = "queue_end_time";
+    public static final String REMARK = "remark";
+    public static final String ERROR_INFO = "error_info";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -42,6 +45,10 @@ public class TcmSyncLog extends SuperDO implements ICode,ILogicDelete {
     private Date queue_start_time;
     /* 隊列結束時間 */
     private Date queue_end_time;
+    /* 備注 */
+    private String remark;
+    /* 异常信息 */
+    private String error_info;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -83,6 +90,14 @@ public class TcmSyncLog extends SuperDO implements ICode,ILogicDelete {
 
     public void setQueue_end_time(Date queue_end_time) {
         this.queue_end_time = queue_end_time;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+
+    public void setError_info(String error_info) {
+        this.error_info = error_info;
     }
 
     public void setCode(String code) {
@@ -143,6 +158,14 @@ public class TcmSyncLog extends SuperDO implements ICode,ILogicDelete {
 
     public Date getQueue_end_time() {
         return queue_end_time;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public String getError_info() {
+        return error_info;
     }
 
     public String getCode() {

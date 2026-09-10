@@ -8,7 +8,7 @@ import com.yonyou.ypd.bill.basic.entity.SuperDO;
 
 /**
  * @author root
- * @description 考勤修正-缺勤記錄
+ * @description 考勤修正-休假記錄
  * @Date 2026-07-17 15:32:24
  * @since 2023/11/28
  **/
@@ -26,7 +26,7 @@ public class TcmAttendanceAbsenceDataRecord extends SuperDO implements ILogicDel
     public static final String PUBTS = "pubts";
     public static final String YTENANTID = "ytenantId";
 
-    /* 缺勤記錄 */
+    /* 休假記錄 */
     private String entity;
     /* 考勤修正 */
     private String foreignerKey;

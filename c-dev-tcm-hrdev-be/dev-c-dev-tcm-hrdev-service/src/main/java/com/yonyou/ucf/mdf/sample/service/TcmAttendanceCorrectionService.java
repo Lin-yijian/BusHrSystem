@@ -1,6 +1,6 @@
 package com.yonyou.ucf.mdf.sample.service;
 
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +18,22 @@ public interface TcmAttendanceCorrectionService {
      * @return .
      */
     List<TcmAttendanceCorrection> getByDateAndStaffId(String date, String staffId);
+
+    /**
+     * 查询修正数据
+     * @param date 日期 yyyy-MM-dd
+     * @param waybillEmployeeId 海信工号
+     * @return .
+     */
+    List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeId(String date, String waybillEmployeeId);
+
+    /**
+     * 查询修正数据
+     * @param date 日期 yyyy-MM-dd
+     * @param waybillEmployeeIdList 海信工号
+     * @return .
+     */
+    List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeIds(String date, Collection<String> waybillEmployeeIdList);
 
 
     /**
@@ -60,8 +76,44 @@ public interface TcmAttendanceCorrectionService {
 
     /**
      * 是否周假上班
-     * @param ids .
-     * @param isWorkingHoliday .
+     * @param ids 修正数据ID
+     * @param isWorkingHoliday 1 是   2 否
      */
-    void isWorkingHoliday(List<String> ids,boolean isWorkingHoliday);
+    void isWorkingHoliday(List<String> ids,String isWorkingHoliday, String date);
+
+
+    /**
+     * 通过本地排更数据转成修正数据
+     * @param data 本地排更数据
+     */
+    void sheduleShiftsChangeCorrection(TcmSheduleShiftsData data);
+
+    void updateList(List<TcmAttendanceCorrection> list);
+
+
+
+    void saveTcmAttendanceAbsenceDataRecord(List<TcmAttendanceAbsenceDataRecord> list);
+
+    void saveTcmAttendanceControlCenterLog(List<TcmAttendanceControlCenterLog> list);
+
+    void saveTcmAttendanceDriverOvertimeRecord(List<TcmAttendanceDriverOvertimeRecord> list);
+
+    void saveTcmAttendanceBusFaultData(List<TcmAttendanceBusFaultData> list);
+
+    void saveTcmAttendanceHisenseWaybillLogin(List<TcmAttendanceHisenseWaybillLogin> list);
+
+    void saveTcmAttendanceLeaveRecord(List<TcmAttendanceLeaveRecord> list);
+
+
+    void delTcmAttendanceAbsenceDataRecord(String... entityId);
+
+    void delTcmAttendanceControlCenterLog(String... entityId);
+
+    void delTcmAttendanceDriverOvertimeRecord(String... entityId);
+
+    void delTcmAttendanceBusFaultData(String... entityId);
+
+    void delTcmAttendanceHisenseWaybillLogin(String... entityId);
+
+    void delTcmAttendanceLeaveRecord(String... entityId);
 }

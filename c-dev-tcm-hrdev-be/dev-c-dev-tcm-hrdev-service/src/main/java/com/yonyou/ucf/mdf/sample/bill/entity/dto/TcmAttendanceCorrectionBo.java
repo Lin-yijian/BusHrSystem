@@ -21,4 +21,6 @@ public class TcmAttendanceCorrectionBo {
 
     private String date;
 
+    private String isWorkingHoliday;
+
 }

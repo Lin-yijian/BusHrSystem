@@ -4,7 +4,7 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * 考勤计算服务
+ * 日考勤結果匯總服务
  * @author aze
  */
 public interface TcmAttendanceCalculationService {

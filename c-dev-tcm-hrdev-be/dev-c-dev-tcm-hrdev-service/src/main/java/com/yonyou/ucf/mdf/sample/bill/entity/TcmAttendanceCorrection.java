@@ -56,9 +56,15 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     public static final String LATE_NIGHT_DURATION = "late_night_duration";
     public static final String REFUEL_COUNT = "refuel_count";
     public static final String GAS_REFILL_COUNT = "gas_refill_count";
+    public static final String BUS_FAULT = "bus_fault";
+    public static final String CONTROL_CENTER_LOG = "control_center_log";
+    public static final String ABSENCE_CATEGORY = "absence_category";
+    public static final String ABSENCE_REASON = "absence_reason";
+    public static final String ABSENCE_RECORD_COUNT = "absence_record_count";
     public static final String IS_NIGHT_SHIFT = "is_night_shift";
     public static final String SUBSTITUTE_SHIFT_TYPE = "substitute_shift_type";
     public static final String IS_WORKING_ON_WEEKLY_HOLIDAY = "is_working_on_weekly_holiday";
+    public static final String IS_FORCED_LEAVE_WORK = "is_forced_leave_work";
     public static final String SHIFT_CHANGE_ALLOWANCE = "shift_change_allowance";
     public static final String MINIBUS_DRIVING_HOURS = "minibus_driving_hours";
     public static final String MEDIUM_BUS_DRIVING_HOURS = "medium_bus_driving_hours";
@@ -181,14 +187,26 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     private Integer refuel_count;
     /* 加氣次數 */
     private Integer gas_refill_count;
+    /* 巴士故障 */
+    private String bus_fault;
+    /* 控制中心日志 */
+    private String control_center_log;
+    /* 缺勤类型 */
+    private String absence_category;
+    /* 缺勤原因 */
+    private String absence_reason;
+    /* 缺勤记录条数 */
+    private Integer absence_record_count;
     /* 是否夜更 */
-    private Boolean is_night_shift;
+    private String is_night_shift;
     /* 頂更類型 */
     private String substitute_shift_type;
     /* 是否周假上班 */
-    private Boolean is_working_on_weekly_holiday;
+    private String is_working_on_weekly_holiday;
+    /* 是否強制假上班 */
+    private String is_forced_leave_work;
     /* 上下更津貼 */
-    private Boolean shift_change_allowance;
+    private String shift_change_allowance;
     /* 小巴行車工時 */
     private String minibus_driving_hours;
     /* 中巴行車工時 */
@@ -220,9 +238,9 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     /* 巴型時數狀態 */
     private String tcmBarTypeHourStatus;
     /* 是否不足8小時 */
-    private Boolean is_less_than_8_hours;
+    private String is_less_than_8_hours;
     /* 是否遲到早退 */
-    private Boolean is_late_or_early_leave;
+    private String is_late_or_early_leave;
     /* 小巴巴型轉數 */
     private BigDecimal minibus_bus_type_rpm;
     /* 中巴巴型轉數 */
@@ -270,6 +288,14 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
     /* 租户id */
     private String ytenantId;
 
+
+    public String getIs_forced_leave_work() {
+        return is_forced_leave_work;
+    }
+
+    public void setIs_forced_leave_work(String is_forced_leave_work) {
+        this.is_forced_leave_work = is_forced_leave_work;
+    }
 
     public String getOne_late_duration() {
         return one_late_duration;
@@ -527,7 +553,27 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
         this.gas_refill_count = gas_refill_count;
     }
 
-    public void setIs_night_shift(Boolean is_night_shift) {
+    public void setBus_fault(String bus_fault) {
+        this.bus_fault = bus_fault;
+    }
+
+    public void setControl_center_log(String control_center_log) {
+        this.control_center_log = control_center_log;
+    }
+
+    public void setAbsence_category(String absence_category) {
+        this.absence_category = absence_category;
+    }
+
+    public void setAbsence_reason(String absence_reason) {
+        this.absence_reason = absence_reason;
+    }
+
+    public void setAbsence_record_count(Integer absence_record_count) {
+        this.absence_record_count = absence_record_count;
+    }
+
+    public void setIs_night_shift(String is_night_shift) {
         this.is_night_shift = is_night_shift;
     }
 
@@ -535,11 +581,11 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
         this.substitute_shift_type = substitute_shift_type;
     }
 
-    public void setIs_working_on_weekly_holiday(Boolean is_working_on_weekly_holiday) {
+    public void setIs_working_on_weekly_holiday(String is_working_on_weekly_holiday) {
         this.is_working_on_weekly_holiday = is_working_on_weekly_holiday;
     }
 
-    public void setShift_change_allowance(Boolean shift_change_allowance) {
+    public void setShift_change_allowance(String shift_change_allowance) {
         this.shift_change_allowance = shift_change_allowance;
     }
 
@@ -604,11 +650,11 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
         this.tcmBarTypeHourStatus = tcmBarTypeHourStatus;
     }
 
-    public void setIs_less_than_8_hours(Boolean is_less_than_8_hours) {
+    public void setIs_less_than_8_hours(String is_less_than_8_hours) {
         this.is_less_than_8_hours = is_less_than_8_hours;
     }
 
-    public void setIs_late_or_early_leave(Boolean is_late_or_early_leave) {
+    public void setIs_late_or_early_leave(String is_late_or_early_leave) {
         this.is_late_or_early_leave = is_late_or_early_leave;
     }
 
@@ -816,7 +862,27 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
         return gas_refill_count;
     }
 
-    public Boolean getIs_night_shift() {
+    public String getBus_fault() {
+        return bus_fault;
+    }
+
+    public String getControl_center_log() {
+        return control_center_log;
+    }
+
+    public String getAbsence_category() {
+        return absence_category;
+    }
+
+    public String getAbsence_reason() {
+        return absence_reason;
+    }
+
+    public Integer getAbsence_record_count() {
+        return absence_record_count;
+    }
+
+    public String getIs_night_shift() {
         return is_night_shift;
     }
 
@@ -824,11 +890,11 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
         return substitute_shift_type;
     }
 
-    public Boolean getIs_working_on_weekly_holiday() {
+    public String getIs_working_on_weekly_holiday() {
         return is_working_on_weekly_holiday;
     }
 
-    public Boolean getShift_change_allowance() {
+    public String getShift_change_allowance() {
         return shift_change_allowance;
     }
 
@@ -892,11 +958,11 @@ public class TcmAttendanceCorrection extends SuperDO implements ILogicDelete {
         return tcmBarTypeHourStatus;
     }
 
-    public Boolean getIs_less_than_8_hours() {
+    public String getIs_less_than_8_hours() {
         return is_less_than_8_hours;
     }
 
-    public Boolean getIs_late_or_early_leave() {
+    public String getIs_late_or_early_leave() {
         return is_late_or_early_leave;
     }
 

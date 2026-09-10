@@ -8,6 +8,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCheckRecord;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCheckRecordService;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import io.edap.util.StringUtil;
@@ -47,6 +48,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                     updateRecordByModule(record, moduleEnum, isGood);
                     normalizeStoredDate(record);
                 }
+                CommonUtil.fillUpdateAudit(existingRecords);
                 billRepository.update(existingRecords);
             }
 
@@ -56,6 +58,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                     .collect(Collectors.toList());
 
             if (!newRecords.isEmpty()) {
+                CommonUtil.fillInsertAudit(newRecords);
                 billRepository.insert(newRecords);
             }
         }
@@ -72,6 +75,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
             List<TcmAttendanceCheckRecord> records = findRecordsByDate(normalizedDate, tenantId);
             if (records.isEmpty()) {
                 TcmAttendanceCheckRecord newRecord = createNewRecord(normalizedDate, tenantId, moduleEnum, isGood);
+                CommonUtil.fillInsertAudit(newRecord);
                 billRepository.insert(Collections.singletonList(newRecord));
                 return;
             }
@@ -85,6 +89,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                 }
             }
             if (needUpdate) {
+                CommonUtil.fillUpdateAudit(records);
                 billRepository.update(records);
             }
         }
@@ -102,7 +107,67 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                 record.setCheck_status(status);
                 normalizeStoredDate(record);
             }
+            CommonUtil.fillUpdateAudit(list);
             billRepository.update(list);
+        }
+    }
+
+    @Override
+    public void validateScheduleDataImported(String date) {
+        String normalizedDate = DateUtil.normalizeToYyyyMmDd(date);
+        if (StringUtil.isEmpty(normalizedDate)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> records = findRecordsByDate(normalizedDate, tenantId);
+        // 無核對記錄或排更數據標記不為 true，均視為排更數據未導入
+        boolean scheduleImported = records.stream()
+                .anyMatch(record -> Boolean.TRUE.equals(record.getSchedule_data()));
+        if (!scheduleImported) {
+            throw new BusinessException("100", "当前日期的排更数据未导入，请先导入排更数据。");
+        }
+    }
+
+    public Set<String> getImportedDateSet(Set<String> dateSet) {
+        if (dateSet == null || dateSet.isEmpty()) {
+            return Collections.emptySet();
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> list = findRecordsByDates(dateSet, tenantId);
+        Set<String> set = new HashSet<>();
+        for (TcmAttendanceCheckRecord data : list) {
+            // 仅收集排更數據已導入（schedule_data = true）的日期
+            if (Boolean.TRUE.equals(data.getSchedule_data())) {
+                set.add(DateUtil.normalizeToYyyyMmDd(data.getCheck_date()));
+            }
+        }
+        return set;
+
+    }
+
+    @Override
+    public void validateNoOtherRawDataImported(String date) {
+        String normalizedDate = DateUtil.normalizeToYyyyMmDd(date);
+        if (StringUtil.isEmpty(normalizedDate)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> records = findRecordsByDate(normalizedDate, tenantId);
+        if (records.isEmpty()) {
+            return;
+        }
+        // 除排更數據(schedule_data)外，任一原始數據布爾標記為 true，則不允許刪除排更數據
+        for (TcmAttendanceCheckRecord record : records) {
+            if (Boolean.TRUE.equals(record.getAbsenteeism_record())
+                    || Boolean.TRUE.equals(record.getFirst_station_punch())
+                    || Boolean.TRUE.equals(record.getHisense_attendance())
+                    || Boolean.TRUE.equals(record.getBus_fault())
+                    || Boolean.TRUE.equals(record.getReserve_driver_absenteeism())
+                    || Boolean.TRUE.equals(record.getDriver_overtime())
+                    || Boolean.TRUE.equals(record.getControl_center_log())
+                    || Boolean.TRUE.equals(record.getRefueling_times())) {
+                throw new BusinessException("100", "已有其他原始数据导入，不允许删除排更数据。");
+            }
         }
     }
 
