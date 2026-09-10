@@ -2,9 +2,6 @@ package com.yonyou.ucf.mdf.sample.service.impl;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.param.condtition.query.LambdaQueryCondition;
-import com.yonyou.ucf.mdf.sample.bill.entity.TCMCar;
-import com.yonyou.ucf.mdf.sample.bill.entity.TCMRoute;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmWaybillSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.bill.entity.dto.WaybillExcelRecordDTO;
 import com.yonyou.ucf.mdf.sample.enums.BaseEnum;
@@ -59,10 +56,13 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         String tenantId = InvocationInfoProxy.getTenantid();
         Set<String> waybillEmployeeSet = new HashSet<>();
         for (WaybillExcelRecordDTO record : records) {
-            waybillEmployeeSet.add(record.getEmployeeId());
-
+            if (StringUtils.isNotBlank(record.getEmployeeId())) {
+                waybillEmployeeSet.add(record.getEmployeeId());
+            }
         }
-        Map<String, String> staffMap = commonUtil.getStaffByCardIds(waybillEmployeeSet, tenantId);
+        Map<String, String> staffMap = waybillEmployeeSet.isEmpty()
+                ? new HashMap<>()
+                : commonUtil.getStaffByCardIds(waybillEmployeeSet, tenantId);
         String acDate = "1949-10-01";
 
         List<TcmWaybillSheduleShiftsData> dataList = new ArrayList<>();
@@ -94,12 +94,9 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         // 遍历 dataList，区分新增和更新
         for (TcmWaybillSheduleShiftsData data : dataList) {
             String errorRemark = "";
-            // 記錄员工或车辆未匹配到的数据
-            if (data.getEmployee_id() == null) {
-                errorRemark = "海信工號匹配失敗；";
-            }
-            if (StringUtils.isNotBlank(data.getLine_str()) && StringUtils.isBlank(data.getCar_num())) {
-                errorRemark = errorRemark + "車輛編號缺失；";
+            // 僅 BIP 無該員工時寫入異常備註；未安排車長不寫備註，車輛編號缺失不影響後續考勤修正亦不寫備註
+            if (StringUtils.isNotBlank(data.getWaybill_employee_id()) && data.getEmployee_id() == null) {
+                errorRemark = "BIP員工信息沒有該員工；";
             }
 
             String key = buildDataKey(data);
@@ -190,6 +187,7 @@ public class TcmWaybillImportServiceImpl implements TcmWaybillImportService {
         target.setDate(source.getDate());
         target.setTask_code(source.getTask_code());
         target.setWaybill_employee_id(source.getWaybill_employee_id());
+        target.setEmployee_id(source.getEmployee_id());
         target.setDriver_name(source.getDriver_name());
 //        target.setCar(source.getCar());
         target.setCar_num(source.getCar_num());

@@ -286,13 +286,29 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
     private Map<String, Object> doGenerateScheduleInternal(String date) throws Exception {
         String tenantId = InvocationInfoProxy.getTenantid();
 
-        List<TcmWaybillSheduleShiftsData> sourceList = queryWaybillData(date, tenantId);
-        if (sourceList.isEmpty()) {
+        List<TcmWaybillSheduleShiftsData> rawSourceList = queryWaybillData(date, tenantId);
+        if (rawSourceList.isEmpty()) {
             throw new RuntimeException("该日期无排更数据");
         }
 
-        Set<String> employeeIds = sourceList.stream().map(TcmWaybillSheduleShiftsData::getEmployee_id).collect(Collectors.toSet());
-        Map<String, Map<String, Object>> staffMap = commonUtil.getStaffMapByCardIds(employeeIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
+        int skippedNoCaptain = 0;
+        List<TcmWaybillSheduleShiftsData> sourceList = new ArrayList<>();
+        for (TcmWaybillSheduleShiftsData row : rawSourceList) {
+            // 未安排車長的海信排更不生成本地排更
+            if (StringUtils.isBlank(row.getWaybill_employee_id())) {
+                skippedNoCaptain++;
+                continue;
+            }
+            sourceList.add(row);
+        }
+
+        Set<String> employeeIds = sourceList.stream()
+                .map(TcmWaybillSheduleShiftsData::getEmployee_id)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toSet());
+        Map<String, Map<String, Object>> staffMap = employeeIds.isEmpty()
+                ? new HashMap<>()
+                : commonUtil.getStaffMapByCardIds(employeeIds, tenantId, commonUtil.FIELD_CODE_EMPLOYEE_ID);
 
         // 循环外一次性查询 ROSTERING 模块全部参数（含培训任务固定值），避免逐条查库
         Map<String, String> rosterParams = tcmParamManageService.queryModuleParamMap(ModuleEnum.TCM_SHEDULE_SHIFTS);
@@ -300,12 +316,12 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
 
         Map<String, List<TcmWaybillSheduleShiftsData>> groups = groupByDateAndEmployee(sourceList);
 
-        int totalInput = sourceList.size();
+        int totalInput = rawSourceList.size();
         int totalGroups = groups.size();
         int singleGroups = 0;
         int mergedGroups = 0;
         int skippedGroups = 0;
-        int skippedRecords = 0;
+        int skippedRecords = skippedNoCaptain;
         int scheduleInserted = 0;
         int scheduleUpdated = 0;
         int scheduleFail = 0;
