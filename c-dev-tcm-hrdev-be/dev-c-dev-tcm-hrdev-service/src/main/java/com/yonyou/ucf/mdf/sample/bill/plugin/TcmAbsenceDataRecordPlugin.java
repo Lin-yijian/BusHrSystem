@@ -160,7 +160,7 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
                 data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
             }
         }
-        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateList, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(importedDateSet, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
 
 //        try {

@@ -1,10 +1,13 @@
 package com.yonyou.ucf.mdf.sample.bill.plugin;
 
+import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmControlCenterLog;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmSheduleShiftsData;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.*;
 import com.yonyou.ucf.mdf.sample.utils.AttendanceCalcImportContext;
+import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
+import com.yonyou.ucf.mdf.sample.utils.DateUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
@@ -13,10 +16,15 @@ import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @BillPlugin(busiObj = "tcmSheduleShiftsData")
@@ -38,6 +46,9 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCorrectionService attendanceCorrectionService;;
 
+    @Autowired
+    private CommonUtil util;
+
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
@@ -52,11 +63,28 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
             }
             if (!AttendanceCalcImportContext.isImporting()) {
                 tcmAttendanceCheckRecordService.updateOrSaveRecord(data.getDate(), ModuleEnum.TCM_SHEDULE_SHIFTS, true);
-                attendanceCorrectionService.sheduleShiftsChangeCorrection(data);
+//                attendanceCorrectionService.sheduleShiftsChangeCorrection(data);
             }
+//            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+//            if (isInsert){
+                attendanceCorrectionService.sheduleShiftsChangeCorrection(data);
+//            }
             AttendanceCalcImportContext.collectSchedule(data);
             calcTrigger.registerFlushAfterCommit();
         }
+    }
+
+    @Override
+    public void beforeDelete(YpdBillContext billContext) throws Exception {
+        super.beforeDelete(billContext);
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmSheduleShiftsData) {
+            TcmSheduleShiftsData data = (TcmSheduleShiftsData) billDo;
+            String date = data.getDate();
+            // 刪除排更前置校驗：該日期若已有其他原始數據導入（考勤核對記錄中除排更外的標記為 true），則阻止刪除
+            tcmAttendanceCheckRecordService.validateNoOtherRawDataImported(date);
+        }
+
     }
 
     @Override

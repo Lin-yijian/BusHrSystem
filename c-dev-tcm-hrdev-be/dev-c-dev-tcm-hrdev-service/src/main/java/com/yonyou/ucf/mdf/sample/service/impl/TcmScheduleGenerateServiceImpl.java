@@ -430,14 +430,14 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         // is_forced_leave_work / is_working_on_weekly_holiday 為 String 類型，取 BaseEnum.YES("1")/NO("2")
         boolean isForcedHoliday = commonUtil.checkHoliday(date, tenantId,"澳巴-強制性假");
         String forcedLeaveWorkFlag = isForcedHoliday ? BaseEnum.YES.getCode() : BaseEnum.NO.getCode();
-        String workingOnWeeklyHolidayFlag = isForcedHoliday ? BaseEnum.NO.getCode() : BaseEnum.YES.getCode();
+//        String workingOnWeeklyHolidayFlag = isForcedHoliday ? BaseEnum.NO.getCode() : BaseEnum.YES.getCode();
         for (TcmAttendanceCorrection c : correctionInsertList) {
             c.setIs_forced_leave_work(forcedLeaveWorkFlag);
-            c.setIs_working_on_weekly_holiday(workingOnWeeklyHolidayFlag);
+            c.setIs_working_on_weekly_holiday(BaseEnum.NO.getCode());
         }
         for (TcmAttendanceCorrection c : correctionUpdateList) {
             c.setIs_forced_leave_work(forcedLeaveWorkFlag);
-            c.setIs_working_on_weekly_holiday(workingOnWeeklyHolidayFlag);
+//            c.setIs_working_on_weekly_holiday(BaseEnum.NO.getCode());
         }
 
         if (!correctionInsertList.isEmpty()) {

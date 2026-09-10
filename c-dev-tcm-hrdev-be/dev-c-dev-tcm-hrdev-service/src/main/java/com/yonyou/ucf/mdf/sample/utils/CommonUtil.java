@@ -491,6 +491,7 @@ public class CommonUtil {
         if (StringUtils.isEmpty(entity.getAnomaly_verification())){
             entity.setAnomaly_verification(BaseEnum.NORMAL_CODE.getCode());
         }
+        entity.setIs_night_shift(BaseEnum.NO.getCode());
 
         calculateCorrection(entity,staffMap);
     }
@@ -505,8 +506,10 @@ public class CommonUtil {
         String twoTimeDifference = DateUtil.getTimeDifference(entity.getJl_two_return_time(), entity.getJl_two_departure_time());
         entity.setTwo_time(twoTimeDifference);
 
-        // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）
-        entity.setJl_valid_time(DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference));
+        // 计量有效工时 = （一更计量排更收车 - 一更计量排更发车）+ （二更计量排更收车 - 二更计量排更发车）- 用膳时长
+        entity.setJl_valid_time(DateUtil.subtractTimeDifferences(
+                DateUtil.addTimeDifferences(oneTimeDifference, twoTimeDifference),
+                entity.getMeal_duration()));
 
         // 一更早退时长 = 一更计量排更收车 - 考勤一更收车     二更早退时长 = 二更计量排更收车 - 考勤二更收车
         String oneEarlyLeaveDuration = DateUtil.getTimeDifference(entity.getJl_one_return_time(), entity.getKq_one_return_time(), false);

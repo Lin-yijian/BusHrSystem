@@ -55,25 +55,45 @@ public class TcmDriverHolidayWorkRecordServiceImpl implements TcmDriverHolidayWo
     @Override
     public void changeWorkStatus(String date, Collection<String> employeeIds, boolean isForcedHoliday, String type) {
         List<TcmDriverHolidayWorkRecord> list = getListByDateAndField(date, employeeIds, TcmDriverHolidayWorkRecord::getEmployee_id);
-        if (list == null || list.isEmpty()) {
-            return;
-        }
-        for (TcmDriverHolidayWorkRecord record : list) {
-            if (isForcedHoliday) {
-                record.setIs_forced_leave_work(Boolean.TRUE);
-                record.setIs_weekend_work(Boolean.FALSE);
-                record.setForced_leave_work_compensation(type);
-                record.setWeekend_work_compensation(null);
-            } else {
-                record.setIs_weekend_work(Boolean.TRUE);
-                record.setWeekend_work_compensation(type);
-                record.setIs_forced_leave_work(Boolean.FALSE);
-                record.setForced_leave_work_compensation(null);
+        // 更新已存在的记录
+        if (list != null && !list.isEmpty()) {
+            for (TcmDriverHolidayWorkRecord record : list) {
+                if (isForcedHoliday) {
+                    record.setIs_forced_leave_work(Boolean.TRUE);
+                    record.setIs_weekend_work(Boolean.FALSE);
+                    record.setForced_leave_work_compensation(type);
+                    record.setWeekend_work_compensation(null);
+                } else {
+                    record.setIs_weekend_work(Boolean.TRUE);
+                    record.setWeekend_work_compensation(type);
+                    record.setIs_forced_leave_work(Boolean.FALSE);
+                    record.setForced_leave_work_compensation(null);
+                }
             }
+            CommonUtil.fillInsertAudit(list);
+            billRepository.update(list);
         }
-        CommonUtil.fillInsertAudit(list);
-        billRepository.update(list);
 
+        // 假期工作中不存在则新建记录
+        Set<String> existEmployeeIds = (list == null || list.isEmpty()) ? Collections.emptySet()
+                : list.stream().map(TcmDriverHolidayWorkRecord::getEmployee_id).collect(Collectors.toSet());
+        List<TcmDriverHolidayWorkRecord> insertList = new ArrayList<>();
+        for (String employeeId : employeeIds) {
+            if (StringUtils.isBlank(employeeId) || existEmployeeIds.contains(employeeId)) {
+                continue;
+            }
+            TcmDriverHolidayWorkRecord record = new TcmDriverHolidayWorkRecord();
+            record.setDate(date);
+            record.setEmployee_id(employeeId);
+            record.setIs_weekend_work(Boolean.TRUE);
+            record.setWeekend_work_compensation(type);
+            record.setIs_forced_leave_work(Boolean.FALSE);
+            record.setForced_leave_work_compensation(null);
+            insertList.add(record);
+        }
+        if (!insertList.isEmpty()) {
+            saveList(insertList);
+        }
     }
 
     @Override

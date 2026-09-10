@@ -265,6 +265,27 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         c.setJl_one_return_time(data.getOne_finish_time());
         c.setJl_two_departure_time(data.getTwo_departure_time());
         c.setJl_two_return_time(data.getFinish_time());
+        // 用膳次數與用膳時長（一次用膳 30 分鐘，與 doGenerateScheduleInternal 口徑一致）
+        int mealCount = data.getMeal() == null ? 0 : data.getMeal();
+        c.setMeal_count(mealCount);
+        String mealDuration;
+        if (mealCount == 1) {
+            mealDuration = "00:30";
+        } else if (mealCount == 2) {
+            mealDuration = "01:00";
+        } else if (mealCount == 3) {
+            mealDuration = "01:30";
+        } else if (mealCount == 4) {
+            mealDuration = "02:00";
+        } else {
+            mealDuration = "00:00";
+        }
+        c.setMeal_duration(mealDuration);
+        // 交車次數、上下更次數、車牌
+        c.setVehicle_handover_count(data.getGet_out_car());
+        c.setShift_change_count(data.getShift_change());
+        c.setOne_license_plate(data.getOne_car());
+        c.setTwo_license_plate(data.getTwo_car());
 
         // 員工信息（key=員工工號 code；processDate 內按 employee_id 取用工類型等）
         Set<String> idSet = Collections.singleton(data.getEmployee_id());

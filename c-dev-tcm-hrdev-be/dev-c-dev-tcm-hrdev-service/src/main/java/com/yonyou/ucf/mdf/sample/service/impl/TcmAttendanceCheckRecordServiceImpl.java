@@ -124,7 +124,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
         boolean scheduleImported = records.stream()
                 .anyMatch(record -> Boolean.TRUE.equals(record.getSchedule_data()));
         if (!scheduleImported) {
-            throw new BusinessException("100", "当前日期的排更数据未导入，请先导入排更数据。");
+            throw new RuntimeException("当前日期的排更数据未导入，请先导入排更数据。");
         }
     }
 
@@ -166,7 +166,7 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
                     || Boolean.TRUE.equals(record.getDriver_overtime())
                     || Boolean.TRUE.equals(record.getControl_center_log())
                     || Boolean.TRUE.equals(record.getRefueling_times())) {
-                throw new BusinessException("100", "已有其他原始数据导入，不允许删除排更数据。");
+                throw new RuntimeException( "已有其他原始数据导入，不允许删除排更数据。");
             }
         }
     }

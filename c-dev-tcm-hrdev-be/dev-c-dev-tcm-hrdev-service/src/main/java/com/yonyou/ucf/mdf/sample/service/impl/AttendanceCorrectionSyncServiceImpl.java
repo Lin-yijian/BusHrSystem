@@ -157,6 +157,10 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
                 return;
             }
             for (TcmAttendanceCorrection c : list) {
+                // 当日排更数据删除 需 同步删除 考勤修正数据
+                if (deleted.getTask_code().equals(c.getTask_code())) {
+                    c.setDr(BaseEnum.IS_DELETED.getIntCode());
+                }
                 c.setPg_one_departure_time(null);
                 c.setPg_one_return_time(null);
                 c.setPg_two_departure_time(null);

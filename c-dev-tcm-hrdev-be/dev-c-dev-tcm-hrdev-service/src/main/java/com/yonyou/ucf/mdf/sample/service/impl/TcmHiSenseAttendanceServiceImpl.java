@@ -481,15 +481,15 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             return;
         }
         Throwable captured = null;
-        int newCount = 0;
+        String summary = "";
         try {
-            newCount = doGenerateInternal(runDate);
+            summary = doGenerateInternal(runDate);
         } catch (Throwable t) {
             captured = t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw (Error) t;
         } finally {
-            String remarkEx = (captured == null) ? ("同步成功，处理 " + newCount + " 条") : null;
+            String remarkEx = (captured == null) ? ("处理成功：" + summary) : null;
             try {
                 tcmSyncLogService.finishSyncLog(syncLogId, captured, remarkEx);
             } catch (Exception finishEx) {
@@ -501,12 +501,12 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
     /**
      * 生成本地考勤（考勤修正装配+更新计数）的真正实现，不携带 @SyncLog。
      */
-    private int doGenerateInternal(String runDate) {
+    private String doGenerateInternal(String runDate) {
         long totalStart = System.currentTimeMillis();
         AttendanceCalcImportContext.beginBulkSync();
         try {
             if (StringUtil.isEmpty(runDate)) {
-                return 0;
+                return "";
             }
             String tenantId = InvocationInfoProxy.getTenantid();
             LambdaQueryCondition<TcmHisenseAttendanceData> condition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
@@ -517,7 +517,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     .lt(TcmHisenseAttendanceData::getCount, 3); // count <= 2
             List<TcmHisenseAttendanceData> dataList = billRepository.queryByClause(condition);
             if (dataList == null || dataList.isEmpty()) {
-                return 0;
+                return "該日期無考勤數據，請先進行拉取操作";
             }
 
             // 源头过滤：未匹配到员工的记录不参与生成，状态保持待处理
@@ -525,7 +525,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     .filter(d -> d != null && !StringUtil.isEmpty(d.getEmployee_id()))
                     .collect(Collectors.toList());
             if (matchedList.isEmpty()) {
-                return 0;
+                return "無正常數據，請先為數據補充正確的BIP工號";
             }
 
             Set<String> staffSet = matchedList.stream()
@@ -555,7 +555,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             }
 
             long stepStart = System.currentTimeMillis();
-            assemblyCorrection(matchedList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
+            int i = assemblyCorrection(matchedList, Collections.emptyMap(), runDate, staffSet, staffPostMap);
             log.warn("[HXKQ_MAKE] date={} step=assemblyCorrection size={} costMs={}",
                     runDate, matchedList.size(), System.currentTimeMillis() - stepStart);
             for (TcmHisenseAttendanceData data : matchedList) {
@@ -569,7 +569,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     runDate, System.currentTimeMillis() - stepStart);
 
             tcmAttendanceCheckRecordService.updateOrSaveRecord(runDate, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, true);
-            return matchedList.size();
+            // 返回執行情況：已更新修正數據條數 + 考勤數據條數
+            return "已更新修正數據" + i + "條，考勤數據共" + matchedList.size() + "條";
         } finally {
             AttendanceCalcImportContext.endBulkSync();
             log.warn("[HXKQ_MAKE] date={} step=total costMs={}",
@@ -744,10 +745,10 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
      * @param runDate     日期
      * @param staffIdList 员工ID集合
      */
-    private void assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList, Map<String,String> staffPostMap) {
+    private int assemblyCorrection(List<TcmHisenseAttendanceData> dataList, Map<String, List<BaTypeAttendanceSummaryDTO>> baTypeMap, String runDate, Collection<String> staffIdList, Map<String,String> staffPostMap) {
         List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateListAndStaffIds(runDate, staffIdList);
         if (correctionList.isEmpty()) {
-            return;
+            return 0;
         }
 
         // 按员工ID分组考勤数据；未匹配到员工的记录 employee_id 为空，groupingBy 不允许 null key，需先过滤
@@ -793,6 +794,7 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         // 批量更新修正数据
         CommonUtil.fillUpdateAudit(correctionList);
         billRepository.update(correctionList);
+        return correctionList.size();
     }
 
     /**
