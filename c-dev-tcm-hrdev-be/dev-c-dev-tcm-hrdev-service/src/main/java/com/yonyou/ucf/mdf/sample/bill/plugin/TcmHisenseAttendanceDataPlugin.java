@@ -51,6 +51,8 @@ public class TcmHisenseAttendanceDataPlugin extends AbstractBillPlugin {
         if (billDo instanceof TcmHisenseAttendanceData) {
             TcmHisenseAttendanceData data = (TcmHisenseAttendanceData) billContext.getBillDO();
             String date = data.getRun_date();
+            // 刪除後按“人+日期”重新統計並更新數據條數
+            service.recalcCountAfterDelete(date, data.getWaybill_employee_id());
             boolean existFlag = service.checkDataByDate(date);
             if (!existFlag) {
                 tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_HI_SENSE_ATTENDANCE, false);

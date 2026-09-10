@@ -68,6 +68,14 @@ public interface TcmHiSenseAttendanceService {
      */
     boolean checkDataByDate(String date) throws Exception;
 
+
+    /**
+     * 用戶刪除某條數據後，按“人（海信工號）+日期”重新統計該日期下剩餘數據的“數據條數”並更新。
+     * @param runDate 业务日期 yyyy-MM-dd
+     * @param waybillEmployeeId 海信工號（可為空，為空時重算該日期全部數據）
+     */
+    void recalcCountAfterDelete(String runDate, String waybillEmployeeId);
+
     /**
      * 基于本地已落库的海信考勤数据，重新装配考勤修正（不调外部接口、不触发计算）。
      * @param runDate 业务日期 yyyy-MM-dd

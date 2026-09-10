@@ -143,6 +143,52 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
         return !list.isEmpty();
     }
 
+    /**
+     * 構建缺失車輛的異常展示文本：車牌號（內部碼），內部碼為空時只返回車牌號。
+     */
+    private String buildMissingCarLabel(String plate, String internalNo) {
+        if (StringUtil.isEmpty(internalNo)) {
+            return plate;
+        }
+        return plate + " (" + internalNo + ")";
+    }
+
+    @Override
+    public void recalcCountAfterDelete(String runDate, String waybillEmployeeId) {
+        if (StringUtil.isEmpty(runDate)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        LambdaQueryCondition<TcmHisenseAttendanceData> condition = new LambdaQueryCondition<>(new TcmHisenseAttendanceData());
+        condition.eq(TcmHisenseAttendanceData::getRun_date, runDate)
+                .eq(TcmHisenseAttendanceData::getYtenantId, tenantId)
+                .eq(TcmHisenseAttendanceData::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        if (!StringUtil.isEmpty(waybillEmployeeId)) {
+            condition.eq(TcmHisenseAttendanceData::getWaybill_employee_id, waybillEmployeeId);
+        }
+        List<TcmHisenseAttendanceData> list = billRepository.queryByClause(condition);
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Map<String, List<TcmHisenseAttendanceData>> groupMap = list.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(d -> d.getRun_date() + "|" + d.getWaybill_employee_id()));
+        List<TcmHisenseAttendanceData> needUpdate = new ArrayList<>();
+        for (List<TcmHisenseAttendanceData> group : groupMap.values()) {
+            int cnt = group.size();
+            for (TcmHisenseAttendanceData d : group) {
+                if (d.getCount() == null || d.getCount() != cnt) {
+                    d.setCount(cnt);
+                    needUpdate.add(d);
+                }
+            }
+        }
+        if (!needUpdate.isEmpty()) {
+            CommonUtil.fillUpdateAudit(needUpdate);
+            billRepository.update(needUpdate);
+        }
+    }
+
     @Override
     public void refreshCorrectionFromLocalData(String runDate) {
         refreshCorrectionFromLocalData(runDate, null);
@@ -325,7 +371,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                     data.setCar(tcmCar.getId());
                 }
                 if (tcmCar == null) {
-                    missingCarNumbers.add(hiSenseData.getBuscardid());
+//                    missingCarNumbers.add(hiSenseData.getBuscardid());
+                    missingCarNumbers.add(buildMissingCarLabel(hiSenseData.getBuscardid(), hiSenseData.getBusselfid()));
                 }
 
                 TCMRoute tcmRoute = stringTCMRouteMap.get(hiSenseData.getRoutename());
@@ -362,11 +409,13 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
             if (!missingCarNumbers.isEmpty() || !missingRouteNames.isEmpty()) {
                 StringBuilder errorMsg = new StringBuilder("数据校验失败：");
                 if (!missingCarNumbers.isEmpty()) {
-                    errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
+//                    errorMsg.append("\n车辆信息档案缺失，请先完善档案内容，缺失车牌号：")
+//                            .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
+                    errorMsg.append("\n車輛資訊檔案缺失，請先完善檔案內容，缺失車牌號：")
                             .append(String.join("、", missingCarNumbers.stream().distinct().collect(Collectors.toList())));
                 }
                 if (!missingRouteNames.isEmpty()) {
-                    errorMsg.append("\n路线信息档案缺失，请先完善档案内容，缺失路线：")
+                    errorMsg.append("\n路線信息檔案缺失，請先完善檔案內容，缺失路線：")
                             .append(String.join("、", missingRouteNames.stream().distinct().collect(Collectors.toList())));
                 }
                 throw new RuntimeException(errorMsg.toString());
@@ -632,7 +681,8 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
                 TCMCar tcmCar = stringTCMCarMap.get(dto.getBuscardid());
                 // 检查车辆信息：缺失则收集，跳过当前记录继续处理
                 if (tcmCar == null) {
-                    missingCarNumbers.add(dto.getBuscardid());
+//                    missingCarNumbers.add(dto.getBuscardid());
+                    missingCarNumbers.add(buildMissingCarLabel(dto.getBuscardid(), dto.getBusselfid()));
                     continue;
                 }
                 data.setCar(tcmCar.getId());
@@ -665,7 +715,9 @@ public class TcmHiSenseAttendanceServiceImpl implements TcmHiSenseAttendanceServ
 
         // 统一校验缺失数据，如果有缺失则抛出包含所有缺失信息的异常
         if (!missingCarNumbers.isEmpty()) {
-            throw new RuntimeException("数据校验失败：\n车辆信息档案缺失，请先完善档案内容，缺失车牌号："
+//            throw new RuntimeException("数据校验失败：\n车辆信息档案缺失，请先完善档案内容，缺失车牌号："
+//                    + missingCarNumbers.stream().distinct().collect(Collectors.joining("、")));
+            throw new RuntimeException("数据校验失败：\n車輛資訊檔案缺失，請先完善檔案內容，缺失車牌號："
                     + missingCarNumbers.stream().distinct().collect(Collectors.joining("、")));
         }
 
