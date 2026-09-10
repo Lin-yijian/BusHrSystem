@@ -358,11 +358,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmAttendanceCorrection existing = queryExistingCorrection(
                         row.getDate(), row.getEmployee_id(), row.getTask_code(), tenantId);
                 if (existing != null) {
-                    fillCorrectionFields(existing, row, null, trainingConfig);
+                    fillCorrectionFields(existing, row, null);
                     correctionUpdateList.add(existing);
                     correctionUpdated++;
                 } else {
-                    correctionInsertList.add(buildCorrection(row, null, tenantId, trainingConfig));
+                    correctionInsertList.add(buildCorrection(row, null, tenantId));
                     correctionInserted++;
                 }
 
@@ -404,11 +404,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
                 TcmAttendanceCorrection existing = queryExistingCorrection(
                         earlyRow.getDate(), earlyRow.getEmployee_id(), earlyRow.getTask_code(), tenantId);
                 if (existing != null) {
-                    fillCorrectionFields(existing, earlyRow, lateRow, trainingConfig);
+                    fillCorrectionFields(existing, earlyRow, lateRow);
                     correctionUpdateList.add(existing);
                     correctionUpdated++;
                 } else {
-                    correctionInsertList.add(buildCorrection(earlyRow, lateRow, tenantId, trainingConfig));
+                    correctionInsertList.add(buildCorrection(earlyRow, lateRow, tenantId));
                     correctionInserted++;
                 }
 
@@ -671,19 +671,29 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setWaybill_employee_id(row.getWaybill_employee_id());
         entity.setName(row.getDriver_name());
         String taskCode = row.getTask_code() == null ? "" : row.getTask_code();
+        boolean trainingTask = isTrainingTask(taskCode, trainingConfig);
         if (isFirst){
-            // 任務為培訓的，按參數管理配置自動填寫發車/收車時間、用膳次數
-            if (taskCode.contains(trainingConfig.taskCodeTraining)){
-                row.setDeparture_time(combineDateAndTime(row.getDate(), trainingConfig.departureTime));
-                row.setFinish_time(combineDateAndTime(row.getDate(), trainingConfig.returnTime));
+            // 培訓任務：按參數管理寫入一更發車/收車、用膳次數（waybill 這三項通常為空）
+            if (trainingTask){
+                Date dep = combineDateAndTime(row.getDate(), trainingConfig.departureTime);
+                Date ret = combineDateAndTime(row.getDate(), trainingConfig.returnTime);
+                row.setDeparture_time(dep);
+                row.setFinish_time(ret);
                 row.setMeal_time(trainingConfig.mealCount);
             }
             entity.setDeparture_time(row.getDeparture_time());
             entity.setOne_early_line(row.getLine_str());
             entity.setOne_car(row.getCar_num());
             entity.setDesignated_parking_bay(row.getParking_space());
+            if (trainingTask) {
+                entity.setOne_finish_time(row.getFinish_time());
+                entity.setTwo_departure_time(null);
+                entity.setFinish_time(null);
+            }
         }else {
-            entity.setOne_finish_time(entity.getFinish_time());
+            if (entity.getOne_finish_time() == null) {
+                entity.setOne_finish_time(entity.getFinish_time());
+            }
             entity.setTwo_departure_time(row.getDeparture_time());
             entity.setTwo_early_line(row.getLine_str());
             entity.setTwo_car(row.getCar_num());
@@ -696,7 +706,9 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             int times = isTimeOut ? 1 : 0;
             entity.setShift_change(times);
         }
-        entity.setFinish_time(row.getFinish_time());
+        if (!(isFirst && trainingTask)) {
+            entity.setFinish_time(row.getFinish_time());
+        }
 
         if (entity.getMeal() == null){
             entity.setMeal(row.getMeal_time());
@@ -710,6 +722,10 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         }else {
             int i = entity.getMeal() + Optional.ofNullable(row.getMeal_time()).orElse(0);
             entity.setMeal(i);
+        }
+
+        if (trainingTask) {
+            entity.setMeal(trainingConfig.mealCount);
         }
 
         entity.setGet_out_car(countParkingLotFields(row.getLine_str(), row.getGet_car(), row.getOut_car()));
@@ -763,7 +779,7 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         return list.isEmpty() ? null : list.get(0);
     }
 
-    private TcmAttendanceCorrection buildCorrection(TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, String tenantId, TrainingParamConfig trainingConfig) {
+    private TcmAttendanceCorrection buildCorrection(TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, String tenantId) {
         String id = ymsOidGenerator.nextStrId();
         TcmAttendanceCorrection entity = new TcmAttendanceCorrection();
         entity.setId(id);
@@ -771,11 +787,11 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         entity.setDate(earlyRow.getDate());
         entity.setEmployee_id(earlyRow.getEmployee_id());
         entity.setTask_code(earlyRow.getTask_code());
-        fillCorrectionFields(entity, earlyRow, lateRow, trainingConfig);
+        fillCorrectionFields(entity, earlyRow, lateRow);
         return entity;
     }
 
-    private void fillCorrectionFields(TcmAttendanceCorrection entity, TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow, TrainingParamConfig trainingConfig) {
+    private void fillCorrectionFields(TcmAttendanceCorrection entity, TcmWaybillSheduleShiftsData earlyRow, TcmWaybillSheduleShiftsData lateRow) {
         entity.setWaybill_employee_id(earlyRow.getWaybill_employee_id());
         entity.setDriver_name(earlyRow.getDriver_name());
         entity.setPg_one_departure_time(earlyRow.getDeparture_time());
@@ -827,43 +843,29 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
             mealDuration = "00:00";
         }
         entity.setMeal_duration(mealDuration);
-
-        // 培训/其他培训：計糧排更一更發車/收車、用膳次数、用膳时长 取参数管理(ROSTERING)配置
-        String taskCode = earlyRow.getTask_code();
-        if (taskCode.contains(trainingConfig.taskCodeTraining)) {
-            entity.setJl_one_departure_time(combineDateAndTime(earlyRow.getDate(), trainingConfig.departureTime));
-            entity.setJl_one_return_time(combineDateAndTime(earlyRow.getDate(), trainingConfig.returnTime));
-            entity.setJl_two_departure_time(null);
-            entity.setJl_two_return_time(null);
-            entity.setMeal_count(trainingConfig.mealCount);
-            entity.setMeal_duration(trainingConfig.mealDuration);
-        }
     }
 
     /**
      * 培训任务固定值配置（来源：TCMParamManage / ROSTERING 模块，循环外一次性解析）
      */
     private static class TrainingParamConfig {
-        /** 計糧排更一更發車时间 HH:mm */
+        /** 一更發車时间 HH:mm */
         final String departureTime;
-        /** 計糧排更一更收車时间 HH:mm */
+        /** 一更收車时间 HH:mm */
         final String returnTime;
         /** 用膳次数 */
         final int mealCount;
-        /** 用膳时长 HH:mm */
-        final String mealDuration;
-        /** 培训关键字 */
-        final String taskCodeTraining;
+        /** 培训任务编号，英文逗号分隔后的全字段匹配项 */
+        final Set<String> trainingTaskCodes;
         /** 上下更時間間隔 HH:mm */
         final String shiftIntervalTime;
 
-        TrainingParamConfig(String departureTime, String returnTime, int mealCount, String mealDuration,
-                            String taskCodeTraining, String shiftIntervalTime) {
+        TrainingParamConfig(String departureTime, String returnTime, int mealCount,
+                            Set<String> trainingTaskCodes, String shiftIntervalTime) {
             this.departureTime = departureTime;
             this.returnTime = returnTime;
             this.mealCount = mealCount;
-            this.mealDuration = mealDuration;
-            this.taskCodeTraining = taskCodeTraining;
+            this.trainingTaskCodes = trainingTaskCodes;
             this.shiftIntervalTime = shiftIntervalTime;
         }
     }
@@ -876,11 +878,34 @@ public class TcmScheduleGenerateServiceImpl implements TcmScheduleGenerateServic
         String returnTime = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_RETURN_TIME);
         // checkType=INT:0-99 已保证是范围内整数，直接解析
         int mealCount = Integer.parseInt(requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_COUNT));
-        String mealDuration = requireRosterParam(params, TcmRosteringParamKeyEnum.TRAINING_MEAL_DURATION);
-        String taskCodeTraining = requireRosterParam(params, TcmRosteringParamKeyEnum.TASK_CODE_TRAINING);
+        Set<String> trainingTaskCodes = parseTrainingTaskCodes(
+                requireRosterParam(params, TcmRosteringParamKeyEnum.TASK_CODE_TRAINING));
         String shiftIntervalTime = requireRosterParam(params, TcmRosteringParamKeyEnum.SHIFT_INTERVAL_TIME);
-        return new TrainingParamConfig(departureTime, returnTime, mealCount, mealDuration,
-                taskCodeTraining, shiftIntervalTime);
+        return new TrainingParamConfig(departureTime, returnTime, mealCount, trainingTaskCodes, shiftIntervalTime);
+    }
+
+    /** 任務編號與參數中任一项全字段匹配（英文逗号分隔，忽略首尾空白） */
+    private static boolean isTrainingTask(String taskCode, TrainingParamConfig config) {
+        if (StringUtils.isBlank(taskCode) || config == null || config.trainingTaskCodes == null) {
+            return false;
+        }
+        return config.trainingTaskCodes.contains(taskCode.trim());
+    }
+
+    private static Set<String> parseTrainingTaskCodes(String raw) {
+        Set<String> codes = new LinkedHashSet<>();
+        for (String part : raw.split(",")) {
+            String item = part.trim();
+            if (!item.isEmpty()) {
+                codes.add(item);
+            }
+        }
+        if (codes.isEmpty()) {
+            throw new RuntimeException("配置非法：" + TcmRosteringParamKeyEnum.TASK_CODE_TRAINING.getName()
+                    + "[" + TcmRosteringParamKeyEnum.TASK_CODE_TRAINING.getCode()
+                    + "]需至少一項，請至【參數管理】菜單修正");
+        }
+        return codes;
     }
 
     /**

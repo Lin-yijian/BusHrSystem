@@ -43,8 +43,6 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
 
     /** 上下更：一更收车与二更发车间隔 >= 3 小时计 1 次 */
     private static final double SHIFT_CHANGE_HOURS = 3.0;
-    private static final String TASK_CODE_TRAINING = "培训";
-    private static final String TASK_CODE_OTHER_TRAINING = "其他培训";
     private static final Comparator<JlSpan> JL_SPAN_ORDER = Comparator
             .comparing((JlSpan s) -> s.matchTime, Comparator.nullsLast(Date::compareTo))
             .thenComparing(s -> s.dep, Comparator.nullsLast(Date::compareTo));
@@ -498,7 +496,10 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         correction.setWaybill_employee_id(schedule.getWaybill_employee_id());
         correction.setDriver_name(schedule.getName());
         correction.setPg_one_departure_time(schedule.getDeparture_time());
-        correction.setPg_one_return_time(schedule.getFinish_time());
+        Date oneReturn = schedule.getOne_finish_time() != null
+                ? schedule.getOne_finish_time()
+                : schedule.getFinish_time();
+        correction.setPg_one_return_time(oneReturn);
         if (StringUtils.isNotBlank(schedule.getTask_code())) {
             correction.setTask_code(schedule.getTask_code());
         }
@@ -546,9 +547,7 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
             String key = empDateKey(c.getDate(), c.getEmployee_id());
             List<TcmReserveCaptainAttendanceRecord> reserves = reserveMap.getOrDefault(key, Collections.emptyList());
             List<TcmDriverOvertimeRecord> overtimes = overtimeMap.getOrDefault(key, Collections.emptyList());
-            if (!isTrainingTask(c.getTask_code())) {
-                copyPgToJl(c);
-            }
+            copyPgToJl(c);
             if (!reserves.isEmpty()) {
                 applyReserveMeta(c, reserves);
                 applyReserveJl(c, reserves);
@@ -568,10 +567,6 @@ public class AttendanceCorrectionSyncServiceImpl implements AttendanceCorrection
         c.setJl_one_return_time(c.getPg_one_return_time());
         c.setJl_two_departure_time(c.getPg_two_departure_time());
         c.setJl_two_return_time(c.getPg_two_return_time());
-    }
-
-    private boolean isTrainingTask(String taskCode) {
-        return TASK_CODE_TRAINING.equals(taskCode) || TASK_CODE_OTHER_TRAINING.equals(taskCode);
     }
 
     private void applyReserveMeta(TcmAttendanceCorrection correction, List<TcmReserveCaptainAttendanceRecord> reserves) {
