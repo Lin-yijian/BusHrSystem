@@ -38,6 +38,7 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
     public static final String FAKE_FLAG = "fake_flag";
     public static final String TROUBLE_FLAG = "trouble_flag";
     public static final String REC_STATE = "rec_state";
+    public static final String BUS_TYPE = "bus_type";
     public static final String CODE = "code";
     public static final String CREATETIME = "createTime";
     public static final String CREATOR = "creator";
@@ -92,6 +93,8 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
     private String trouble_flag;
     /* 车次执行状态（暂无用） */
     private String rec_state;
+    /* 巴型类型 */
+    private String bus_type;
     /* 编码 */
     private String code;
     /* 创建时间 */
@@ -110,6 +113,14 @@ public class TcmBaTypeAttendanceData extends SuperDO implements ICode,ILogicDele
     private Date pubts;
     /* 租户id */
     private String ytenantId;
+
+    public String getBus_type() {
+        return bus_type;
+    }
+
+    public void setBus_type(String bus_type) {
+        this.bus_type = bus_type;
+    }
 
     public void setDate(String date) {
         this.date = date;
