@@ -47,6 +47,9 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
     private TcmAttendanceCorrectionService attendanceCorrectionService;;
 
     @Autowired
+    private TcmLeaveRecordService leaveRecordService;
+
+    @Autowired
     private CommonUtil util;
 
     @Override
@@ -95,14 +98,16 @@ public class TcmScheduleGeneratePlugin extends AbstractBillPlugin {
             return;
         }
         String date = data.getDate();
+        String employeeId = data.getEmployee_id();
         // 刪除排更前置校驗：該日期若已有其他原始數據導入（考勤核對記錄中除排更外的標記為 true），則阻止刪除
         tcmAttendanceCheckRecordService.validateNoOtherRawDataImported(date);
         boolean existFlag = service.checkDataByDate(date);
         if (!existFlag) {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_SHEDULE_SHIFTS, false);
         }
+        leaveRecordService.delByEmployeeIdAndDate(date,employeeId);
         correctionSyncService.afterScheduleDeleted(data);
-        calcTrigger.afterDataChanged(date, data.getEmployee_id());
+        calcTrigger.afterDataChanged(date, employeeId);
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {

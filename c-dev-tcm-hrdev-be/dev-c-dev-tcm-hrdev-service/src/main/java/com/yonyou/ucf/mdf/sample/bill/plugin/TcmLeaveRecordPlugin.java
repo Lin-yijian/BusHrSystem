@@ -6,6 +6,7 @@ import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceCorrection;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmHisenseAttendanceData;
 import com.yonyou.ucf.mdf.sample.bill.entity.TcmLeaveRecord;
 import com.yonyou.ucf.mdf.sample.service.TcmAttendanceCorrectionService;
+import com.yonyou.ucf.mdf.sample.service.TcmLeaveRecordService;
 import com.yonyou.ucf.mdf.sample.utils.CommonUtil;
 import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
@@ -33,27 +34,27 @@ public class TcmLeaveRecordPlugin extends AbstractBillPlugin {
     @Autowired
     private TcmAttendanceCorrectionService correctionService;
 
+    @Autowired
+    private TcmLeaveRecordService service;
+
     @Override
     public void beforeSave(YpdBillContext billContext) throws Exception {
         super.beforeSave(billContext);
-//        Object billDo = billContext.getBillDO();
-//        if (billDo instanceof TcmLeaveRecord) {
-//            TcmLeaveRecord data = (TcmLeaveRecord) billDo;
-//            String id = data.getId();
-//            String date = data.getStart_date();
-//            String employeeId = data.getEmployee_id();
-//            if (id != null && date != null && employeeId != null) {
-//                List<TcmAttendanceCorrection> correctionList = correctionService.getByDateAndStaffId(date, employeeId);
-//                List<TcmAttendanceAbsenceDataRecord> records = new ArrayList<>();
-//                for (TcmAttendanceCorrection correction : correctionList) {
-//                    TcmAttendanceAbsenceDataRecord record = new TcmAttendanceAbsenceDataRecord();
-//                    record.setForeignerKey(correction.getId());
-//                    record.setEntity(id);
-//                    records.add(record);
-//                }
-//                correctionService.saveTcmAttendanceAbsenceDataRecord(records);
-//            }
-//        }
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmLeaveRecord) {
+            TcmLeaveRecord data = (TcmLeaveRecord) billDo;
+            String date = data.getStart_date();
+            String employeeId = data.getEmployee_id();
+            String type = data.getLeave_type();
+            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+            if (isInsert){
+                boolean b = service.checkExist(date, employeeId, type);
+                if (!b){
+                    throw new RuntimeException("員工在【"+ date + "】已有該類型的記錄，請勿重複添加" );
+                }
+            }
+
+        }
 
     }
 
