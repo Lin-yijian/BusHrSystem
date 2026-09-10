@@ -73,7 +73,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
-        routeCondition.eq(TcmAttendanceCorrection::getDate, date)
+        routeCondition.in(TcmAttendanceCorrection::getDate, DateUtil.dateQueryVariants(date))
                 .eq(fieldGetter, fieldValue)
                 .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
                 .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
@@ -95,7 +95,7 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
 
         String tenantId = InvocationInfoProxy.getTenantid();
         LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
-        routeCondition.eq(TcmAttendanceCorrection::getDate, date)
+        routeCondition.in(TcmAttendanceCorrection::getDate, DateUtil.dateQueryVariants(date))
                 .in(fieldGetter, fieldValue)
                 .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
                 .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
