@@ -70,6 +70,8 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
 
         TcmFuelGasDataRecord entity = (TcmFuelGasDataRecord) billContext.getBillDO();
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(entity.getAttendance_date());
             tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getAttendance_date(), ModuleEnum.TCM_FUEL_GAS_DATA_RECORD,true);
         }
 
@@ -109,7 +111,15 @@ public class TcmFuelGasDataRecordPlugin extends AbstractBillPlugin {
                     TcmFuelGasDataRecord.WAYBILL_EMPLOYEE_ID,
                     TcmFuelGasDataRecord.EMPLOYEE_ID
                     );
-            dateSet.add((String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE));
+            String attendanceDate = (String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE);
+            dateSet.add(attendanceDate);
+        }
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateSet);
+        for (ImportSingleData data : dataList) {
+            String attendanceDate = (String) data.getData().get(TcmFuelGasDataRecord.ATTENDANCE_DATE);
+            if (!importedDateSet.contains(attendanceDate)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
         }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_FUEL_GAS_DATA_RECORD, true);
 

@@ -95,6 +95,8 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
         }
         String date = entity.getDate();
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(date);
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_CONTROL_CENTER_LOG,true);
         }
 
@@ -159,7 +161,15 @@ public class TcmControlCenterLogPlugin extends AbstractBillPlugin {
             dateList.add(date);
             employeeIdList.add(employee_id);
         }
-        tcmAttendanceCheckRecordService.updateOrSaveRecords(new HashSet<>(dateList), ModuleEnum.TCM_CONTROL_CENTER_LOG, true);
+        Set<String> dateSet = new HashSet<>(dateList);
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateSet);
+        for (ImportSingleData data : dataList) {
+            String date = (String) data.getValueByKey("date");
+            if (!importedDateSet.contains(date)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
+        }
+        tcmAttendanceCheckRecordService.updateOrSaveRecords(dateSet, ModuleEnum.TCM_CONTROL_CENTER_LOG, true);
 
 //        try {
 //            // 插入考勤修正

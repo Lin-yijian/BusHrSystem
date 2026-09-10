@@ -2,10 +2,7 @@ package com.yonyou.ucf.mdf.sample.bill.plugin;
 
 import com.yonyou.iuap.context.InvocationInfoProxy;
 import com.yonyou.iuap.yms.id.generator.YmsOidGenerator;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAbsenceDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceAbsenceDataRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmAttendanceDriverOvertimeRecord;
-import com.yonyou.ucf.mdf.sample.bill.entity.TcmDriverOvertimeRecord;
+import com.yonyou.ucf.mdf.sample.bill.entity.*;
 import com.yonyou.ucf.mdf.sample.enums.ModuleEnum;
 import com.yonyou.ucf.mdf.sample.service.AttendanceCalcTrigger;
 import com.yonyou.ucf.mdf.sample.service.TcmAbsenceDataRecordService;
@@ -17,6 +14,7 @@ import com.yonyou.yonbip.iuap.xport.importing.data.ImportBatchData;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportEventBO;
 import com.yonyou.yonbip.iuap.xport.importing.processor.pojo.ImportSingleData;
 import com.yonyou.ypd.bill.annotation.BillPlugin;
+import com.yonyou.ypd.bill.basic.constant.YpdEntityStatus;
 import com.yonyou.ypd.bill.context.YpdBillContext;
 import com.yonyou.ypd.bill.infrastructure.service.api.IBillRepository;
 import com.yonyou.ypd.bill.plugin.AbstractBillPlugin;
@@ -71,6 +69,11 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             tcmAttendanceCheckRecordService.updateOrSaveRecord(date, ModuleEnum.TCM_ABSENCE_DATA_RECORD,false);
         }
         calcTrigger.collectSourceAndFlush(date, data.getEmployee_id());
+
+        String id = data.getId();
+        if (StringUtils.isNotBlank(id)) {
+            attendanceCorrectionService.delTcmAttendanceLeaveRecord(id);
+        }
     }
 
     @Override
@@ -85,6 +88,8 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             entity.setEmployee_id(staffId);
         }
         if (!AttendanceCalcImportContext.isImporting()) {
+            // 保存前校驗：該日期排更數據必須已導入
+            tcmAttendanceCheckRecordService.validateScheduleDataImported(entity.getDate());
             tcmAttendanceCheckRecordService.updateOrSaveRecord(entity.getDate(), ModuleEnum.TCM_ABSENCE_DATA_RECORD, true);
         }
     }
@@ -92,14 +97,31 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
     @Override
     public void afterSave(YpdBillContext billContext) throws Exception {
         super.afterSave(billContext);
-        TcmAbsenceDataRecord entity = (TcmAbsenceDataRecord) billContext.getBillDO();
-        if (entity == null) {
-            return;
+
+
+        Object billDo = billContext.getBillDO();
+        if (billDo instanceof TcmAbsenceDataRecord) {
+            TcmAbsenceDataRecord data = (TcmAbsenceDataRecord) billDo;
+            if (AttendanceCalcImportContext.isBulkSyncing()) {
+                return;
+            }
+            String id = data.getId();
+            String date = data.getDate();
+            String employeeId = data.getEmployee_id();
+            calcTrigger.collectSourceAndFlush(date, employeeId);
+            boolean isInsert = data.getEntityStatus() == YpdEntityStatus.Insert;
+            if (id != null && date != null && employeeId != null && isInsert) {
+                List<TcmAttendanceCorrection> correctionList = attendanceCorrectionService.getByDateAndStaffId(date, employeeId);
+                List<TcmAttendanceLeaveRecord> records = new ArrayList<>();
+                for (TcmAttendanceCorrection correction : correctionList) {
+                    TcmAttendanceLeaveRecord record = new TcmAttendanceLeaveRecord();
+                    record.setForeignerKey(correction.getId());
+                    record.setEntity(id);
+                    records.add(record);
+                }
+                attendanceCorrectionService.saveTcmAttendanceLeaveRecord(records);
+            }
         }
-        if (AttendanceCalcImportContext.isBulkSyncing()) {
-            return;
-        }
-        calcTrigger.collectSourceAndFlush(entity.getDate(), entity.getEmployee_id());
     }
 
     public void beforeTranslate(ImportBatchData importBatchData, ImportEventBO importEventBO) {
@@ -131,6 +153,13 @@ public class TcmAbsenceDataRecordPlugin extends AbstractBillPlugin {
             dateList.add(overtime_date);
         }
 
+        Set<String> importedDateSet = tcmAttendanceCheckRecordService.getImportedDateSet(dateList);
+        for (ImportSingleData data : dataList) {
+            String overtime_date = (String) data.getData().get("date");
+            if (!importedDateSet.contains(overtime_date)) {
+                data.addImportError("当前日期的排更数据未导入，请先导入排更数据");
+            }
+        }
         tcmAttendanceCheckRecordService.updateOrSaveRecords(dateList, ModuleEnum.TCM_ABSENCE_DATA_RECORD,true);
 
 

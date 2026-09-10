@@ -113,6 +113,39 @@ public class TcmAttendanceCheckRecordServiceImpl implements TcmAttendanceCheckRe
     }
 
     @Override
+    public void validateScheduleDataImported(String date) {
+        String normalizedDate = DateUtil.normalizeToYyyyMmDd(date);
+        if (StringUtil.isEmpty(normalizedDate)) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> records = findRecordsByDate(normalizedDate, tenantId);
+        // 無核對記錄或排更數據標記不為 true，均視為排更數據未導入
+        boolean scheduleImported = records.stream()
+                .anyMatch(record -> Boolean.TRUE.equals(record.getSchedule_data()));
+        if (!scheduleImported) {
+            throw new BusinessException("100", "当前日期的排更数据未导入，请先导入排更数据。");
+        }
+    }
+
+    public Set<String> getImportedDateSet(Set<String> dateSet) {
+        if (dateSet == null || dateSet.isEmpty()) {
+            return Collections.emptySet();
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        List<TcmAttendanceCheckRecord> list = findRecordsByDates(dateSet, tenantId);
+        Set<String> set = new HashSet<>();
+        for (TcmAttendanceCheckRecord data : list) {
+            // 仅收集排更數據已導入（schedule_data = true）的日期
+            if (Boolean.TRUE.equals(data.getSchedule_data())) {
+                set.add(DateUtil.normalizeToYyyyMmDd(data.getCheck_date()));
+            }
+        }
+        return set;
+
+    }
+
+    @Override
     public void validateNoOtherRawDataImported(String date) {
         String normalizedDate = DateUtil.normalizeToYyyyMmDd(date);
         if (StringUtil.isEmpty(normalizedDate)) {

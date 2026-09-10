@@ -50,6 +50,14 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         return getByDateAndField(date, waybillEmployeeId, TcmAttendanceCorrection::getWaybill_employee_id);
     }
 
+    @Override
+    public List<TcmAttendanceCorrection> getByDateAndWaybillEmployeeIds(String date, Collection<String> waybillEmployeeIdList) {
+        if (waybillEmployeeIdList == null) {
+            return Collections.emptyList();
+        }
+        return getListByDateAndField(date, waybillEmployeeIdList, TcmAttendanceCorrection::getWaybill_employee_id);
+    }
+
     /**
      * 查询
      * @param date 。
@@ -72,21 +80,35 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
         return billRepository.queryByClause(routeCondition);
     }
 
+    /**
+     * 查询
+     * @param date 。
+     * @param fieldValue 。
+     * @param fieldGetter 。
+     * @return 。
+     */
+    private List<TcmAttendanceCorrection> getListByDateAndField(String date, Collection<String> fieldValue,
+                                                            SFunction<TcmAttendanceCorrection, String> fieldGetter) {
+        if (null == fieldValue || fieldValue.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String tenantId = InvocationInfoProxy.getTenantid();
+        LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
+        routeCondition.eq(TcmAttendanceCorrection::getDate, date)
+                .in(fieldGetter, fieldValue)
+                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
+                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
+        return billRepository.queryByClause(routeCondition);
+    }
+
     @Override
     public List<TcmAttendanceCorrection> getByDateListAndStaffIds(String date, Collection<String> staffIdList) {
 
         if (staffIdList == null) {
             return Collections.emptyList();
         }
-
-
-        String tenantId = InvocationInfoProxy.getTenantid();
-        LambdaQueryCondition<TcmAttendanceCorrection> routeCondition = new LambdaQueryCondition<>(new TcmAttendanceCorrection());
-        routeCondition.eq(TcmAttendanceCorrection::getDate, date)
-                .in(TcmAttendanceCorrection::getEmployee_id, staffIdList)
-                .eq(TcmAttendanceCorrection::getYtenantId, tenantId)
-                .eq(TcmAttendanceCorrection::getDr, BaseEnum.IS_NOT_DELETED.getIntCode());
-        return billRepository.queryByClause(routeCondition);
+        return getListByDateAndField(date, staffIdList, TcmAttendanceCorrection::getEmployee_id);
     }
 
     @Override
@@ -261,16 +283,12 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     }
 
     @Override
-    public void saveList(List<TcmAttendanceCorrection> list) {
+    public void updateList(List<TcmAttendanceCorrection> list) {
         if (list == null || list.isEmpty()) {
             return;
         }
-        String tenantId = InvocationInfoProxy.getTenantid();
-        for (TcmAttendanceCorrection record : list) {
-            record.setYtenantId(tenantId);
-        }
-        CommonUtil.fillInsertAudit(list);
-        billRepository.insert(list);
+        CommonUtil.fillUpdateAudit(list);
+        billRepository.update(list);
     }
 
     @Override
@@ -314,6 +332,51 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     }
 
     @Override
+    public void saveTcmAttendanceBusFaultData(List<TcmAttendanceBusFaultData> list) {
+
+         if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceBusFaultData record : list) {
+            record.setYtenantId(tenantId);
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.insert(list);
+
+    }
+
+    @Override
+    public void saveTcmAttendanceHisenseWaybillLogin(List<TcmAttendanceHisenseWaybillLogin> list) {
+
+         if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceHisenseWaybillLogin record : list) {
+            record.setYtenantId(tenantId);
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.insert(list);
+
+    }
+
+    @Override
+    public void saveTcmAttendanceLeaveRecord(List<TcmAttendanceLeaveRecord> list) {
+
+         if (list == null || list.isEmpty()) {
+            return;
+        }
+        String tenantId = InvocationInfoProxy.getTenantid();
+        for (TcmAttendanceLeaveRecord record : list) {
+            record.setYtenantId(tenantId);
+        }
+        CommonUtil.fillInsertAudit(list);
+        billRepository.insert(list);
+
+    }
+
+    @Override
     public void delTcmAttendanceAbsenceDataRecord(String... entityId) {
         List<String> ids = new ArrayList<>(Arrays.asList(entityId));
         commonUtil.updateBySql("tcm_attendance_absence_data_record",TcmAttendanceAbsenceDataRecord.DR, "1", TcmAttendanceAbsenceDataRecord.ENTITY, ids);
@@ -329,6 +392,24 @@ public class TcmAttendanceCorrectionServiceImpl implements TcmAttendanceCorrecti
     public void delTcmAttendanceDriverOvertimeRecord(String... entityId) {
         List<String> ids = new ArrayList<>(Arrays.asList(entityId));
         commonUtil.updateBySql("tcm_attendance_driver_overtime_record",TcmAttendanceDriverOvertimeRecord.DR, "1", TcmAttendanceDriverOvertimeRecord.ENTITY, ids);
+    }
+
+    @Override
+    public void delTcmAttendanceBusFaultData(String... entityId) {
+                List<String> ids = new ArrayList<>(Arrays.asList(entityId));
+        commonUtil.updateBySql("tcm_attendance_bus_fault_data",TcmAttendanceBusFaultData.DR, "1", TcmAttendanceBusFaultData.ENTITY, ids);
+    }
+
+    @Override
+    public void delTcmAttendanceHisenseWaybillLogin(String... entityId) {
+                List<String> ids = new ArrayList<>(Arrays.asList(entityId));
+        commonUtil.updateBySql("tcm_attendance_hisense_waybill_login",TcmAttendanceHisenseWaybillLogin.DR, "1", TcmAttendanceHisenseWaybillLogin.ENTITY, ids);
+    }
+
+    @Override
+    public void delTcmAttendanceLeaveRecord(String... entityId) {
+                List<String> ids = new ArrayList<>(Arrays.asList(entityId));
+        commonUtil.updateBySql("tcm_attendance_leave_record",TcmAttendanceLeaveRecord.DR, "1", TcmAttendanceLeaveRecord.ENTITY, ids);
     }
 
     // 辅助方法：构建key，处理null值

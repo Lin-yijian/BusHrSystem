@@ -37,7 +37,7 @@ public class HiSenseAttendanceDataDTO {
     private String drivername;
 
     /** 驾驶员姓名（由 drivername 按 "|" 拆分得到，非接口字段，拉取后统一回填） */
-    private String driverName;
+    private String name;
 
     /** 驾驶员工号（由 drivername 按 "|" 拆分得到，非接口字段，拉取后统一回填） */
     private String employeeId;
@@ -77,20 +77,4 @@ public class HiSenseAttendanceDataDTO {
 
     /** 是否已确认 */
     private String isconfirm;
-
-    public String getDriverName() {
-        return driverName;
-    }
-
-    public void setDriverName(String driverName) {
-        this.driverName = driverName;
-    }
-
-    public String getDrivername() {
-        return drivername;
-    }
-
-    public void setDrivername(String drivername) {
-        this.drivername = drivername;
-    }
 }

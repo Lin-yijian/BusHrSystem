@@ -77,7 +77,7 @@ public class TcmVehicleDutyRecordPlugin extends AbstractBillPlugin {
                 for (TcmAttendanceCorrection correction : correctionList) {
                     correction.setVehicle_handover_count(times);
                 }
-                correctionService.saveList(correctionList);
+                correctionService.updateList(correctionList);
 
             }
         }
